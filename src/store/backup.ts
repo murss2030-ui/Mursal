@@ -42,7 +42,7 @@ export class BackupFormatError extends Error {
   }
 }
 
-export async function createBackup(session: Session, now = new Date()): Promise<{ filename: string; json: string }> {
+export async function createBackup(session: Session): Promise<{ filename: string; json: string }> {
   if (!session.isUnlocked) throw new Error('Unlock PRECEPTOR before exporting a backup.');
   const keyMaterial = await session.getKeyMaterial();
   if (!keyMaterial) throw new Error('No key material.');
@@ -55,7 +55,7 @@ export async function createBackup(session: Session, now = new Date()): Promise<
     format: BACKUP_FORMAT,
     formatVersion: BACKUP_FORMAT_VERSION,
     appVersion: APP_VERSION,
-    createdAt: now.toISOString(),
+    createdAt: session.store.nowIso(),
     intendedUse: INTENDED_USE_STATEMENT,
     notice:
       'Encrypted PRECEPTOR backup. It can be restored only with the passphrase that was in use when it was created. ' +
