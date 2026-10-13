@@ -192,6 +192,14 @@ export class Store {
     return last ? this.openRow<T>(table, last) : undefined;
   }
 
+  /** All versions in a set of raw rows, oldest first. */
+  async decodeVersions<T extends Versioned>(
+    table: 'rotations' | 'cases' | 'identifiers' | 'formDrafts',
+    rows: EncryptedRow[],
+  ): Promise<T[]> {
+    return this.openRows<T>(table, [...rows].sort((a, b) => (a.version ?? 0) - (b.version ?? 0)));
+  }
+
   /** Latest version of every entity in a versioned table. */
   async latestOfAll<T extends Versioned>(table: 'rotations' | 'cases'): Promise<T[]> {
     return this.decodeLatestOfAll<T>(table, await this.db.encryptedTable(table).toArray());

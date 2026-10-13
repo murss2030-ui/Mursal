@@ -71,7 +71,7 @@ export async function createBackup(session: Session): Promise<{ filename: string
     action: 'export',
     diff: { rows: Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v?.length ?? 0])) },
   });
-  const stamp = file.createdAt.slice(0, 16).replace(/[-:T]/g, '');
+  const stamp = file.createdAt.slice(0, 16).replace(/\D/g, '');
   return { filename: `preceptor-backup-${stamp}.json`, json: JSON.stringify(file) };
 }
 

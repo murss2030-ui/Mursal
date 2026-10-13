@@ -16,3 +16,16 @@ independently confirmed before any clinical action.`;
 
 /** Bumped whenever the statement changes, so a new acknowledgement is required. */
 export const INTENDED_USE_VERSION = 'v4.0';
+
+/**
+ * Arabic translation, shown beneath the English statement in the Arabic
+ * interface. The English text above is the authoritative, verbatim statement.
+ */
+export const INTENDED_USE_STATEMENT_AR = `PRECEPTOR أداة تعليمية لمتدربي الصيدلة السريرية العاملين تحت الإشراف،
+تُستخدم لتنظيم تقييم العلاج الدوائي وتوثيقه والتأمل فيه.
+
+وهي غير مخصّصة للتشخيص أو العلاج أو اتخاذ قرارات رعاية المرضى.
+
+لا يجوز إدخال مخرجاتها في السجل الطبي أو إبلاغها لفريق الرعاية دون تحقق
+مستقل من صيدلي مرخّص أو مشرف. ويجب تأكيد جميع الحسابات والتداخلات
+والتوصيات بشكل مستقل قبل أي إجراء سريري.`;
