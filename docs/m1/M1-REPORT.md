@@ -78,7 +78,7 @@ Screenshots in `docs/m1/screenshots/`, captured from the production build at Pix
 | `03a-timeline-top.png`, `03b-timeline-correction.png` | Timeline by hospital day; a corrected medication (20 g → 2 g) with the superseded original still readable |
 | `05-correction-editor.png` | Correction screen: kind, mandatory reason, original kept |
 | `06a-form-top-missing-list.png` | Department form, Teaching copy default, missing-data list |
-| `06b-form-section1-teaching-copy.png` / `07-form-section1-ward-copy.png` | Section 1 in each copy — identifiers only in the Ward copy |
+| `06b-form-section1-teaching-copy.png` / `07-form-section1-ward-copy.png` / `compare-teaching-vs-ward.png` | Section 1 in each copy, and side by side — identifiers only in the Ward copy |
 | `06c-form-section5-6.png` | Laboratory monitoring and medication therapy review rows |
 | `08-audit-correction-event.png` | Audit event for a correction, before/after values |
 | `09-arabic-rtl-timeline.png` | Arabic, right-to-left |
