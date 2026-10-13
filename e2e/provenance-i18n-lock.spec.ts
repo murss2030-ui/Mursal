@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { createCase, createRotation, onboard, unlock, watchPage } from './helpers';
 
+const SHOTS = process.env.PRECEPTOR_SHOTS_DIR ?? 'test-results/screenshots';
+
 test('the eight provenance states render distinctly — icon, label, border and fill', async ({ page }) => {
   await onboard(page);
   await page.goto('/#/about');
@@ -22,7 +24,7 @@ test('the eight provenance states render distinctly — icon, label, border and 
   expect(new Set(looks.map((l) => l.colour)).size).toBe(8);
   // Distinct even without colour: every badge differs from every other in shape, icon or label.
   expect(new Set(looks.map((l) => `${l.shape}|${l.icon}`)).size).toBe(8);
-  await page.getByTestId('provenance-legend').screenshot({ path: 'docs/m1/screenshots/provenance-legend.png' });
+  await page.getByTestId('provenance-legend').screenshot({ path: `${SHOTS}/provenance-legend.png` });
 
   // Material for the human blind review: the eight badges in a shuffled order, without their explanations.
   await page.getByTestId('provenance-legend').evaluate((ul) => {
@@ -30,7 +32,7 @@ test('the eight provenance states render distinctly — icon, label, border and 
     for (const li of items) (li.children[1] as HTMLElement).style.display = 'none';
     for (const i of [5, 2, 7, 0, 3, 6, 1, 4]) ul.appendChild(items[i]!);
   });
-  await page.getByTestId('provenance-legend').screenshot({ path: 'docs/m1/screenshots/provenance-blind-review.png' });
+  await page.getByTestId('provenance-legend').screenshot({ path: `${SHOTS}/provenance-blind-review.png` });
 });
 
 test('Arabic interface is right-to-left, keeps clinical terms in English, and persists', async ({ page }) => {

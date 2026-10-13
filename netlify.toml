@@ -1,0 +1,22 @@
+# Static hosting on Netlify, the host named in the specification (Section 6).
+# Connect the GitHub repository in Netlify and these settings are applied automatically.
+# M1 has no serverless functions; the stateless model relay arrives with M3.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Strict-Transport-Security = "max-age=31536000"
+    # The page's own Content-Security-Policy (index.html) governs scripts and connections;
+    # this header adds what a meta tag cannot express: no framing by other sites.
+    Content-Security-Policy = "frame-ancestors 'none'"
+    # Camera access is added in M3 (document capture), when it is first needed.
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"

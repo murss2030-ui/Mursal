@@ -7,6 +7,9 @@ import type { MsgKey } from './en';
 export const ar: Record<MsgKey, string> = {
   'app.name': 'PRECEPTOR',
   'app.tagline': 'مساعد تعليمي لتدريب الصيدلة السريرية',
+  'app.storageErrorTitle': 'هذا المتصفح يمنع التخزين المحلي',
+  'app.storageError':
+    'يحفظ PRECEPTOR كل السجلات مشفّرة على هذا الجهاز ولا يمكنه العمل دون تخزين المتصفح. اخرج من وضع التصفح الخاص أو اسمح ببيانات الموقع لهذه الصفحة، ثم أعد التحميل.',
 
   'common.save': 'حفظ',
   'common.cancel': 'إلغاء',

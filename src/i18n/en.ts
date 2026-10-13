@@ -2,6 +2,9 @@
 export const en = {
   'app.name': 'PRECEPTOR',
   'app.tagline': 'Clinical pharmacy rotation copilot — educational',
+  'app.storageErrorTitle': 'This browser is blocking local storage',
+  'app.storageError':
+    'PRECEPTOR keeps every record encrypted on this device and cannot start without browser storage. Leave private or incognito mode, or allow site data for this page, then reload.',
 
   'common.save': 'Save',
   'common.cancel': 'Cancel',

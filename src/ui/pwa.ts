@@ -18,14 +18,20 @@ const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
 
 export function initPwa(): void {
-  if (!('serviceWorker' in navigator)) return;
-  applyUpdate = registerSW({
-    immediate: true,
-    onNeedRefresh() {
-      needRefresh = true;
-      notify();
-    },
-  });
+  try {
+    if (!('serviceWorker' in navigator)) return;
+    applyUpdate = registerSW({
+      immediate: true,
+      onNeedRefresh() {
+        needRefresh = true;
+        notify();
+      },
+    });
+  } catch {
+    // Some browsers and embedded frames refuse service workers outright. The app still works
+    // without one; only offline start-up and installation are unavailable.
+    return;
+  }
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     installEvent = e as BeforeInstallPromptEvent;

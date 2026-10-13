@@ -2,7 +2,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { addCreatinine, createCase, createRotation, onboard, PASSPHRASE } from './helpers';
 
-const SHOTS = 'docs/m1/screenshots';
+// Set PRECEPTOR_SHOTS_DIR=docs/m1/screenshots to refresh the milestone screenshots deliberately.
+const SHOTS = process.env.PRECEPTOR_SHOTS_DIR ?? 'test-results/screenshots';
 
 /**
  * A phone-screen capture, exactly what the trainee sees (fixed footer and navigation included).
