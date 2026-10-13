@@ -25,7 +25,8 @@ PRECEPTOR does not replace a clinical pharmacist. It never makes a clinical deci
 | Milestone | State |
 |---|---|
 | M1 — Case and timeline core | Built; awaiting the owner's acceptance ([report](docs/m1/M1-REPORT.md)) |
-| M2–M9 | Not started (each begins only after the previous one is accepted) |
+| M2 — Calculation and rules | Plan prepared ([plan](docs/m2/M2-PLAN.md)); not started |
+| M3–M9 | Not started (each begins only after the previous one is accepted) |
 
 What M1 contains: an encrypted local record (AES-GCM, key derived from a passphrase), rotations, Teaching and Clinical Cases, manual entry on an append-only timeline dated by hospital day, correction by supersession, an append-only audit log, the eight provenance states, the department's 11-section form as an on-screen review with missing-data flags, encrypted backup and restore, Arabic and English with right-to-left layout, and an offline-capable installable web app. It contains no AI, no calculators and no clinical rules yet.
 
