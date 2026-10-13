@@ -11,8 +11,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "icons": "node scripts/gen-icons.mjs",
-    "build:preview": "VITE_PREVIEW_BUILD=1 vite build --base ./ --outDir dist-preview && node scripts/make-preview-page.mjs"
+    "icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
     "dexie": "4.0.11",
