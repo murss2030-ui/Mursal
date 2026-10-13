@@ -187,7 +187,7 @@ export function TimelineTab({ c }: { c: Case }) {
             {problems.map((p) => (
               <li key={p.problemId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-2">
                 <span dir="auto">
-                  <span className="font-medium">{p.latest.payload.name}</span> — {t(`acuity.${p.latest.payload.acuity}`)},{' '}
+                  <span className="font-medium">{p.latest.payload.name}</span> — {t(`acuity.${p.latest.payload.acuity}`)} ·{' '}
                   {t(`pstatus.${p.latest.payload.status}`)}
                 </span>
                 {!readOnly && (

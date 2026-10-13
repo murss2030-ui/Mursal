@@ -86,10 +86,11 @@ export function NewCase() {
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setBusy(true);
+    const here = window.location.hash;
     try {
       const c = await store.createCase(input as NewCaseInput);
       await draft.clear();
-      navigate(`/cases/${c.id}`);
+      if (window.location.hash === here) navigate(`/cases/${c.id}`);
     } catch (e) {
       if (e instanceof ValidationError) setErrors(e.errors);
       else setFailure(t('err.generic', { message: (e as Error).message }));

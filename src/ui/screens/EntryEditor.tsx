@@ -396,6 +396,7 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
   const retracting = mode.kind === 'correct' && v.correctionKind === 'retract';
 
   const save = async () => {
+    const editorHash = window.location.hash;
     const errs: Errors = {};
     let meta: ReturnType<typeof buildEntryMeta> | undefined;
     if (!retracting) {
@@ -439,8 +440,11 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
         });
       }
       await draft.clear();
-      navigate(`/cases/${c.id}/timeline`);
-      window.setTimeout(() => document.getElementById(`entry-${saved.id}`)?.scrollIntoView({ block: 'center' }), 300);
+      // Only return to the timeline if the trainee is still on this editor; never pull them off a screen they moved to.
+      if (window.location.hash === editorHash) {
+        navigate(`/cases/${c.id}/timeline`);
+        window.setTimeout(() => document.getElementById(`entry-${saved.id}`)?.scrollIntoView({ block: 'center' }), 300);
+      }
     } catch (e) {
       if (e instanceof ValidationError) setErrors(e.errors);
       else setFailure(t('err.generic', { message: (e as Error).message }));

@@ -115,7 +115,7 @@ export const en = {
   'offline.online': 'Online',
   'offline.offline': 'Offline',
   'offline.details':
-    'Everything in this version (M1) works offline and makes no network requests. Later features that need a connection — document extraction (M3), evidence retrieval (M5) and narrative drafting (M7) — will say when they are unavailable.',
+    'Everything in this version (M1) works offline; apart from loading its own app files, it makes no network requests. Later features that need a connection — document extraction (M3), evidence retrieval (M5) and narrative drafting (M7) — will say when they are unavailable.',
   'update.available': 'A new version of PRECEPTOR is ready.',
   'update.reload': 'Reload now',
   'install.button': 'Install app',
@@ -456,7 +456,7 @@ export const en = {
     'This build contains no third-party clinical content. No commercial reference (UpToDate, Medscape, Lexicomp, Micromedex, Clinical Pharmacology, Epocrates) is or will be integrated. Attribution for DDInter 2.0 (CC BY-NC-SA) will appear here when it is loaded in M2.',
   'about.privacy': 'Privacy',
   'about.privacyText':
-    'Records stay on this device, encrypted. There is no cloud sync and no account. This build makes no network requests at all.',
+    'Records stay on this device, encrypted. There is no cloud sync and no account. Apart from loading its own app files, this build makes no network requests.',
 
   'res.title': 'Resources',
   'res.guidelines': 'Guideline library',
