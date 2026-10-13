@@ -1,0 +1,364 @@
+/**
+ * Core data model (Section 7). Field names follow the specification; every
+ * extension added for M1 is marked "M1 extension" with its reason.
+ */
+
+export const PROVENANCE_STATES = [
+  'extracted_unverified',
+  'user_entered',
+  'confirmed',
+  'calculated',
+  'ai_suggestion',
+  'trainee_decision',
+  'implemented',
+  'outcome_documented',
+] as const;
+export type ProvenanceState = (typeof PROVENANCE_STATES)[number];
+
+export type CaseKind = 'teaching' | 'clinical'; // never mixed in one record
+export type Sex = 'M' | 'F';
+export type CaseStatus = 'active' | 'discharged' | 'archived';
+
+/** Fields every versioned record carries. Versions are append-only; the highest version is current. */
+export interface Versioned {
+  version: number;
+  versionCreatedAt: string;
+  /** Why this version was created (required for every version after the first). */
+  changeReason?: string;
+}
+
+export interface Case extends Versioned {
+  id: string; // CASE-1042 — random, never derived from the MRN
+  kind: CaseKind;
+  rotationId: string;
+  deidentified: true; // clinical cases only exist de-identified
+  demographics: { ageYears: number; sex: Sex; heightCm?: number };
+  admissionDay0: string; // anchor date (YYYY-MM-DD); all entries use hospitalDay
+  status: CaseStatus;
+  createdAt: string;
+  /** M1 extension: ward or unit name for form Section 1. Not an identifier; room/bed lives in CaseIdentifiers. */
+  ward?: string;
+  /** M1 extension: calendar discharge date (YYYY-MM-DD), required when status becomes 'discharged'. */
+  dischargeDate?: string;
+  /** M1 extension: release-gate attestation that the case holds synthetic data only (Section 23). */
+  syntheticDataAttestedAt?: string;
+}
+
+/**
+ * The separate, encrypted identifier field group (Section 15, "The identifier rule").
+ * Clinical cases only — a Teaching Case never has these fields at all.
+ * Never part of a Case object, an analysis context or any model payload.
+ */
+export interface CaseIdentifiers extends Versioned {
+  caseId: string;
+  patientName?: string;
+  mrn?: string;
+  roomBed?: string;
+  consultantName?: string;
+}
+
+export const DEPARTMENTS = [
+  'internal_medicine',
+  'icu',
+  'cardiology',
+  'nephrology',
+  'oncology_haematology',
+  'infectious_disease',
+  'paediatrics',
+  'emergency',
+  'other',
+] as const;
+export type DepartmentId = (typeof DEPARTMENTS)[number];
+
+/** Competency areas adapted from ASHP residency areas and ACCP competencies (Section 17). Not ASHP-accredited. */
+export const COMPETENCY_AREAS = [
+  'direct_patient_care',
+  'pharmacotherapy_knowledge',
+  'systems_based_care',
+  'communication',
+  'professionalism',
+  'continuing_development',
+] as const;
+export type CompetencyArea = (typeof COMPETENCY_AREAS)[number];
+
+export interface Rotation extends Versioned {
+  id: string;
+  department: DepartmentId;
+  departmentOther?: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  competencies: CompetencyArea[];
+  goals?: string;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------- timeline
+
+export const ENTRY_TYPES = [
+  'lab',
+  'vital',
+  'med_start',
+  'med_change',
+  'med_stop',
+  'imaging',
+  'procedure',
+  'culture',
+  'note',
+  'weight',
+  'event',
+  'intervention',
+  'outcome',
+] as const;
+export type EntryType = (typeof ENTRY_TYPES)[number];
+
+/** Entry types a trainee can create by manual entry in M1. Interventions and outcomes need Problem Cards (M4/M6). */
+export const M1_MANUAL_ENTRY_TYPES = [
+  'lab',
+  'vital',
+  'weight',
+  'med_start',
+  'culture',
+  'imaging',
+  'procedure',
+  'note',
+  'event',
+] as const satisfies readonly EntryType[];
+
+export type LabResult = { kind: 'numeric'; value: number } | { kind: 'text'; text: string };
+
+export interface LabPayload {
+  analyte: string; // catalogue id, or 'other'
+  analyteName: string; // English clinical name, as displayed
+  result: LabResult;
+  unit: string; // always explicit; 'unitless' for dimensionless results such as INR
+  refLow?: number;
+  refHigh?: number;
+  refText?: string;
+  comment?: string;
+}
+
+export type VitalKind =
+  | 'heart_rate'
+  | 'blood_pressure'
+  | 'respiratory_rate'
+  | 'temperature'
+  | 'spo2'
+  | 'gcs'
+  | 'urine_output';
+
+export interface VitalPayload {
+  vital: VitalKind;
+  value?: number; // every vital except blood pressure
+  systolic?: number; // blood pressure only
+  diastolic?: number; // blood pressure only
+  unit: string;
+  periodHours?: number; // urine output only
+  comment?: string;
+}
+
+export type WeightMethod = 'measured' | 'stated' | 'estimated';
+export interface WeightPayload {
+  value: number;
+  unit: 'kg';
+  method: WeightMethod;
+}
+
+export type DoseSpec = { kind: 'structured'; value: number; unit: string } | { kind: 'text'; text: string };
+
+export interface MedStartPayload {
+  medId: string; // stable id of the medication course; changes and stops refer to it
+  drug: string; // generic name as written in the chart
+  brand?: string;
+  dose: DoseSpec;
+  route: string;
+  frequency: string;
+  indication?: string;
+  notes?: string;
+}
+
+export interface MedChangePayload {
+  medId: string;
+  drug: string;
+  dose?: DoseSpec;
+  route?: string;
+  frequency?: string;
+  reason?: string;
+}
+
+export interface MedStopPayload {
+  medId: string;
+  drug: string;
+  reason?: string;
+}
+
+export interface ImagingPayload {
+  modality: string;
+  region?: string;
+  reportText: string; // the written report, transcribed. PRECEPTOR never interprets images.
+}
+
+export interface ProcedurePayload {
+  name: string;
+  details?: string;
+}
+
+export type CultureStatus = 'pending' | 'no_growth' | 'growth' | 'contaminant_suspected';
+export interface CulturePayload {
+  specimen: string;
+  status: CultureStatus;
+  organism?: string;
+  gramStain?: string;
+  susceptibility?: string;
+}
+
+export type HabitStatus = 'current' | 'former' | 'never' | 'unknown';
+export type TextNoteCategory = 'chief_complaint' | 'hpi' | 'pmh' | 'psh' | 'family_history' | 'progress' | 'other';
+export type AllergyKind = 'allergy' | 'adr' | 'intolerance' | 'nkda';
+export type ProblemStatus = 'active' | 'improving' | 'worsening' | 'resolved' | 'inactive';
+
+export type NotePayload =
+  | { category: TextNoteCategory; text: string }
+  | {
+      category: 'allergy_adr';
+      kind: AllergyKind;
+      substance?: string; // required unless kind is 'nkda'
+      reaction?: string;
+      severity?: 'mild' | 'moderate' | 'severe' | 'unknown';
+    }
+  | {
+      category: 'social_history';
+      khat: HabitStatus; // required in this setting (Section 15, form Section 2)
+      khatDetails?: string;
+      tobacco: HabitStatus;
+      tobaccoDetails?: string;
+      alcohol?: HabitStatus;
+      occupation?: string;
+      other?: string;
+    }
+  | {
+      category: 'problem';
+      problemId: string; // stable id; later status updates refer to it
+      name: string;
+      acuity: 'acute' | 'chronic';
+      status: ProblemStatus;
+      stage?: string;
+      problemType?: string;
+      duration?: string;
+      primaryDiagnosis: boolean;
+    };
+export type NoteCategory = NotePayload['category'];
+
+export type EventCategory =
+  | 'admission'
+  | 'transfer'
+  | 'icu_admission'
+  | 'icu_discharge'
+  | 'surgery'
+  | 'rapid_response'
+  | 'other';
+export interface EventPayload {
+  category: EventCategory;
+  description: string;
+}
+
+/** Defined for completeness; created from Problem Cards in M4/M6. "Requires who and when." */
+export interface InterventionPayload {
+  problemCardId?: string;
+  description: string;
+  by: string;
+  at: string;
+}
+/** Defined for completeness; created in M6. "Requires the measurement." */
+export interface OutcomePayload {
+  problemCardId?: string;
+  measured: string;
+  goalMet: boolean | null;
+}
+
+export interface PayloadMap {
+  lab: LabPayload;
+  vital: VitalPayload;
+  med_start: MedStartPayload;
+  med_change: MedChangePayload;
+  med_stop: MedStopPayload;
+  imaging: ImagingPayload;
+  procedure: ProcedurePayload;
+  culture: CulturePayload;
+  note: NotePayload;
+  weight: WeightPayload;
+  event: EventPayload;
+  intervention: InterventionPayload;
+  outcome: OutcomePayload;
+}
+
+export interface Correction {
+  kind: 'amend' | 'retract'; // retract = "entered in error"; the payload is kept unchanged for readability
+  reason: string;
+}
+
+interface EntryBase {
+  id: string;
+  caseId: string;
+  hospitalDay: number; // 0, 1, 2 … not a calendar date (negative = before admission)
+  /** M1 extension: optional clock time (HH:MM). Needed later for level draw times relative to doses. */
+  timeOfDay?: string;
+  recordedAt: string;
+  author: 'user' | 'ai_extracted';
+  unit?: string;
+  sourceAttachmentId?: string;
+  provenance: ProvenanceState;
+  supersedesEntryId?: string; // a correction points at what it replaces
+  /** M1 extension: present on every correction — what kind, and why. */
+  correction?: Correction;
+}
+
+/** APPEND-ONLY — never updated in place. Discriminated on `type`. */
+export type TimelineEntry = { [K in EntryType]: EntryBase & { type: K; payload: PayloadMap[K] } }[EntryType];
+export type EntryOf<K extends EntryType> = Extract<TimelineEntry, { type: K }>;
+
+// ---------------------------------------------------------------- form, settings, audit
+
+/** Trainee-authored text on the department form (e.g. Section 5 interpretation). Versioned. */
+export interface FormDraft extends Versioned {
+  caseId: string;
+  fields: Record<string, string>;
+}
+
+export interface TraineeSettings {
+  traineeName?: string;
+  programme?: string;
+}
+
+export type AuditEntity =
+  | 'case'
+  | 'identifiers'
+  | 'rotation'
+  | 'timeline_entry'
+  | 'form_draft'
+  | 'settings'
+  | 'intended_use'
+  | 'key'
+  | 'backup';
+
+export type AuditAction =
+  | 'create'
+  | 'update'
+  | 'correct'
+  | 'retract'
+  | 'acknowledge'
+  | 'export'
+  | 'restore'
+  | 'change_passphrase';
+
+export interface AuditEvent {
+  // append-only, never pruned
+  id: string;
+  entity: AuditEntity;
+  entityId: string;
+  /** M1 extension: lets the trainee view the log per case. */
+  caseId?: string;
+  action: AuditAction;
+  actor: 'user' | 'system' | 'model';
+  diff: unknown;
+  at: string;
+}

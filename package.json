@@ -1,0 +1,38 @@
+{
+  "name": "preceptor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "PRECEPTOR: an educational tool for supervised clinical pharmacy trainees. Not intended for diagnosis, treatment, or patient-care decisions.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "icons": "node scripts/gen-icons.mjs"
+  },
+  "dependencies": {
+    "dexie": "4.0.11",
+    "dexie-react-hooks": "1.1.7",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "22.10.2",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "4.3.4",
+    "autoprefixer": "10.4.20",
+    "fake-indexeddb": "6.0.1",
+    "postcss": "8.4.49",
+    "tailwindcss": "3.4.19",
+    "typescript": "5.6.3",
+    "vite": "5.4.21",
+    "vite-plugin-pwa": "0.21.2",
+    "vitest": "2.1.9",
+    "workbox-window": "7.3.0"
+  }
+}
