@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { analysisSchema, type RawAnalysis } from '../../src/ai/analysis/contract';
+import { FIELD_LIMITS, TRAINEE_ONLY_CHECKS, TRAINEE_ONLY_REGISTERS, UNDRAFTED_TASKS } from '../../src/ai/analysis/limits';
 import { buildCasePayload } from '../../src/ai/analysis/payload';
 import { analyseModule } from '../../src/ai/analysis/run';
 import { cleanStatement, verifyAnalysis } from '../../src/ai/analysis/verify';
 import type { ModelResponse } from '../../src/ai/protocol';
 import { validateOutput } from '../../src/ai/schema';
-import { MODULE_BY_ID } from '../../src/domain/workflow/catalogue';
+import { MODULE_BY_ID, TASKS } from '../../src/domain/workflow/catalogue';
+import { REGISTERS } from '../../src/domain/workflow/registers';
 import { ValidationError } from '../../src/domain/validation';
 import { IntegrityError } from '../../src/store/store';
 import { newCase, newSession } from './helpers';
@@ -81,6 +83,11 @@ describe('checks in code — the hostile fixtures (Section 21, adapted)', () => 
     expect(cleanStatement('Check vitamin B12; COVID-19 history.', new Set()).checks.size).toBe(0);
   });
 
+  it('leaves no stray brackets where a citation was', () => {
+    expect(cleanStatement('Review kidney function daily (Smith et al., 2019).', new Set()).text).toBe('Review kidney function daily.');
+    expect(cleanStatement('Avoid NSAIDs (Jones, 2021) in AKI [4].', new Set()).text).toBe('Avoid NSAIDs in AKI.');
+  });
+
   it('removes citations and commercial references, and labels a named source', () => {
     const c = cleanStatement('Per IDSA guidelines (Smith et al., 2019) https://example.org/x doi:10.1000/xyz [3] Grade A. UpToDate suggests this.', new Set());
     expect(c.text).not.toMatch(/Smith|2019|https|doi|\[3\]|Grade A|UpToDate/);
@@ -151,6 +158,123 @@ describe('checks in code — the hostile fixtures (Section 21, adapted)', () => 
   });
 });
 
+describe('what only the trainee can record (Section 24) — never drafted by the model', () => {
+  it('names only checklist items, registers and fields that exist', () => {
+    for (const key of TRAINEE_ONLY_CHECKS) {
+      const [taskId, checkId] = key.split(':') as [string, string];
+      const def = TASKS.get(taskId);
+      expect(def, key).toBeDefined();
+      const all = [...(def!.case?.checks ?? []), ...(def!.perMedication?.checks ?? []), ...(def!.perProblem?.checks ?? [])];
+      expect(all.some((c) => c.id === checkId), key).toBe(true);
+    }
+    for (const id of UNDRAFTED_TASKS) expect(TASKS.has(id), id).toBe(true);
+    for (const r of TRAINEE_ONLY_REGISTERS) expect(REGISTERS[r], r).toBeDefined();
+    for (const [r, limits] of Object.entries(FIELD_LIMITS)) {
+      const def = REGISTERS[r as keyof typeof REGISTERS];
+      for (const [field, limit] of Object.entries(limits!)) {
+        const f = def.fields.find((x) => x.id === field);
+        expect(f, `${r}.${field}`).toBeDefined();
+        if (Array.isArray(limit)) for (const v of limit) expect(f!.options?.some((o) => o.value === v), `${r}.${field}=${v}`).toBe(true);
+      }
+    }
+  });
+
+  it('does not ask for them: the payload and the schema leave them out', async () => {
+    const ctx = await caseWithData();
+    const collect = JSON.parse((await payloadFor(ctx, 'collect')).text) as { tasks: { taskId: string; checks: { id: string }[]; registers: { register: string; fields: { id: string }[] }[] }[] };
+    const t01 = collect.tasks.find((t) => t.taskId === 't01')!;
+    expect(t01.checks).toEqual([]); // verified, unclear and interview are all the trainee's own
+    const t02 = collect.tasks.find((t) => t.taskId === 't02')!;
+    expect(t02.checks.map((c) => c.id)).toEqual(['two_sources', 'all_compared', 'new_orders']);
+    const homeFields = t02.registers.find((r) => r.register === 'home_med')!.fields.map((f) => f.id);
+    expect(homeFields).toEqual(expect.arrayContaining(['drug', 'regimen', 'admissionStatus', 'discrepancy']));
+    for (const f of ['lastDose', 'adherence', 'resolution', 'action', 'dischargeDecision', 'dischargeNote']) expect(homeFields).not.toContain(f);
+
+    const dosing = await payloadFor(ctx, 'dosing');
+    const spec = JSON.parse(dosing.text) as typeof collect;
+    expect(spec.tasks.find((t) => t.taskId === 't08')!.registers).toEqual([]); // the trainee's own calculations
+    expect(spec.tasks.find((t) => t.taskId === 't10')!.registers[0]!.fields.map((f) => f.id)).not.toContain('target');
+    const schema = analysisSchema(dosing.tasks);
+    const item = (register: string) => ({ tasks: [{ taskId: 't08', summary: '', checks: [], items: [{ register, fields: [], reason: '', basis: 'case_data', refs: [] }], missingData: [], questions: [] }] });
+    expect(validateOutput(item('tdm'), schema)).toEqual([]);
+    expect(validateOutput(item('calc_check'), schema).length).toBeGreaterThan(0);
+
+    const doc = await payloadFor(ctx, 'document');
+    expect(doc.tasks.map((t) => t.id)).toEqual(['t18', 't30']); // no draft of the protocols (citing) or of the reflection
+  });
+
+  it('removes them when the model offers them anyway', async () => {
+    const ctx = await caseWithData();
+    const p = await payloadFor(ctx, 'plan');
+    const raw: RawAnalysis = {
+      tasks: [
+        {
+          taskId: 't13',
+          summary: '',
+          checks: [
+            { checkId: 'preceptor', scopeRef: null, answer: 'ok', reason: 'Discussed with the preceptor.', basis: 'general_knowledge', refs: [] },
+            { checkId: 'responses', scopeRef: null, answer: 'ok', reason: 'The team accepted.', basis: 'general_knowledge', refs: [] },
+          ],
+          items: [],
+          missingData: [],
+          questions: [],
+        },
+        {
+          taskId: 't05',
+          summary: '',
+          checks: [],
+          items: [
+            {
+              register: 'drp',
+              fields: [
+                { field: 'problem', value: 'Vancomycin with rising creatinine' },
+                { field: 'category', value: 'monitoring' },
+                { field: 'evidence', value: 'Creatinine 2.1 mg/dL on Day 1.' },
+                { field: 'priority', value: 'important' },
+                { field: 'recStatus', value: 'final' },
+                { field: 'response', value: 'accepted' },
+                { field: 'implemented', value: 'yes' },
+                { field: 'goalMet', value: 'yes' },
+                { field: 'references', value: 'A guideline' },
+                { field: 'teaching', value: 'Always check levels.' },
+              ],
+              reason: '',
+              basis: 'case_data',
+              refs: [scrRef(p), 'M1'],
+            },
+            {
+              register: 'drp',
+              fields: [
+                { field: 'problem', value: 'Vancomycin needs a monitoring plan' },
+                { field: 'category', value: 'monitoring' },
+                { field: 'evidence', value: 'Creatinine 2.1 mg/dL on Day 1.' },
+                { field: 'priority', value: 'important' },
+                { field: 'recStatus', value: 'draft' },
+              ],
+              reason: '',
+              basis: 'case_data',
+              refs: [scrRef(p), 'M1'],
+            },
+          ],
+          missingData: [],
+          questions: [],
+        },
+        // A task the model never drafts.
+        { taskId: 't25', summary: 'My reflection.', checks: [], items: [], missingData: [], questions: [] },
+      ],
+    };
+    const { suggestions, dropped } = verifyAnalysis(raw, p);
+    expect(dropped).toBe(3); // both checks of t13, and the whole of t25
+    const [first, second] = suggestions.filter((x) => x.kind === 'item');
+    expect(Object.keys(first!.fields ?? {}).sort()).toEqual(['category', 'evidence', 'priority', 'problem']);
+    expect(first!.checks).toContain('trainee_only_removed');
+    expect(first!.checks).not.toContain('incomplete');
+    expect(second!.fields?.recStatus).toBe('draft');
+    expect(second!.checks).not.toContain('trainee_only_removed');
+    expect(suggestions.some((x) => x.taskId === 't25' || x.taskId === 't13')).toBe(false);
+  });
+});
+
 // ---------------------------------------------------------------- end to end with a recorded answer
 
 function relay(output: unknown) {
@@ -176,20 +300,31 @@ describe('analysing a module and deciding its suggestions', () => {
           taskId: 't08',
           summary: 'Creatinine 2.1 mg/dL on Day 1 while on vancomycin.',
           checks: [{ checkId: check, scopeRef: null, answer: 'issue', reason: 'Creatinine is 2.1 mg/dL.', basis: 'case_data', refs: [scrRef(p)] }],
+          items: [],
+          missingData: ['Current weight'],
+          questions: [],
+        },
+        {
+          taskId: 't10',
+          summary: '',
+          checks: [],
           items: [
             {
-              register: 'calc_check',
+              register: 'tdm',
               fields: [
-                { field: 'what', value: 'Creatinine clearance' },
-                { field: 'inputs', value: 'Creatinine 2.1 mg/dL' },
-                { field: 'method', value: 'Cockcroft-Gault' },
+                { field: 'drug', value: 'vancomycin' },
+                { field: 'levelAvailable', value: 'yes' },
+                { field: 'timing', value: 'Trough before the next dose' },
+                // A target range needs a reference the trainee read: removed, so the row is incomplete.
+                { field: 'target', value: 'Trough 15-20 mg/L' },
+                { field: 'interpretation', value: 'No level has been measured yet.' },
               ],
-              reason: 'Needed before any renal adjustment.',
+              reason: 'Vancomycin is monitored with levels.',
               basis: 'general_knowledge',
-              refs: [scrRef(p)],
+              refs: ['M1'],
             },
           ],
-          missingData: ['Current weight'],
+          missingData: [],
           questions: [],
         },
       ],
@@ -206,7 +341,7 @@ describe('analysing a module and deciding its suggestions', () => {
     expect(bodies[0]!.task).toBe('analyse');
     expect(a.moduleId).toBe('dosing');
     expect(a.retrievedChunkIds).toEqual([]);
-    expect(a.suggestions.map((x) => x.kind)).toEqual(['note', 'check', 'item', 'note']);
+    expect(a.suggestions.map((x) => x.kind)).toEqual(['note', 'check', 'note', 'item']);
     const audit = await store.listAudit(c.id);
     expect(audit.some((e) => e.entity === 'model_call' && (e.diff as { task: string }).task === 'analyse')).toBe(true);
     expect(audit.some((e) => e.entity === 'analysis' && e.action === 'create')).toBe(true);
@@ -223,9 +358,11 @@ describe('analysing a module and deciding its suggestions', () => {
     await expect(store.decideSuggestion(c.id, a.id, check.id, { kind: 'reject', reason: 'x' })).rejects.toBeInstanceOf(IntegrityError);
 
     const item = a.suggestions.find((x) => x.kind === 'item')!;
-    await expect(store.decideSuggestion(c.id, a.id, item.id, { kind: 'accept' })).rejects.toBeInstanceOf(ValidationError); // incomplete: the result is missing
-    const edited = await store.decideSuggestion(c.id, a.id, item.id, { kind: 'edit', fields: { ...item.fields, result: 'see calculation sheet' } });
-    const row = (await store.listItems(c.id)).find((r) => r.register === 'calc_check')!;
+    expect(item.fields).not.toHaveProperty('target');
+    expect(item.checks).toEqual(expect.arrayContaining(['trainee_only_removed', 'incomplete']));
+    await expect(store.decideSuggestion(c.id, a.id, item.id, { kind: 'accept' })).rejects.toBeInstanceOf(ValidationError); // incomplete: the target is missing
+    const edited = await store.decideSuggestion(c.id, a.id, item.id, { kind: 'edit', fields: { ...item.fields, target: 'From the reference I read' } });
+    const row = (await store.listItems(c.id)).find((r) => r.register === 'tdm')!;
     expect(row.origin).toEqual({ kind: 'suggestion', analysisId: a.id, suggestionId: item.id });
     expect(edited.suggestions.find((x) => x.id === item.id)!.decision?.kind).toBe('edited');
 

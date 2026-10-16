@@ -517,6 +517,7 @@ export const SUGGESTION_CHECKS = [
   'citation_removed',
   'source_named',
   'invalid_value_removed',
+  'trainee_only_removed',
   'incomplete',
 ] as const;
 export type SuggestionCheck = (typeof SUGGESTION_CHECKS)[number];

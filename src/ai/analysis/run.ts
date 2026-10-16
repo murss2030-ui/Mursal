@@ -30,7 +30,7 @@ export async function analyseModule(store: Store, caseId: string, moduleId: stri
       caseId,
       caseKind: c.kind,
       system: ANALYSE_SYSTEM,
-      parts: [{ text: analyseHeader(module.id, module.tasks) }, { text }],
+      parts: [{ text: analyseHeader(module.id, payload.tasks.map((x) => x.id)) }, { text }],
       schema: analysisSchema(payload.tasks),
       maxOutputTokens: 8192,
       temperature: 0.2,

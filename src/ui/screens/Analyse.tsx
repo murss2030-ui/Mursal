@@ -16,7 +16,7 @@ import { MODULES } from '../../domain/workflow/catalogue';
 import { useI18n } from '../../i18n/i18n';
 import type { MsgKey } from '../../i18n/en';
 import { aiReady, useAiStatus } from '../ai-status';
-import { Bi } from '../bilingual';
+import { Bi, useL } from '../bilingual';
 import { Icon } from '../components/Icon';
 import { ProgressBar } from '../components/Progress';
 import { Banner, Button, LinkButton, Num, PageTitle } from '../components/ui';
@@ -28,11 +28,13 @@ import { Stepper } from './Intake';
 
 const usd = (n: number) => `US$${n.toFixed(n < 1 ? 3 : 2)}`;
 
-function errorText(e: unknown, t: (k: MsgKey) => string): string {
+function errorText(e: unknown, t: (k: MsgKey, v?: Record<string, string | number>) => string): string {
   if (e instanceof AiError) {
     const key = `ai.err.${e.code}` as MsgKey;
     const fixed = t(key);
-    return fixed === key ? e.message : `${fixed} ${e.code === 'budget_exhausted' || e.code === 'model_unavailable' ? e.message : ''}`.trim();
+    if (fixed === key) return e.message;
+    const b = e.detail.budget;
+    return e.code === 'budget_exhausted' && b ? `${fixed} ${t('ai.budgetUsed', { spent: usd(b.spentUsd), budget: usd(b.budgetUsd) })}` : fixed;
   }
   return (e as Error).message;
 }
@@ -56,6 +58,7 @@ function StepCard({ n, title, done, children, testId }: { n: number; title: stri
 
 export function AnalyseScreen({ caseId }: { caseId: string }) {
   const { t } = useI18n();
+  const tl = useL();
   const { store } = useSession();
   const online = useOnline();
   const { state: ai, refresh } = useAiStatus();
@@ -126,7 +129,7 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
     setStopped(undefined);
     for (let i = 0; i < MODULES.length; i++) {
       const m = MODULES[i]!;
-      setDrafting({ i: i + 1, n: MODULES.length, label: m.title.en });
+      setDrafting({ i: i + 1, n: MODULES.length, label: tl(m.title) });
       try {
         const a = await analyseModule(store, caseId, m.id);
         setSpent((s) => s + a.usage.costUsd);
@@ -287,12 +290,17 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
             const a = latestAnalysis.get(m.id);
             const stale = a ? analysisStale(a, entries.data, items.data) : false;
             return (
-              <li key={m.id} className="flex items-center gap-2 rounded-lg bg-paper px-3 py-2" data-testid={`analyse-module-${m.id}`} data-state={a ? (stale ? 'stale' : 'drafted') : 'none'}>
+              <li key={m.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-paper px-3 py-2" data-testid={`analyse-module-${m.id}`} data-state={a ? (stale ? 'stale' : 'drafted') : 'none'}>
                 <Icon name={a ? (stale ? 'alert-triangle' : 'check-circle') : 'minus'} className={`h-4 w-4 ${a ? (stale ? 'text-amber-700' : 'text-emerald-700') : 'text-slate-400'}`} />
                 <Bi l={m.title} className="min-w-0 flex-1 font-medium text-slate-900" />
                 <span className="text-xs text-slate-600">
                   {failures[m.id] ? <span className="text-red-700">{t('analyse.failed')}</span> : a ? (stale ? t('analyse.stale') : t('analyse.suggestionsN', { n: a.suggestions.length })) : ''}
                 </span>
+                {failures[m.id] && (
+                  <span className="w-full text-xs text-red-700" data-testid="analyse-module-error">
+                    {failures[m.id]}
+                  </span>
+                )}
               </li>
             );
           })}

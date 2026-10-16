@@ -5,7 +5,7 @@
  * pre-selected or focused action. Until a value is confirmed it is used
  * nowhere.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { checkCandidate, INFO_FLAGS } from '../../ai/extraction/candidates';
 import type { Attachment, ExtractedField, ExtractionFlag, ExtractionRun } from '../../domain/types';
 import { useI18n } from '../../i18n/i18n';
@@ -44,6 +44,13 @@ function SourcePane({ a, run, selected }: { a: Attachment; run: ExtractionRun; s
   const { t } = useI18n();
   const url = useAttachmentUrl(a, 'content');
   const text = useAttachmentText(a);
+  const pre = useRef<HTMLPreElement>(null);
+  // Bring the selected value into view inside the source, without moving the page.
+  useEffect(() => {
+    const box = pre.current;
+    const mark = box?.querySelector('mark');
+    if (box && mark) box.scrollTop = Math.max(0, mark.offsetTop - box.clientHeight / 3);
+  }, [selected, text]);
   if (a.status !== 'active') return <Banner tone="info">{t('source.contentPurged', { reason: a.removedReason ?? '' })}</Banner>;
   if (a.kind === 'image') {
     if (!url) return <p className="text-sm text-slate-600">{t('common.loading')}</p>;
@@ -73,7 +80,13 @@ function SourcePane({ a, run, selected }: { a: Attachment; run: ExtractionRun; s
   const body = text ?? '';
   const at = sel ? body.indexOf(sel) : -1;
   return (
-    <pre dir="auto" className="max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-xl border border-line bg-white p-3 font-sans text-sm leading-relaxed text-slate-900" data-testid="review-source">
+    // A fixed height: selecting a value must never move the buttons under the trainee's finger.
+    <pre
+      ref={pre}
+      dir="auto"
+      className="relative h-[40vh] overflow-auto whitespace-pre-wrap rounded-xl border border-line bg-white p-3 font-sans text-sm leading-relaxed text-slate-900 [overflow-anchor:none]"
+      data-testid="review-source"
+    >
       {text === undefined ? (
         t('common.loading')
       ) : at < 0 ? (
@@ -155,7 +168,11 @@ function FieldCard({ run, f, selected, onSelect }: { run: ExtractionRun; f: Extr
         data-testid="review-field"
         data-field={f.id}
         data-decision="pending"
-        onFocusCapture={onSelect}
+        // Select on click, or on keyboard focus — never on a mouse or finger press: re-rendering between press
+        // and release would move the page and make a tap on Confirm miss.
+        onFocusCapture={(e) => {
+          if ((e.target as HTMLElement).matches(':focus-visible')) onSelect();
+        }}
         onClick={onSelect}
       >
         <div className="flex items-start gap-3">
@@ -168,10 +185,13 @@ function FieldCard({ run, f, selected, onSelect }: { run: ExtractionRun; f: Extr
             <span className="font-semibold italic text-amber-900" dir="auto" data-testid="review-value">
               {fieldSummary(f, i18n) || t('review.nothingRead')}
             </span>
-            <span className="text-xs text-slate-600">
-              {f.day !== undefined ? <DayLabel day={f.day} /> : t('review.noDay')}
-              {f.timeOfDay ? ` · ${f.timeOfDay}` : ''}
-            </span>
+            {/* A list row (pre-admission or discharge medicine) has no hospital day. */}
+            {f.target.kind === 'entry' && (
+              <span className="text-xs text-slate-600">
+                {f.day !== undefined ? <DayLabel day={f.day} /> : t('review.noDay')}
+                {f.timeOfDay ? ` · ${f.timeOfDay}` : ''}
+              </span>
+            )}
           </div>
         </div>
         <p className="rounded-lg bg-paper px-3 py-2 text-sm text-slate-800" data-testid="review-raw">

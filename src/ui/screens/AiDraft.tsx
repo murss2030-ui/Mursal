@@ -6,9 +6,10 @@
  * its own; nothing is pre-selected and there is no "accept all".
  */
 import { useState } from 'react';
+import { UNDRAFTED_TASKS } from '../../ai/analysis/limits';
 import type { Suggestion, SuggestionCheck } from '../../domain/types';
 import type { TaskDef } from '../../domain/workflow/catalogue';
-import { REGISTERS } from '../../domain/workflow/registers';
+import { REGISTERS, type FieldDef } from '../../domain/workflow/registers';
 import { useI18n } from '../../i18n/i18n';
 import type { MsgKey } from '../../i18n/en';
 import { useL } from '../bilingual';
@@ -16,6 +17,7 @@ import type { CaseBundle } from '../case-bundle';
 import { Icon } from '../components/Icon';
 import { ProvenanceBadge } from '../components/ProvenanceBadge';
 import { Banner, Button, LinkButton, Num, TextAreaField, TextField } from '../components/ui';
+import { entryText } from '../format';
 import { navigate } from '../router';
 import { useSession } from '../session-context';
 
@@ -24,6 +26,18 @@ function checkLabel(def: TaskDef, s: Suggestion, b: CaseBundle, tl: ReturnType<t
   const label = all.find((c) => c.id === s.checkId)?.label;
   const scope = s.scope ? b.courses.find((m) => m.medId === s.scope)?.drug ?? b.problems.find((p) => p.problemId === s.scope)?.latest.payload.name : undefined;
   return `${label ? tl(label) : s.checkId}${scope ? ` — ${scope}` : ''}`;
+}
+
+/** A field value as the trainee reads it: choices by their label, references by the name of what they point to. */
+function shownValue(f: FieldDef | undefined, v: string, b: CaseBundle, tl: ReturnType<typeof useL>, i18n: Pick<ReturnType<typeof useI18n>, 't'>): string {
+  if (f?.options) return v.split('|').map((x) => tl(f.options!.find((o) => o.value === x)?.label ?? { en: x, ar: x })).join(', ');
+  if (f?.kind === 'medRef') return b.courses.find((m) => m.medId === v)?.drug ?? v;
+  if (f?.kind === 'problemRef') return b.problems.find((p) => p.problemId === v)?.latest.payload.name ?? v;
+  if (f?.kind === 'entryRef') {
+    const e = b.current.find((x) => x.id === v);
+    return e ? entryText(e, i18n).main : v;
+  }
+  return v;
 }
 
 function Basis({ s }: { s: Suggestion }) {
@@ -35,9 +49,9 @@ function Basis({ s }: { s: Suggestion }) {
       {t('draft.noSource')}
     </span>
   ) : (
-    <span className="inline-flex flex-wrap items-center gap-1 text-xs text-teal-900" data-basis="case_data">
-      <Icon name="file-text" className="h-3.5 w-3.5" />
-      {s.refs.length ? t('draft.fromCase', { refs: s.refs.map((r) => r.label).join('; ') }) : t('draft.fromCaseNoRef')}
+    <span className="flex items-start gap-1 text-xs text-teal-900" data-basis="case_data">
+      <Icon name="file-text" className="mt-px h-3.5 w-3.5 shrink-0" />
+      <span>{s.refs.length ? t('draft.fromCase', { refs: s.refs.map((r) => r.label).join('; ') }) : t('draft.fromCaseNoRef')}</span>
     </span>
   );
 }
@@ -120,15 +134,14 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
             <p>
               <span className="text-slate-600">{t('draft.addTo', { list: tl(reg.title) })}</span>
             </p>
-            <dl className="mt-1 grid grid-cols-[auto,1fr] gap-x-3 gap-y-0.5">
+            <dl className="mt-1 flex flex-col gap-1.5">
               {Object.entries(s.fields ?? {}).map(([k, v]) => {
                 const f = reg.fields.find((x) => x.id === k);
-                const shown = f?.options ? (v.split('|').map((x) => tl(f.options!.find((o) => o.value === x)?.label ?? { en: x, ar: x })).join(', ')) : v;
                 return (
-                  <div key={k} className="contents">
-                    <dt className="text-slate-600">{f ? tl(f.label) : k}</dt>
+                  <div key={k}>
+                    <dt className="text-xs text-slate-600">{f ? tl(f.label) : k}</dt>
                     <dd dir="auto" className="text-slate-900">
-                      {shown}
+                      {shownValue(f, v, b, tl, { t })}
                     </dd>
                   </div>
                 );
@@ -207,6 +220,14 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
 export function AiDraft({ def, b }: { def: TaskDef; b: CaseBundle }) {
   const { t, when } = useI18n();
   const d = b.draftOf(def.module);
+  if (UNDRAFTED_TASKS.has(def.id)) {
+    return (
+      <section className="flex items-center gap-2 rounded-2xl border border-dashed border-line bg-white/60 p-4 text-sm text-slate-700" data-testid="ai-draft" data-state="trainee-only">
+        <Icon name="user" className="h-4 w-4 text-slate-500" />
+        {t('draft.traineeOnlyTask')}
+      </section>
+    );
+  }
   if (!d) {
     return (
       <section className="rounded-2xl border border-dashed border-violet-300 bg-white/60 p-4 text-sm text-slate-700" data-testid="ai-draft" data-state="none">

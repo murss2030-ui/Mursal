@@ -15,6 +15,8 @@
  *    app did not retrieve is labelled.
  * 4. Tasks, checklist items, registers, fields and choice values must be the
  *    ones defined; anything else is dropped.
+ * 5. What only the trainee can record (limits.ts) is removed: what a person
+ *    did, what happened, outcomes, sources and references.
  */
 import { REGISTERS, type FieldDef } from '../../domain/workflow/registers';
 import type { TaskDef } from '../../domain/workflow/catalogue';
@@ -22,6 +24,7 @@ import { normalizeItemFields } from '../../domain/workflow/registers';
 import type { CheckValue, ClaimBasis, Suggestion, SuggestionCheck } from '../../domain/types';
 import type { CasePayload } from './payload';
 import type { RawAnalysis, RawSuggestionBase } from './contract';
+import { fieldLimit, modelMayAddTo, modelMayAnswer } from './limits';
 
 const NUMBER = /(?<![\p{L}\p{N}.\-/])\d+(?:\.\d+)?(?![\p{L}\p{N}]|\.\d)/gu;
 // Compound units first; a bare unit followed by "/" is a rate such as mL/min (a clearance), not a dose.
@@ -34,7 +37,7 @@ const CITATIONS: readonly RegExp[] = [
   /\bdoi:?\s*10\.\d{4,9}\/\S+/gi,
   /\b10\.\d{4,9}\/\S+/g,
   /\bPMID:?\s*\d+/gi,
-  /\b[A-Z][A-Za-z'-]+ et al\.?(?:,?\s*\(?(?:19|20)\d{2}\)?)?/g,
+  /\(?\b[A-Z][A-Za-z'-]+ et al\.?(?:,?\s*\(?(?:19|20)\d{2}[a-z]?\)?)?\)?/g,
   /\[\d+(?:\s*[,–-]\s*\d+)*\]/g,
   /\((?:[A-Z][A-Za-z'-]+(?: et al\.?)?,?\s*)?(?:19|20)\d{2}\)/g,
   /\b(?:grade|level)\s+(?:of\s+evidence\s+)?(?:[A-D]|[1-3][abc]?)\b/gi,
@@ -88,7 +91,13 @@ export function cleanStatement(text: string, allowed: ReadonlySet<string>): Clea
     }
   }
   out += s.slice(pos);
-  return { text: out.replace(/\s{2,}/g, ' ').replace(/\s+([.,;:])/g, '$1').trim(), checks };
+  // Tidy what removals leave behind: empty brackets and stray spaces before punctuation.
+  const tidy = out
+    .replace(/\(\s*[,;]?\s*\)|\[\s*\]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([.,;:)])/g, '$1')
+    .trim();
+  return { text: tidy, checks };
 }
 
 interface Refs {
@@ -140,6 +149,11 @@ function itemFields(register: string, raw: { field: string; value: string }[], a
       if (f?.kind === 'confirm' || (!f && v)) checks.add('invalid_value_removed');
       continue;
     }
+    const limit = fieldLimit(def.id, f.id);
+    if (limit === 'never' || (Array.isArray(limit) && !v.split(/[|,]/).every((x) => limit.includes(x.trim())))) {
+      checks.add('trainee_only_removed');
+      continue;
+    }
     if (f.kind === 'choice') {
       if (f.options?.some((o) => o.value === v)) out[f.id] = v;
       else checks.add('invalid_value_removed');
@@ -189,7 +203,7 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
 
     for (const ck of draft.checks ?? []) {
       const scope = scopeOf(def, ck.checkId);
-      if (!scope) {
+      if (!scope || !modelMayAnswer(def.id, ck.checkId)) {
         dropped++;
         continue;
       }
@@ -219,7 +233,7 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
     }
 
     for (const it of draft.items ?? []) {
-      if (!(def.registers ?? []).includes(it.register as never)) {
+      if (!(def.registers ?? []).includes(it.register as never) || !modelMayAddTo(it.register as never)) {
         dropped++;
         continue;
       }

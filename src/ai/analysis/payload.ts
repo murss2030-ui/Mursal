@@ -14,6 +14,7 @@ import { deriveMedCourses, deriveProblems, indexTimeline, regimenText } from '..
 import type { Case, RegisterItem, TaskRecord, TimelineEntry } from '../../domain/types';
 import { translate } from '../../i18n/i18n';
 import { entryText } from '../../ui/format';
+import { fieldLimit, modelMayAddTo, modelMayAnswer, UNDRAFTED_TASKS } from './limits';
 
 export interface RefTarget {
   kind: 'entry' | 'item' | 'medication' | 'problem';
@@ -33,30 +34,44 @@ export interface CasePayload {
 
 const tEn = { t: (k: Parameters<typeof translate>[1], v?: Parameters<typeof translate>[2]) => translate('en', k, v) };
 
-function scoped(sec: ScopedSection | undefined) {
+/** Only what the model may answer (limits.ts): checklist items about what a person did are left to the trainee. */
+const askable = (def: TaskDef, checks: readonly { id: string; label: { en: string } }[]) =>
+  checks.filter((c) => modelMayAnswer(def.id, c.id)).map((c) => ({ id: c.id, label: c.label.en }));
+
+function scoped(def: TaskDef, sec: ScopedSection | undefined) {
   if (!sec) return undefined;
-  return {
-    ...(sec.applies ? { appliesQuestion: sec.applies.en } : {}),
-    checks: sec.checks.map((c) => ({ id: c.id, label: c.label.en })),
-  };
+  const checks = askable(def, sec.checks);
+  if (!checks.length) return undefined;
+  return { ...(sec.applies ? { appliesQuestion: sec.applies.en } : {}), checks };
+}
+
+/** The registers and fields of a task the model may draft rows for, with the values it may use. */
+export function draftableRegisters(def: TaskDef) {
+  return (def.registers ?? []).filter(modelMayAddTo).map((r) => ({
+    register: r,
+    title: REGISTERS[r].title.en,
+    fields: REGISTERS[r].fields
+      .filter((f) => f.kind !== 'confirm' && fieldLimit(r, f.id) !== 'never')
+      .map((f) => {
+        const limit = fieldLimit(r, f.id);
+        const allowed = f.options?.map((o) => o.value).filter((v) => !Array.isArray(limit) || limit.includes(v));
+        return { id: f.id, label: f.label.en, kind: f.kind, ...(f.required ? { required: true } : {}), ...(allowed ? { allowed } : {}) };
+      }),
+  }));
 }
 
 function taskSpec(def: TaskDef, rec: TaskRecord | undefined) {
+  const perMedication = scoped(def, def.perMedication);
+  const perProblem = scoped(def, def.perProblem);
   return {
     taskId: def.id,
     number: def.number,
     title: def.title.en,
     purpose: def.purpose.en,
-    checks: (def.case?.checks ?? []).map((c) => ({ id: c.id, label: c.label.en })),
-    ...(def.perMedication ? { perMedication: scoped(def.perMedication) } : {}),
-    ...(def.perProblem ? { perProblem: scoped(def.perProblem) } : {}),
-    registers: (def.registers ?? []).map((r) => ({
-      register: r,
-      title: REGISTERS[r].title.en,
-      fields: REGISTERS[r].fields
-        .filter((f) => f.kind !== 'confirm')
-        .map((f) => ({ id: f.id, label: f.label.en, kind: f.kind, ...(f.required ? { required: true } : {}), ...(f.options ? { allowed: f.options.map((o) => o.value) } : {}) })),
-    })),
+    checks: askable(def, def.case?.checks ?? []),
+    ...(perMedication ? { perMedication } : {}),
+    ...(perProblem ? { perProblem } : {}),
+    registers: draftableRegisters(def),
     traineeAnswersSoFar: rec ? { status: rec.status, checks: rec.checks } : { status: 'not_started' },
   };
 }
@@ -121,7 +136,7 @@ export function buildCasePayload(input: {
       return { ref, register: r.register, fields };
     });
 
-  const tasks = input.module.tasks.map((id) => TASKS.get(id)!).filter(Boolean);
+  const tasks = input.module.tasks.filter((id) => !UNDRAFTED_TASKS.has(id)).map((id) => TASKS.get(id)!).filter(Boolean);
   const byTask = new Map(input.tasks.map((t) => [t.taskId, t]));
   const age = c.demographics.ageYears >= 90 ? '90 or older' : c.demographics.ageYears;
   const payload = {

@@ -8,8 +8,9 @@
  */
 import type { TaskDef } from '../../domain/workflow/catalogue';
 import { S, type OutputSchema } from '../schema';
+import { modelMayAddTo, modelMayAnswer } from './limits';
 
-export const ANALYSE_PROMPT_VERSION = 'analyse-v1';
+export const ANALYSE_PROMPT_VERSION = 'analyse-v2';
 
 export interface RawSuggestionBase {
   reason: string;
@@ -45,8 +46,14 @@ const BASE = {
 
 export function analysisSchema(tasks: readonly TaskDef[]): OutputSchema {
   const taskIds = tasks.map((t) => t.id);
-  const checkIds = [...new Set(tasks.flatMap((t) => [...(t.case?.checks ?? []), ...(t.perMedication?.checks ?? []), ...(t.perProblem?.checks ?? [])].map((c) => c.id)))];
-  const registers = [...new Set(tasks.flatMap((t) => t.registers ?? []))];
+  const checkIds = [
+    ...new Set(
+      tasks.flatMap((t) =>
+        [...(t.case?.checks ?? []), ...(t.perMedication?.checks ?? []), ...(t.perProblem?.checks ?? [])].filter((c) => modelMayAnswer(t.id, c.id)).map((c) => c.id),
+      ),
+    ),
+  ];
+  const registers = [...new Set(tasks.flatMap((t) => (t.registers ?? []).filter(modelMayAddTo)))];
   return S.obj({
     tasks: S.arr(
       S.obj({
@@ -75,7 +82,8 @@ Rules:
 5. Do not invent data. When something needed is missing, put it in missingData. Put the questions the trainee should ask the team or the patient in questions.
 6. Checklist answers: "ok" only when the data shows the check is satisfied, "issue" when the data shows a problem, "na" only when it clearly does not apply. Leave out a check you cannot answer from the data. For per-medication or per-problem checks give scopeRef (M# or P#).
 7. Register rows only for the registers listed for that task, with only the listed field ids and allowed values.
-8. Be concise. Write in English. There are no names or identifiers in the data; never invent any.
+8. Never state that something was done or happened unless the data says so: interviews, counselling, communication with the team, discussions, double-checks, reports, implementation and outcomes are recorded by the trainee alone. A recommendation you propose is a proposal, never an implemented one.
+9. Be concise. Write in English. There are no names or identifiers in the data; never invent any.
 Return JSON only.`;
 
 export function analyseHeader(moduleId: string, taskIds: readonly string[]): string {

@@ -786,6 +786,7 @@ export const ar: Record<MsgKey, string> = {
   'ai.err.free_key_clinical': 'هذا الخادم يستخدم مفتاحاً مجانياً: لا تُرسَل الحالات السريرية به أبداً. استخدم حالة تعليمية.',
   'ai.err.rate_limited': 'طلبات كثيرة. انتظر قليلاً ثم حاول مجدداً.',
   'ai.err.budget_exhausted': 'بلغت ميزانية الذكاء الاصطناعي الشهرية حدّها. تتجدد في بداية الشهر القادم.',
+  'ai.budgetUsed': 'المستخدم هذا الشهر: {spent} من {budget}.',
   'ai.err.model_unavailable': 'لم يعد هذا النموذج متاحاً (ربما أُوقف). اختر غيره من الإعدادات ← خدمة الذكاء الاصطناعي.',
   'ai.err.provider_auth': 'رفض المزوّد مفتاح API في الخادم.',
   'ai.err.provider_rate_limited': 'المزوّد يحدّ من الطلبات. حاول بعد دقيقة.',
@@ -901,6 +902,7 @@ export const ar: Record<MsgKey, string> = {
   'draft.stale': 'تغيّر السجل بعد كتابة هذه المسودة، فلا يمكن القبول منها. أعد كتابة المسودة من السجل الحالي.',
   'draft.reanalyse': 'أعد كتابة المسودة',
   'draft.nothingForTask': 'لم يكن لدى النموذج ما يقترحه لهذه المهمة.',
+  'draft.traineeOnlyTask': 'لا يكتب النموذج مسودة لهذه المهمة: إنها لك وحدك.',
   'draft.decidedN': 'تم البت فيها ({n})',
   'draft.noSource': 'معرفة عامة — بلا مصدر وغير متحقق منها',
   'draft.fromCase': 'من بيانات الحالة: {refs}',
@@ -929,5 +931,6 @@ export const ar: Record<MsgKey, string> = {
   'draft.check.citation_removed': 'حُذف استشهاد',
   'draft.check.source_named': 'يذكر مصدراً لم يتحقق منه التطبيق',
   'draft.check.invalid_value_removed': 'حُذفت قيمة غير صالحة',
+  'draft.check.trainee_only_removed': 'حُذف ما لا يسجّله إلا أنت (ما تم فعله، والنتائج، والمصادر)',
   'draft.check.incomplete': 'غير مكتمل',
 };

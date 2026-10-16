@@ -788,6 +788,7 @@ export const en = {
   'ai.err.free_key_clinical': 'This server uses a free-tier key: Clinical Cases are never sent with it. Use a Teaching Case.',
   'ai.err.rate_limited': 'Too many requests. Wait a moment and try again.',
   'ai.err.budget_exhausted': 'The monthly AI budget is reached. It resets at the start of next month.',
+  'ai.budgetUsed': 'Used this month: {spent} of {budget}.',
   'ai.err.model_unavailable': 'This model is not available any more (it may have been retired). Choose another in Settings → AI service.',
   'ai.err.provider_auth': 'The provider refused the server\'s API key.',
   'ai.err.provider_rate_limited': 'The provider is limiting requests. Try again in a minute.',
@@ -903,6 +904,7 @@ export const en = {
   'draft.stale': 'The record changed after this draft was made, so it cannot be accepted from. Draft again from the current record.',
   'draft.reanalyse': 'Draft again',
   'draft.nothingForTask': 'The model had nothing to suggest for this task.',
+  'draft.traineeOnlyTask': 'The model does not draft this task: it is yours alone.',
   'draft.decidedN': 'Decided ({n})',
   'draft.noSource': 'General knowledge — no source, unverified',
   'draft.fromCase': 'From the case data: {refs}',
@@ -931,6 +933,7 @@ export const en = {
   'draft.check.citation_removed': 'A citation was removed',
   'draft.check.source_named': 'Names a source the app did not check',
   'draft.check.invalid_value_removed': 'An invalid value was removed',
+  'draft.check.trainee_only_removed': 'Removed what only you can record (what was done, outcomes, sources)',
   'draft.check.incomplete': 'Incomplete',
 } as const;
 

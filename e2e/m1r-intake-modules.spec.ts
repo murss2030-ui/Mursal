@@ -165,7 +165,13 @@ test('new case → patient file (typed, photographed, PDF) → Next → Clinical
   await page.getByRole('button', { name: 'Save to the patient file' }).click();
   await expect(page.getByTestId('source-row')).toHaveCount(3);
 
-  // Next → the Clinical Modules.
+  // Next → Analyse the file (M3). This preview server has no AI service: the app says so plainly,
+  // and the Clinical Modules stay one tap away.
+  await page.getByTestId('next-to-modules').getByRole('link', { name: 'Next: Analyse the file' }).click();
+  await expect(page).toHaveURL(new RegExp(`#/cases/${caseId}/analyse$`));
+  await expect(page.getByTestId('analyse-unavailable')).toContainText('No AI service is deployed with this copy of the app.');
+  await expect(page.getByRole('button', { name: 'Read 3 document(s)' })).toBeDisabled();
+  await shot(page, 'r06b-analyse-no-service');
   await page.getByRole('link', { name: 'Next: Clinical modules' }).click();
   await expect(page).toHaveURL(new RegExp(`#/cases/${caseId}/modules$`));
   await expect(page.getByTestId('modules-hub')).toBeVisible();
@@ -250,7 +256,7 @@ test('new case → patient file (typed, photographed, PDF) → Next → Clinical
   // Documents added later from the Patient file tab also lead on to the Clinical Modules.
   await page.goto(`/#/cases/${caseId}/sources`);
   await expect(page.getByTestId('source-row')).toHaveCount(3);
-  await page.getByTestId('next-to-modules').getByRole('link', { name: 'Next: Clinical modules' }).click();
+  await page.getByTestId('next-to-modules').getByRole('link', { name: 'Skip the analysis: open the Clinical Modules' }).click();
   await expect(page).toHaveURL(new RegExp(`#/cases/${caseId}/modules$`));
   await expect(page.getByTestId('modules-hub')).toBeVisible();
 
