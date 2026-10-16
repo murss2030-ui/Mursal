@@ -1,6 +1,6 @@
 # PRECEPTOR — M2 implementation plan (Calculation and rules)
 
-**Status:** plan only, prepared 13 October 2026. No M2 code exists. M2 starts only after (1) the owner approves M1, (2) the branch is pushed to GitHub and the remote head is verified, and (3) the owner answers the decisions in Section 5.
+**Status:** plan only, prepared 13 October 2026 and updated 16 October 2026 for M1 Revision 1 (patient-file intake and the Clinical Modules). No M2 code exists. M2 starts only after (1) the owner approves M1 and (2) the owner answers the decisions in Section 5. (The earlier precondition — the branch pushed to GitHub with the remote head verified — is met.)
 
 ## 1. Where M2 sits in the whole product
 
@@ -51,8 +51,14 @@ Initially empty, trainee-editable, versioned and audited: generic name, RxCUI wh
 - An unrecognised drug name is reported as "not checked", never silently treated as safe.
 
 ### 2.4 Integration with M1
-- Department form Section 1: BMI and CrCl/eGFR filled from `CalcResult`s (never typed). Section 7: interaction rows from the rules engine, each with its source attribution.
+- Department form Section 1: BMI and CrCl/eGFR filled from `CalcResult`s (never typed). Section 7: interaction rows from the rules engine, each with its source attribution, kept apart from the rows the trainee recorded in the interaction register.
 - About screen: attribution and licence for every dataset (DDInter, AWaRe, ONC list, RxNorm).
+
+**With the Clinical Modules of Revision 1** — the engine appears inside the worksheets that already exist; nothing it produces enters a register or the form without an explicit per-item decision:
+- *Dosing* (tasks 8, 9, 10): calculator results are shown with their formula, inputs and units beside the trainee's own calculation checks (the `calc_check` register stays); a difference between the two is shown, never overwritten. The vancomycin AUC calculator reads levels and draw times from the timeline; the TDM register keeps the trainee's interpretation.
+- *Safety* (tasks 6, 7, 28): interaction and allergy flags appear next to the trainee's interaction and ADR rows; adding a flag as a row is the trainee's decision. Naranjo and WHO-UMC questionnaires attach to an ADR row; the trainee's earlier judgement stays on record as a version. The formulary's high-alert flag (decision 3) is shown beside each medication's answer in task 28.
+- *Antimicrobial stewardship* (task 14): AWaRe tags and the 48–72 h time-out prompt in the antimicrobial-days panel; the de-escalation prompt when a culture result is entered.
+- *Readiness:* the "dialysis status" item, shown today as "Not yet — M2", is satisfied by the structured renal-replacement-therapy entry (decision 7). Revision 1 already marks monitoring as due or overdue from the trainee's own plan (next review day); the schedule rule of decision 8 extends it in M6.
 
 ## 3. Data sources: verification status (13 October 2026)
 
@@ -93,6 +99,7 @@ Large datasets are loaded once into IndexedDB from a compressed file and queried
 6. **Vancomycin no-level path.** Which published nomogram or dosing method to implement (it needs a citable source). It will be clearly labelled as a population-based estimate for the low-resource setting.
 7. **Dialysis status**, required by the Verify gate. Proposal: a structured "renal replacement therapy" timeline entry (none, intermittent haemodialysis, peritoneal dialysis, CRRT).
 8. **Monitoring due/overdue rule.** It depends on monitoring schedules, which the specification builds in M6. Proposal: the rule ships with M6.
+9. **Infusion-rate calculator** (Revision 1, task 9 "dose and infusion calculations"). It is not among the sixteen calculators. Proposal: add it as a tested calculator — dose ↔ rate with drug amount, diluent volume, weight where the dose is weight-based, and time units — with formula, inputs and units always shown and no drug-specific default concentrations; or keep task 9 as the trainee's own calculation record only.
 
 ## 6. M2 acceptance criteria and their tests
 

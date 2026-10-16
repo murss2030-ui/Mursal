@@ -877,7 +877,13 @@ const REFERENCE: RegisterDef = {
   subtitleFields: ['publisher', 'year', 'usedFor'],
   chipFields: ['type'],
   fields: [
-    { id: 'title', kind: 'text', required: true, label: L('Title or topic', 'العنوان أو الموضوع') },
+    {
+      id: 'title',
+      kind: 'text',
+      required: true,
+      label: L('Title or topic', 'العنوان أو الموضوع'),
+      hint: L('List only what you read yourself. PRECEPTOR never consults, suggests or cites a source.', 'اذكر فقط ما قرأته بنفسك. لا يرجع PRECEPTOR إلى أي مصدر ولا يقترحه ولا يستشهد به.'),
+    },
     { id: 'publisher', kind: 'text', label: L('Organisation or publisher', 'الجهة أو الناشر') },
     { id: 'year', kind: 'text', label: L('Year or version', 'السنة أو الإصدار') },
     {
@@ -898,8 +904,8 @@ const REFERENCE: RegisterDef = {
     {
       id: 'link',
       kind: 'text',
-      label: L('Link (optional)', 'الرابط (اختياري)'),
-      hint: L('Opens in your own browser session. PRECEPTOR never fetches it.', 'يُفتح في متصفحك الخاص. لا يجلبه PRECEPTOR أبداً.'),
+      label: L('Link', 'الرابط'),
+      hint: L('Kept as text for your own record. PRECEPTOR never opens or fetches it.', 'يُحفظ كنص لسجلك الخاص. لا يفتحه PRECEPTOR ولا يجلبه أبداً.'),
     },
     { id: 'usedFor', kind: 'text', label: L('Used for', 'استُخدم في') },
     { id: 'verified', kind: 'confirm', required: true, label: L('I read this source myself', 'قرأت هذا المصدر بنفسي') },

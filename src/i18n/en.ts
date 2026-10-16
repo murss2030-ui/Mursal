@@ -462,13 +462,13 @@ export const en = {
     'Every fact carries exactly one of these eight states, each with its own icon, label and border — never colour alone.',
   'about.inBuild': 'In this build (M1)',
   'about.inBuildList':
-    'Encrypted local record (AES-GCM, passphrase-derived key) · rotations · Teaching and Clinical Cases · manual entry on an append-only timeline by hospital day · correction by supersession · audit log · department form screen with missing-data flags · encrypted backup · offline app (PWA)',
+    'Encrypted local record (AES-GCM, passphrase-derived key) · rotations · Teaching and Clinical Cases · the patient file: typed, uploaded or photographed, identifiers removed before saving · Clinical Modules: the 30 tasks in 8 modules, with worksheets, shared registers and progress tracking · manual entry on an append-only timeline by hospital day · correction by supersession · audit log · department form screen with missing-data flags · encrypted backup · offline app (PWA)',
   'about.notYet': 'Not built yet',
   'about.notYetList':
-    'Calculators and rules (M2) · document capture and AI extraction (M3) · Problem Cards and DRPs (M4) · evidence library (M5) · monitoring, reconciliation and form export (M6) · monthly presentation (M7) · learning modes and portfolio (M8)',
+    'Calculators, rules and interaction checks (M2) · extraction from documents with AI, each value confirmed (M3) · Problem Cards with PCNE classification and AI suggestions (M4) · evidence library (M5) · monitoring schedules, reconciliation automation and form export (M6) · monthly presentation (M7) · learning modes and portfolio (M8)',
   'about.sources': 'Data sources and licences',
   'about.sourcesText':
-    'This build contains no third-party clinical content. No commercial reference (UpToDate, Medscape, Lexicomp, Micromedex, Clinical Pharmacology, Epocrates) is or will be integrated. Attribution for DDInter 2.0 (CC BY-NC-SA) will appear here when it is loaded in M2.',
+    'This build contains no third-party clinical content. No commercial reference (UpToDate, Medscape, Lexicomp, Micromedex, Clinical Pharmacology, Epocrates, NICE, BNF, NCCN) is or will be integrated. Attribution for DDInter 2.0 (CC BY-NC-SA) will appear here when it is loaded in M2. Open-source components: React and React DOM (MIT), Dexie (Apache-2.0), Workbox (MIT), PDF.js by Mozilla (Apache-2.0), IBM Plex Sans, Sans Arabic and Mono fonts (SIL Open Font License 1.1).',
   'about.privacy': 'Privacy',
   'about.privacyText':
     'Records stay on this device, encrypted. There is no cloud sync and no account. Apart from loading its own app files, this build makes no network requests.',
