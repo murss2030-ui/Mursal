@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import './ui/fonts';
 import './styles.css';
 import { Session } from './store/session';
 import { PreceptorDB } from './store/db';

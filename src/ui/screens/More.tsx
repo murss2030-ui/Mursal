@@ -5,6 +5,7 @@ import { Chip, PageTitle } from '../components/ui';
 import { useSession } from '../session-context';
 
 const LINKS: { href: string; key: MsgKey; icon: IconName }[] = [
+  { href: '#/resources', key: 'nav.resources', icon: 'book' },
   { href: '#/rotations', key: 'nav.rotations', icon: 'calendar' },
   { href: '#/audit', key: 'nav.audit', icon: 'history' },
   { href: '#/settings', key: 'nav.settings', icon: 'sliders' },
@@ -13,7 +14,6 @@ const LINKS: { href: string; key: MsgKey; icon: IconName }[] = [
 
 /** Primary navigation items whose milestone is not built yet are listed, disabled, with the milestone that builds them. */
 const NOT_YET: { key: MsgKey; icon: IconName; m: string }[] = [
-  { key: 'nav.workflow', icon: 'workflow', m: 'M4' },
   { key: 'nav.learning', icon: 'graduation', m: 'M8' },
   { key: 'nav.portfolio', icon: 'briefcase', m: 'M8' },
 ];
@@ -21,7 +21,7 @@ const NOT_YET: { key: MsgKey; icon: IconName; m: string }[] = [
 export function More() {
   const { t } = useI18n();
   const { session } = useSession();
-  const row = 'flex min-h-touch items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3';
+  const row = 'flex min-h-touch items-center gap-3 rounded-xl border border-line bg-white px-3 py-3 shadow-card';
   return (
     <div className="flex flex-col gap-3">
       <PageTitle>{t('more.title')}</PageTitle>

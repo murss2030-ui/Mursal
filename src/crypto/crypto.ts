@@ -188,11 +188,23 @@ export async function seal(key: CryptoKey, value: unknown, aad: string): Promise
 }
 
 export async function open<T>(key: CryptoKey, sealed: Sealed, aad: string): Promise<T> {
-  let pt: ArrayBuffer;
+  return JSON.parse(dec.decode(await openBytes(key, sealed, aad))) as T;
+}
+
+/** Encrypt raw bytes (an image, a text document) without JSON or base64 overhead. Same AAD binding as `seal`. */
+export async function sealBytes(key: CryptoKey, bytes: Uint8Array, aad: string): Promise<Sealed> {
+  const iv = randomBytes(IV_BYTES);
+  const ct = await subtle().encrypt({ name: 'AES-GCM', iv, additionalData: enc.encode(aad) }, key, bytes);
+  return { iv, ct };
+}
+
+/** Decrypt and authenticate. Throws DecryptionError on a wrong key, a moved row or any tampering. */
+export async function openBytes(key: CryptoKey, sealed: Sealed, aad: string): Promise<Uint8Array> {
   try {
-    pt = await subtle().decrypt({ name: 'AES-GCM', iv: sealed.iv, additionalData: enc.encode(aad) }, key, sealed.ct);
+    return new Uint8Array(
+      await subtle().decrypt({ name: 'AES-GCM', iv: sealed.iv, additionalData: enc.encode(aad) }, key, sealed.ct),
+    );
   } catch {
     throw new DecryptionError(aad.split('\u0000')[0] ?? 'record');
   }
-  return JSON.parse(dec.decode(pt)) as T;
 }

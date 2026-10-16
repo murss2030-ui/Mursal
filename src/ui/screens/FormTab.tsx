@@ -126,6 +126,8 @@ function editHref(caseId: string, e: EditTarget): string | null {
       return `#/cases/${caseId}/entry/new?type=${e.type}${e.category ? `&category=${e.category}` : ''}`;
     case 'settings':
       return '#/settings';
+    case 'task':
+      return `#/cases/${caseId}/task/${e.taskId}`;
     case 'draft':
       return null;
   }
@@ -149,7 +151,7 @@ function FieldRow({ f, caseId, readOnly, draft }: { f: FormFieldView; caseId: st
         </span>
         {href && (
           <a href={href} className="inline-flex min-h-touch shrink-0 items-center px-2 text-sm font-medium text-teal-900 underline">
-            {f.state.kind === 'missing' && f.edit?.kind === 'add_entry' ? t('form.add') : t('form.editSource')}
+            {f.edit?.kind === 'task' ? t('form.openTask') : f.state.kind === 'missing' && f.edit?.kind === 'add_entry' ? t('form.add') : t('form.editSource')}
           </a>
         )}
       </div>
@@ -179,15 +181,30 @@ function SectionCard({ s, caseId, readOnly, draft }: { s: FormSectionView; caseI
           <FieldRow key={f.key} f={f} caseId={caseId} readOnly={readOnly} draft={draft} />
         ))}
         {s.checkboxes && (
-          <div className="mt-2 flex flex-col gap-2">
-            <Banner tone="info">{t('form.drpNotAssessed')}</Banner>
-            <ul className="grid grid-cols-1 gap-1 text-sm text-slate-500 sm:grid-cols-2">
-              {s.checkboxes.labels.map((l) => (
-                <li key={l.en} className="flex items-center gap-2">
-                  <span aria-hidden="true" className="inline-block h-4 w-4 rounded border border-dashed border-slate-400" />
-                  <Label l={l} />
-                </li>
-              ))}
+          <div className="mt-2 flex flex-col gap-2" data-testid="drp-checkboxes">
+            {s.checkboxes.ticked ? (
+              <p className="text-xs text-slate-600">{t('form.drpTicked')}</p>
+            ) : s.checkboxes.state.kind === 'empty' ? (
+              <Banner tone="info">{t('form.drpNoneRecorded')}</Banner>
+            ) : (
+              <Banner tone="info">{t('form.drpNotAssessed')}</Banner>
+            )}
+            <ul className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
+              {s.checkboxes.labels.map((l, i) => {
+                const on = s.checkboxes!.ticked?.[i] ?? false;
+                return (
+                  <li key={l.en} className={`flex items-center gap-2 ${s.checkboxes!.ticked ? 'text-slate-900' : 'text-slate-500'}`} data-checked={on}>
+                    <span
+                      aria-hidden="true"
+                      className={`inline-flex h-4 w-4 items-center justify-center rounded border text-[10px] font-bold ${on ? 'border-teal-800 bg-teal-800 text-white' : s.checkboxes!.ticked ? 'border-slate-500' : 'border-dashed border-slate-400'}`}
+                    >
+                      {on ? '✓' : ''}
+                    </span>
+                    <span className="sr-only">{on ? '☑' : '☐'}</span>
+                    <Label l={l} />
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

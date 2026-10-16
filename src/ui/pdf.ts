@@ -1,0 +1,68 @@
+/**
+ * Local PDF reading with pdf.js (Apache-2.0), loaded only when a PDF is added.
+ * Pages are rendered on the device, then go through the same redaction step
+ * as photographs; nothing leaves the device. Evaluation of PDF functions is
+ * disabled (the Content-Security-Policy forbids eval anyway).
+ */
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+export const MAX_PDF_PAGES = 20;
+const MAX_SIDE = 2000;
+
+export interface LoadedPdf {
+  pages: number;
+  renderPage: (n: number) => Promise<HTMLCanvasElement>;
+  /** The embedded text layer (empty for scanned documents). */
+  text: () => Promise<string>;
+  destroy: () => void;
+}
+
+export async function loadPdf(file: File): Promise<LoadedPdf> {
+  const pdfjs = await import('pdfjs-dist');
+  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false, enableXfa: false }).promise;
+  return {
+    pages: doc.numPages,
+    async renderPage(n) {
+      const page = await doc.getPage(n);
+      const base = page.getViewport({ scale: 1 });
+      const scale = Math.min(3, MAX_SIDE / Math.max(base.width, base.height));
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      page.cleanup();
+      return canvas;
+    },
+    async text() {
+      const parts: string[] = [];
+      for (let i = 1; i <= Math.min(doc.numPages, MAX_PDF_PAGES); i++) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        let line = '';
+        for (const item of content.items) {
+          if (!('str' in item)) continue;
+          line += item.str;
+          if (item.hasEOL) {
+            parts.push(line);
+            line = '';
+          } else line += ' ';
+        }
+        if (line.trim()) parts.push(line);
+        parts.push('');
+      }
+      return parts
+        .map((l) => l.replace(/[ \t]+/g, ' ').trimEnd())
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    },
+    destroy() {
+      void doc.destroy();
+    },
+  };
+}

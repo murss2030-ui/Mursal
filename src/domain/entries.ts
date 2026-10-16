@@ -49,7 +49,11 @@ export type FieldError =
   | 'tooLong'
   | 'invalidChoice'
   | 'time'
-  | 'hospitalDay';
+  | 'hospitalDay'
+  | 'tooLarge'
+  | 'unknownField'
+  | 'unknownTask'
+  | 'confirm';
 
 export type Values = Record<string, string>;
 export type Errors = Record<string, FieldError>;

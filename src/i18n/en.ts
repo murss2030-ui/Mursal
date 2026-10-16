@@ -44,6 +44,10 @@ export const en = {
   'err.invalidChoice': 'Choose one of the listed options.',
   'err.time': 'Use the 24-hour format HH:MM.',
   'err.hospitalDay': 'The hospital day must be between −90 and 730.',
+  'err.tooLarge': 'This file is too large.',
+  'err.unknownField': 'This field is not part of the form.',
+  'err.unknownTask': 'Unknown task.',
+  'err.confirm': 'Please confirm this statement.',
   'err.generic': 'Could not save: {message}',
   'err.fixFields': 'Some fields need attention.',
 
@@ -373,7 +377,15 @@ export const en = {
     'Your reviewed text for Section 5 (interpretation) and Section 6 (assessment). Each save creates a new version; earlier versions stay readable in the audit log.',
   'form.rowsEmpty': 'Nothing recorded.',
   'form.drpNotAssessed':
-    'Not assessed. DRP classification arrives with M4 — unticked boxes here would wrongly suggest there are no problems.',
+    'Not assessed: no drug-related problem has been recorded in Task 5. Unticked boxes here would wrongly suggest there are no problems.',
+  'form.drpTicked': 'Ticked from the categories of your DRP cards (Task 5). PCNE V9.1 codes are added in M4.',
+  'form.drpNoneRecorded': 'Task 5 is marked done with no DRP recorded. This is not evidence that none exists.',
+  'form.openTask': 'Open task',
+  'form.missing.no_bpmh': 'no pre-admission medication list recorded (Task 2)',
+  'form.missing.not_compared': 'not yet compared with the admission orders',
+  'form.missing.no_discharge_decision': 'no discharge decision recorded',
+  'form.missing.no_final_recommendation': 'no recommendation marked final yet',
+  'form.missing.no_next_review': 'no next review day',
   'form.calcNote': 'BMI and CrCl/eGFR come only from the calculation engine (M2). They are never typed.',
   'form.row': 'Row: {row}',
 

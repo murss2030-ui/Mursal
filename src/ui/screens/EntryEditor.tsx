@@ -30,9 +30,11 @@ import { useCaseVersions, useEntries } from '../data';
 import { usePersistentDraft } from '../hooks';
 import { navigate } from '../router';
 import { useSession } from '../session-context';
+import { SourcePeek } from './SourceViewer';
 
 export type EditorMode =
-  | { kind: 'new'; type: string; category: string }
+  /** `src`: the source document being transcribed; `back`: where to return after saving. */
+  | { kind: 'new'; type: string; category: string; src?: string; back?: string }
   | { kind: 'correct'; entryId: string }
   | { kind: 'med_change'; medId: string }
   | { kind: 'med_stop'; medId: string }
@@ -394,6 +396,8 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
   if (!draft.ready) return <p className="text-slate-600">{t('common.loading')}</p>;
 
   const retracting = mode.kind === 'correct' && v.correctionKind === 'retract';
+  // Only in-app destinations of this case are accepted as a return path.
+  const backTo = mode.kind === 'new' && mode.back && mode.back.startsWith(`/cases/${c.id}/`) ? mode.back : undefined;
 
   const save = async () => {
     const editorHash = window.location.hash;
@@ -437,13 +441,17 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
           hospitalDay: m.hospitalDay,
           timeOfDay: m.timeOfDay,
           payload: (built as { payload: TimelineEntry['payload'] }).payload,
+          sourceAttachmentId: mode.kind === 'new' && mode.src ? mode.src : undefined,
         });
       }
       await draft.clear();
-      // Only return to the timeline if the trainee is still on this editor; never pull them off a screen they moved to.
+      // Only leave if the trainee is still on this editor; never pull them off a screen they moved to.
       if (window.location.hash === editorHash) {
-        navigate(`/cases/${c.id}/timeline`);
-        window.setTimeout(() => document.getElementById(`entry-${saved.id}`)?.scrollIntoView({ block: 'center' }), 300);
+        if (backTo) navigate(backTo);
+        else {
+          navigate(`/cases/${c.id}/timeline`);
+          window.setTimeout(() => document.getElementById(`entry-${saved.id}`)?.scrollIntoView({ block: 'center' }), 300);
+        }
       }
     } catch (e) {
       if (e instanceof ValidationError) setErrors(e.errors);
@@ -460,7 +468,8 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
 
   return wrap(
     <>
-      <PageTitle back={`#/cases/${c.id}/timeline`}>{t(titleKey)}</PageTitle>
+      <PageTitle back={backTo ? `#${backTo}` : `#/cases/${c.id}/timeline`}>{t(titleKey)}</PageTitle>
+      {mode.kind === 'new' && mode.src && <SourcePeek caseId={c.id} attachmentId={mode.src} />}
       {draft.restored && (
         <Banner tone="info">
           <div className="flex flex-wrap items-center justify-between gap-2">

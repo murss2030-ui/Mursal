@@ -8,14 +8,16 @@
  * export.
  */
 import { APP_VERSION } from '../config/release';
-import { fromBase64, open, toBase64, unwrapDataKey, type KeyMaterial } from '../crypto/crypto';
+import { fromBase64, openBytes, toBase64, unwrapDataKey, type KeyMaterial } from '../crypto/crypto';
 import { INTENDED_USE_STATEMENT } from '../domain/intendedUse';
 import { ENCRYPTED_TABLES, type EncryptedRow, type EncryptedTableName } from './db';
 import type { Prefs, Session } from './session';
 import { IntegrityError, rowAad } from './store';
 
 export const BACKUP_FORMAT = 'preceptor-backup';
-export const BACKUP_FORMAT_VERSION = 1;
+/** Version 2 adds the patient file (attachments, blobs) and the clinical modules (tasks, items). Version 1 files still restore. */
+export const BACKUP_FORMAT_VERSION = 2;
+const READABLE_FORMAT_VERSIONS = [1, 2];
 
 /** Working drafts are transient and not part of the record. */
 const BACKED_UP_TABLES = ENCRYPTED_TABLES.filter((t) => t !== 'uiDrafts');
@@ -83,7 +85,7 @@ function parseBackup(json: string): BackupFile {
     throw new BackupFormatError('This file is not a PRECEPTOR backup (it is not valid JSON).');
   }
   if (f?.format !== BACKUP_FORMAT) throw new BackupFormatError('This file is not a PRECEPTOR backup.');
-  if (f.formatVersion !== BACKUP_FORMAT_VERSION) {
+  if (!READABLE_FORMAT_VERSIONS.includes(f.formatVersion)) {
     throw new BackupFormatError(`Unsupported backup format version ${String(f.formatVersion)}.`);
   }
   if (!f.keyMaterial || typeof f.tables !== 'object') throw new BackupFormatError('The backup is incomplete.');
@@ -118,7 +120,7 @@ export async function restoreBackup(session: Session, json: string, passphrase: 
     }));
     for (const r of rows) {
       const { iv, ct, ...index } = r;
-      await open(key, { iv, ct }, rowAad(t, index)); // throws DecryptionError on any tampering
+      await openBytes(key, { iv, ct }, rowAad(t, index)); // authenticates every row; throws DecryptionError on any tampering
     }
     restored.push({ table: t, rows });
     count += rows.length;

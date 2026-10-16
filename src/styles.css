@@ -5,10 +5,11 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
-    background-color: #f8fafc;
+    background-color: #f7f5f0;
   }
   body {
-    @apply bg-slate-50 font-sans text-slate-900 antialiased;
+    @apply bg-paper font-sans text-slate-900 antialiased;
+    font-feature-settings: 'kern', 'liga';
   }
   :focus-visible {
     outline: 2px solid #0f766e;
@@ -16,6 +17,28 @@
   }
   /* Arabic text needs a little more line height to stay legible. */
   html[lang='ar'] body {
-    line-height: 1.65;
+    line-height: 1.7;
+  }
+  /* Clinical numbers line up in columns. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .surface {
+    @apply rounded-2xl border border-line bg-white shadow-card;
+  }
+}
+
+@media print {
+  header,
+  nav,
+  [data-testid='disclaimer-footer'],
+  [data-print='hide'] {
+    display: none !important;
+  }
+  main {
+    padding-bottom: 0 !important;
   }
 }

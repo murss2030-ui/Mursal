@@ -42,12 +42,31 @@ const PATHS = {
   workflow: 'M4 4h6v6H4zM14 14h6v6h-6zM7 10v4a3 3 0 003 3h4',
   graduation: 'M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5',
   briefcase: 'M3 8h18v12H3zM8 8V5h8v3',
+  shield: 'M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6zM9 12l2 2 4-4',
+  door: 'M4 21h16M6 21V4h9v17M15 4l4 2v15M11.5 12.5h.01',
+  camera: 'M3 8h4l2-3h6l2 3h4v12H3zM15.5 13.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0z',
+  type: 'M4 7V5h16v2M9 19h6M12 5v14',
+  'file-plus': 'M6 2h9l5 5v15H6zM14 2v6h6M12 11v6M9 14h6',
+  check: 'M5 12.5l4.5 4.5L19 7.5',
+  minus: 'M6 12h12',
+  'chevron-down': 'M6 9l6 6 6-6',
+  trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+  rotate: 'M20 12a8 8 0 11-2.34-5.66M20 4v5h-5',
+  square: 'M5 5h14v14H5z',
+  brush: 'M14 4l6 6-8.5 8.5a2.5 2.5 0 01-3.5 0l-.5-.5a2.5 2.5 0 010-3.5zM8 16c-1 2-3 3-5 3 1-2 1-4 3-5',
+  hand: 'M8 13V5.5a1.5 1.5 0 013 0V11M11 10V4.5a1.5 1.5 0 013 0V11M14 10.5V6a1.5 1.5 0 013 0v7a7 7 0 01-7 7h-.5a6 6 0 01-4.6-2.2L3 15.3a1.6 1.6 0 012.4-2.1L8 15.5',
+  'zoom-in': 'M11 18a7 7 0 100-14 7 7 0 000 14zM21 21l-5-5M11 8v6M8 11h6',
+  undo: 'M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3',
+  layers: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5',
+  compass: 'M21 12a9 9 0 11-18 0 9 9 0 0118 0zM15.5 8.5l-2 5-5 2 2-5z',
+  sparkle: 'M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.5 2.5M15.2 15.2l2.5 2.5M6.3 17.7l2.5-2.5M15.2 8.8l2.5-2.5',
+  arrow: 'M5 12h14M13 6l6 6-6 6',
 } as const;
 
 export type IconName = keyof typeof PATHS;
 
 export function Icon({ name, className = 'h-5 w-5', label }: { name: IconName; className?: string; label?: string }) {
-  const flip = name === 'chevron-back' || name === 'chevron-forward' ? ' rtl:-scale-x-100' : '';
+  const flip = name === 'chevron-back' || name === 'chevron-forward' || name === 'arrow' ? ' rtl:-scale-x-100' : '';
   return (
     <svg
       viewBox="0 0 24 24"

@@ -58,8 +58,8 @@ export default defineConfig({
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#f8fafc',
-        theme_color: '#134e4a',
+        background_color: '#f7f5f0',
+        theme_color: '#0b2e2f',
         lang: 'en',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
@@ -68,10 +68,12 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,webmanifest}'],
+        globPatterns: ['**/*.{js,mjs,css,html,png,svg,webmanifest,woff2}'],
+        // The PDF renderer's worker (used only when a PDF is added) is about 1.4 MB.
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
-        // No runtime caching: M1 makes no network requests beyond its own shell.
+        // No runtime caching: PRECEPTOR makes no network requests beyond its own shell.
       },
       devOptions: { enabled: false },
     }),

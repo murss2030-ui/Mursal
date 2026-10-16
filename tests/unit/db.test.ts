@@ -40,6 +40,18 @@ describe('append-only tables', () => {
     });
   }
 
+  it('lets source content be added or purged by key, but never overwritten or cleared in bulk', async () => {
+    await db.blobs.add(row('att-1', { caseId: 'CASE-1' }));
+    const before = await db.blobs.get('att-1');
+    await expect(db.blobs.put(row('att-1'))).rejects.toThrow(/never overwritten/);
+    await expect(db.blobs.update('att-1', { caseId: 'CASE-2' })).rejects.toThrow();
+    await expect(db.blobs.clear()).rejects.toThrow(/never overwritten/);
+    await expect(db.blobs.add(row('att-1'))).rejects.toMatchObject({ name: 'ConstraintError' });
+    expect(await db.blobs.get('att-1')).toEqual(before);
+    await db.blobs.delete('att-1');
+    expect(await db.blobs.count()).toBe(0);
+  });
+
   it('lets mutable tables (settings, working drafts) be replaced and deleted', async () => {
     await db.settings.add(row('trainee'));
     await db.settings.put(row('trainee', { caseId: 'x' }));

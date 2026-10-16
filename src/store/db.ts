@@ -29,9 +29,25 @@ export interface MetaRow {
   value: unknown;
 }
 
-export const APPEND_ONLY_TABLES = ['rotations', 'cases', 'identifiers', 'timeline', 'formDrafts', 'audit'] as const;
+export const APPEND_ONLY_TABLES = [
+  'rotations',
+  'cases',
+  'identifiers',
+  'timeline',
+  'formDrafts',
+  'audit',
+  'attachments',
+  'tasks',
+  'items',
+] as const;
+/**
+ * Source-document content. Rows can be added and, only to purge a document
+ * (e.g. a page found to show an identifier), deleted — never overwritten. The
+ * attachment's metadata and the removal itself stay in append-only tables.
+ */
+export const PURGEABLE_TABLES = ['blobs'] as const;
 export const MUTABLE_ENCRYPTED_TABLES = ['settings', 'uiDrafts'] as const;
-export const ENCRYPTED_TABLES = [...APPEND_ONLY_TABLES, ...MUTABLE_ENCRYPTED_TABLES] as const;
+export const ENCRYPTED_TABLES = [...APPEND_ONLY_TABLES, ...PURGEABLE_TABLES, ...MUTABLE_ENCRYPTED_TABLES] as const;
 export type EncryptedTableName = (typeof ENCRYPTED_TABLES)[number];
 export type AppendOnlyTableName = (typeof APPEND_ONLY_TABLES)[number];
 
@@ -42,23 +58,43 @@ export class AppendOnlyViolationError extends Error {
   }
 }
 
+export class PurgeOnlyViolationError extends Error {
+  constructor(table: string, op: string) {
+    super(`"${table}" rows can be added or purged, never overwritten: "${op}" is not permitted.`);
+    this.name = 'PurgeOnlyViolationError';
+  }
+}
+
 const appendOnlyMiddleware: Middleware<DBCore> = {
   stack: 'dbcore',
   name: 'preceptor-append-only',
   create(down) {
     const guarded = new Set<string>(APPEND_ONLY_TABLES);
+    const purgeable = new Set<string>(PURGEABLE_TABLES);
     return {
       ...down,
       table(name) {
         const table = down.table(name);
-        if (!guarded.has(name)) return table;
-        return {
-          ...table,
-          mutate(req: DBCoreMutateRequest) {
-            if (req.type !== 'add') return Promise.reject(new AppendOnlyViolationError(name, req.type));
-            return table.mutate(req);
-          },
-        };
+        if (guarded.has(name)) {
+          return {
+            ...table,
+            mutate(req: DBCoreMutateRequest) {
+              if (req.type !== 'add') return Promise.reject(new AppendOnlyViolationError(name, req.type));
+              return table.mutate(req);
+            },
+          };
+        }
+        if (purgeable.has(name)) {
+          return {
+            ...table,
+            mutate(req: DBCoreMutateRequest) {
+              // Explicit keys only: a range delete (clear) could purge content without its audit record.
+              if (req.type === 'add' || req.type === 'delete') return table.mutate(req);
+              return Promise.reject(new PurgeOnlyViolationError(name, req.type));
+            },
+          };
+        }
+        return table;
       },
     };
   },
@@ -74,6 +110,10 @@ export class PreceptorDB extends Dexie {
   timeline!: Table<EncryptedRow, string>;
   formDrafts!: Table<EncryptedRow, string>;
   audit!: Table<EncryptedRow, string>;
+  attachments!: Table<EncryptedRow, string>;
+  blobs!: Table<EncryptedRow, string>;
+  tasks!: Table<EncryptedRow, string>;
+  items!: Table<EncryptedRow, string>;
 
   constructor(name = 'preceptor') {
     super(name);
@@ -89,6 +129,13 @@ export class PreceptorDB extends Dexie {
       // Unique index: an entry can be superseded at most once, so corrections form a single chain.
       timeline: 'id, caseId, &supersedesEntryId',
       audit: 'id, caseId',
+    });
+    // Revision 2 of M1 (owner's change request): the patient file and the clinical modules.
+    this.version(2).stores({
+      attachments: 'id, entityId, caseId',
+      blobs: 'id, caseId',
+      tasks: 'id, entityId, caseId',
+      items: 'id, entityId, caseId',
     });
     this.use(appendOnlyMiddleware);
   }

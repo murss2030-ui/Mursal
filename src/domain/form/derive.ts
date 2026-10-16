@@ -20,10 +20,14 @@ import type {
   NoteCategory,
   NotePayload,
   ProvenanceState,
+  RegisterId,
+  RegisterItem,
+  TaskRecord,
   TextNoteCategory,
   TimelineEntry,
   TraineeSettings,
 } from '../types';
+import { choiceLabel, DRP_CATEGORIES } from '../workflow/registers';
 import { DRP_CHECKBOXES, FIELD_LABELS, FORM_DEPENDENCIES, SECTION_TITLES, type FieldKey, type FormLabel } from './spec';
 
 export type CopyMode = 'teaching' | 'ward';
@@ -40,7 +44,23 @@ export interface FieldItem {
   entryId?: string;
 }
 
-export type MissingCode = 'family_history' | 'social_history' | 'khat_use' | 'no_indication' | 'room_bed' | 'ward';
+export type MissingCode =
+  | 'family_history'
+  | 'social_history'
+  | 'khat_use'
+  | 'no_indication'
+  | 'room_bed'
+  | 'ward'
+  /** Section 4: no pre-admission list (Task 2) recorded yet. */
+  | 'no_bpmh'
+  /** Section 4: a home medication not yet compared with the admission orders. */
+  | 'not_compared'
+  /** Section 4: a discharged patient's medication without a discharge decision. */
+  | 'no_discharge_decision'
+  /** Section 9: DRPs exist but no recommendation is marked final. */
+  | 'no_final_recommendation'
+  /** Section 10: a monitoring parameter without a next review day. */
+  | 'no_next_review';
 export type FormNote = 'case_id_replaces_identifier' | 'room_withheld' | 'nkda_conflict' | 'interpretation_needs_rereview';
 
 export type FieldState =
@@ -57,7 +77,9 @@ export type EditTarget =
   | { kind: 'case_details' }
   | { kind: 'add_entry'; type: EntryType; category?: NoteCategory }
   | { kind: 'draft'; key: string }
-  | { kind: 'settings' };
+  | { kind: 'settings' }
+  /** A Clinical Modules task where the data is entered (M1 revision). */
+  | { kind: 'task'; taskId: string };
 
 export interface FormFieldView {
   key: FieldKey;
@@ -84,7 +106,8 @@ export interface FormSectionView {
   title: FormLabel;
   fields: FormFieldView[];
   table?: FormTableView;
-  checkboxes?: { labels: readonly FormLabel[]; state: FieldState };
+  /** `ticked` is present only when the state is a value: an unticked box then means "not recorded", never "no problem". */
+  checkboxes?: { labels: readonly FormLabel[]; state: FieldState; ticked?: readonly boolean[] };
 }
 
 export interface MissingItem {
@@ -108,6 +131,10 @@ export interface FormContext {
   entries: readonly TimelineEntry[];
   draft?: FormDraft;
   trainee?: TraineeSettings;
+  /** Register rows from the Clinical Modules (all statuses; retracted rows are ignored). */
+  items?: readonly RegisterItem[];
+  /** Task worksheets from the Clinical Modules. */
+  tasks?: readonly TaskRecord[];
   mode: CopyMode;
 }
 
@@ -135,6 +162,27 @@ const fromEntry = (e: TimelineEntry, text: string, withDay = true): FieldItem =>
   entryId: e.id,
   ...(withDay ? { day: e.hospitalDay } : {}),
 });
+
+const fromItem = (text: string, provenance: ProvenanceState = 'user_entered', day?: number): FieldItem => ({
+  text,
+  provenance,
+  ...(day !== undefined ? { day } : {}),
+});
+
+function activeItems(ctx: FormContext, register: RegisterId): RegisterItem[] {
+  return (ctx.items ?? []).filter((i) => i.register === register && i.status === 'active');
+}
+
+/** English label of a choice (the form is the department's English artefact). */
+function choiceEn(register: RegisterId, field: string, v: string | undefined): string | undefined {
+  return v ? choiceLabel(register, field, v)?.en ?? v : undefined;
+}
+
+function taskDone(ctx: FormContext, taskId: string): boolean {
+  return ctx.tasks?.some((t) => t.taskId === taskId && t.status === 'done') ?? false;
+}
+
+const dayNum = (v: string | undefined): number | undefined => (v !== undefined && /^-?\d+$/.test(v) ? Number(v) : undefined);
 
 type NoteFor<C extends NotePayload['category']> = C extends TextNoteCategory
   ? Extract<NotePayload, { text: string }>
@@ -321,33 +369,83 @@ function medLabel(drug: string, brand?: string): string {
   return brand ? `${drug} (${brand})` : drug;
 }
 
-function section4(current: readonly TimelineEntry[]): FormSectionView {
+function section4(ctx: FormContext, current: readonly TimelineEntry[]): FormSectionView {
   const courses = deriveMedCourses(current);
-  const rows: FormRowView[] = courses.map((c) => {
+  const homeMeds = activeItems(ctx, 'home_med');
+  const dischargeMeds = activeItems(ctx, 'discharge_med');
+  const discharged = ctx.case.status === 'discharged';
+  const toTask = { kind: 'task', taskId: 't02' } as const;
+  const toDischarge = { kind: 'task', taskId: 't20' } as const;
+  const linked = new Set(homeMeds.map((h) => h.fields.linkedMedId).filter(Boolean));
+
+  const duringOf = (medId: string | undefined): FieldItem | undefined => {
+    const c = medId ? courses.find((x) => x.medId === medId) : undefined;
+    if (!c) return undefined;
     const last = [c.start, ...c.changes].sort(compareEntries).pop()!;
+    return { text: regimenText(c), dayRange: [c.startDay, c.stopDay ?? null], provenance: last.provenance, entryId: last.id };
+  };
+
+  const homeRows: FormRowView[] = homeMeds.map((h) => {
+    const fl = h.fields;
+    const during = duringOf(fl.linkedMedId);
+    const status = choiceEn('home_med', 'admissionStatus', fl.admissionStatus);
+    let duringState: FieldState;
+    if (during) duringState = value([during, ...(status ? [fromItem(status)] : [])]);
+    else if (fl.admissionStatus && fl.admissionStatus !== 'not_reviewed') duringState = value([fromItem(status!)]);
+    else duringState = missing('not_compared');
+
+    let dischargeState: FieldState = discharged ? missing('no_discharge_decision') : EMPTY;
+    if (fl.dischargeDecision) {
+      const d = choiceEn('home_med', 'dischargeDecision', fl.dischargeDecision)!;
+      dischargeState = value([fromItem(fl.dischargeNote ? `${d}: ${fl.dischargeNote}` : d)]);
+    }
+    const action = [
+      choiceEn('home_med', 'discrepancy', fl.discrepancy),
+      choiceEn('home_med', 'discrepancyType', fl.discrepancyType),
+      choiceEn('home_med', 'resolution', fl.resolution),
+      fl.action,
+    ].filter(Boolean);
     return {
-      key: c.medId,
+      key: `home:${h.id}`,
       cells: [
-        f('s4.medication', value([fromEntry(c.start, medLabel(c.drug, c.brand), false)])),
-        f('s4.before', notYet(FORM_DEPENDENCIES['s4.before']!)),
-        f(
-          's4.during',
-          value([{ text: regimenText(c), dayRange: [c.startDay, c.stopDay ?? null], provenance: last.provenance, entryId: last.id }]),
-        ),
-        f('s4.discharge', notYet(FORM_DEPENDENCIES['s4.discharge']!)),
-        f('s4.action', notYet(FORM_DEPENDENCIES['s4.action']!)),
+        f('s4.medication', value([fromItem(fl.brand ? `${fl.drug} (${fl.brand})` : fl.drug!)]), toTask),
+        f('s4.before', value([fromItem(fl.regimen ?? fl.drug!)]), toTask),
+        f('s4.during', duringState, toTask),
+        f('s4.discharge', dischargeState, toDischarge),
+        f('s4.action', action.length ? value([fromItem(action.join('; '))]) : EMPTY, toTask),
       ],
     };
   });
+
+  const inpatientRows: FormRowView[] = courses
+    .filter((c) => !linked.has(c.medId))
+    .map((c) => {
+      const plan = dischargeMeds.find((d) => d.fields.drug?.trim().toLowerCase() === c.drug.trim().toLowerCase());
+      let dischargeState: FieldState = discharged ? missing('no_discharge_decision') : EMPTY;
+      if (plan) dischargeState = value([fromItem(`${choiceEn('discharge_med', 'change', plan.fields.change)}: ${plan.fields.regimen}`)]);
+      else if (c.status === 'stopped') dischargeState = value([{ text: 'Stopped in hospital', day: c.stopDay, provenance: c.stop?.provenance, entryId: c.stop?.id }]);
+      return {
+        key: c.medId,
+        cells: [
+          f('s4.medication', value([fromEntry(c.start, medLabel(c.drug, c.brand), false)])),
+          // Absence from the pre-admission list is stated as exactly that — never as "not taken".
+          f('s4.before', homeMeds.length ? value([{ text: 'Not on the pre-admission list' }]) : missing('no_bpmh'), toTask),
+          f('s4.during', value([duringOf(c.medId)!])),
+          f('s4.discharge', dischargeState, toDischarge),
+          f('s4.action', EMPTY, toTask),
+        ],
+      };
+    });
+
   return {
     number: 4,
     title: SECTION_TITLES[4]!,
     fields: [],
     table: {
       columns: ['s4.medication', 's4.before', 's4.during', 's4.discharge', 's4.action'],
-      rows,
+      rows: [...homeRows, ...inpatientRows],
       emptyState: missing(),
-      addTarget: { kind: 'add_entry', type: 'med_start' },
+      addTarget: toTask,
     },
   };
 }
@@ -466,8 +564,121 @@ function section6(ctx: FormContext, current: readonly TimelineEntry[]): FormSect
   };
 }
 
+function section7(ctx: FormContext): FormSectionView {
+  const rows: FormRowView[] = activeItems(ctx, 'interaction').map((i) => {
+    const fl = i.fields;
+    const kind = fl.kind !== 'drug_drug' ? ` (${choiceEn('interaction', 'kind', fl.kind)})` : '';
+    return {
+      key: i.id,
+      cells: [
+        f('s7.drugA', value([fromItem(fl.drugA!)])),
+        f('s7.drugB', value([fromItem(`${fl.drugB}${kind}`)])),
+        f('s7.severity', value([fromItem(choiceEn('interaction', 'severity', fl.severity)!)])),
+        f('s7.mechanism', fl.mechanism ? value([fromItem(fl.mechanism)]) : EMPTY),
+        // Each row carries its source attribution (Section 15): here, where the trainee checked it.
+        f('s7.management', value([fromItem(`${fl.management} — Source: ${fl.source}`)])),
+      ],
+    };
+  });
+  const done = taskDone(ctx, 't06');
+  return {
+    number: 7,
+    title: SECTION_TITLES[7]!,
+    fields: [],
+    table: {
+      columns: ['s7.drugA', 's7.drugB', 's7.severity', 's7.mechanism', 's7.management'],
+      rows,
+      // With Task 6 marked done and nothing recorded, say exactly that — never "no interactions".
+      emptyState: done ? value([{ text: 'None recorded by the trainee (Task 6 marked done)' }]) : missing(),
+      addTarget: { kind: 'task', taskId: 't06' },
+    },
+  };
+}
+
+function section8(ctx: FormContext): FormSectionView {
+  const drps = activeItems(ctx, 'drp');
+  const toTask = { kind: 'task', taskId: 't05' } as const;
+  if (!drps.length) {
+    const done = taskDone(ctx, 't05');
+    return {
+      number: 8,
+      title: SECTION_TITLES[8]!,
+      fields: [f('s8.explanation', done ? value([{ text: 'None recorded by the trainee (Task 5 marked done)' }]) : missing(), toTask)],
+      checkboxes: { labels: DRP_CHECKBOXES, state: done ? EMPTY : missing() },
+    };
+  }
+  const cats = new Set(drps.map((d) => d.fields.category));
+  const items = drps.map((d) => fromItem(`${d.fields.problem} — ${choiceEn('drp', 'category', d.fields.category)}${d.fields.drugs ? ` (${d.fields.drugs})` : ''}`));
+  return {
+    number: 8,
+    title: SECTION_TITLES[8]!,
+    fields: [f('s8.explanation', value(items), toTask)],
+    // The category IS the box (no mapping); PCNE codes and their tested map arrive in M4.
+    checkboxes: { labels: DRP_CHECKBOXES, state: value([]), ticked: DRP_CATEGORIES.map((c) => cats.has(c.value)) },
+  };
+}
+
+function section9(ctx: FormContext): FormSectionView {
+  const drps = activeItems(ctx, 'drp');
+  const finals = drps.filter((d) => d.fields.recStatus === 'final' && d.fields.recommendation);
+  const toTask = { kind: 'task', taskId: 't13' } as const;
+  if (!finals.length) {
+    return { number: 9, title: SECTION_TITLES[9]!, fields: [f('s9.text', drps.length ? missing('no_final_recommendation') : missing(), toTask)] };
+  }
+  const items: FieldItem[] = [];
+  for (const d of finals) {
+    const fl = d.fields;
+    const response = choiceEn('drp', 'response', fl.response);
+    items.push(fromItem(`${fl.recommendation}${response ? ` — Team response: ${response}` : ''}${fl.declineReason ? ` (${fl.declineReason})` : ''}`));
+    // Proposed, implemented and measured are separate items with separate provenance, so they never render alike.
+    if (fl.implemented === 'yes') items.push(fromItem(`Implemented by ${fl.implementedBy}`, 'implemented', dayNum(fl.implementedDay)));
+    if (fl.goalMet && fl.goalMet !== 'not_measured') {
+      items.push(fromItem(`Outcome: ${fl.outcome} — ${choiceEn('drp', 'goalMet', fl.goalMet)}`, 'outcome_documented', dayNum(fl.outcomeDay)));
+    }
+  }
+  return { number: 9, title: SECTION_TITLES[9]!, fields: [f('s9.text', value(items), toTask)] };
+}
+
+function section10(ctx: FormContext): FormSectionView {
+  const teachingCopy = ctx.case.kind === 'teaching' || ctx.mode === 'teaching';
+  const toTask = { kind: 'task', taskId: 't11' } as const;
+  const rows: FormRowView[] = activeItems(ctx, 'monitoring')
+    .filter((m) => m.fields.status === 'active')
+    .map((m) => {
+      const fl = m.fields;
+      const day = dayNum(fl.nextDay);
+      return {
+        key: m.id,
+        cells: [
+          f('s10.parameters', value([fromItem(fl.forWhat ? `${fl.parameter} — ${fl.forWhat}` : fl.parameter!)]), toTask),
+          f('s10.frequency', value([fromItem(fl.frequency!)]), toTask),
+          f('s10.target', value([fromItem(fl.target!)]), toTask),
+          // A real scheduled day; the calendar date is shown in the Ward copy only.
+          f(
+            's10.nextReview',
+            day === undefined
+              ? missing('no_next_review')
+              : value([{ day, ...(teachingCopy ? {} : { date: dateOfHospitalDay(ctx.case.admissionDay0, day) }), provenance: 'user_entered' }]),
+            toTask,
+          ),
+        ],
+      };
+    });
+  return {
+    number: 10,
+    title: SECTION_TITLES[10]!,
+    fields: [],
+    table: { columns: ['s10.parameters', 's10.frequency', 's10.target', 's10.nextReview'], rows, emptyState: missing(), addTarget: toTask },
+  };
+}
+
 function section11(ctx: FormContext): FormSectionView {
   const name = ctx.trainee?.traineeName;
+  const refs = activeItems(ctx, 'reference').map((r) => {
+    const fl = r.fields;
+    const by = [fl.publisher, fl.year].filter(Boolean).join(', ');
+    return fromItem(`${fl.title}${by ? ` — ${by}` : ''} (${choiceEn('reference', 'type', fl.type)}; read by the trainee)`);
+  });
   return {
     number: 11,
     title: SECTION_TITLES[11]!,
@@ -475,7 +686,7 @@ function section11(ctx: FormContext): FormSectionView {
       f('s11.name', name ? value([typed(name)]) : missing(), { kind: 'settings' }),
       f('s11.date', notYet(FORM_DEPENDENCIES['s11.date']!)),
       f('s11.signature', { kind: 'signature_line' }),
-      f('s11.references', notYet(FORM_DEPENDENCIES['s11.references']!)),
+      f('s11.references', refs.length ? value(refs) : missing(), { kind: 'task', taskId: 't23' }),
     ],
   };
 }
@@ -488,37 +699,13 @@ export function deriveForm(ctx: FormContext): FormView {
     section1(ctx, current),
     section2(current),
     section3(current),
-    section4(current),
+    section4(ctx, current),
     section5(ctx, current),
     section6(ctx, current),
-    {
-      number: 7,
-      title: SECTION_TITLES[7]!,
-      fields: [],
-      table: {
-        columns: ['s7.drugA', 's7.drugB', 's7.severity', 's7.mechanism', 's7.management'],
-        rows: [],
-        emptyState: notYet(FORM_DEPENDENCIES.section7!),
-      },
-    },
-    {
-      number: 8,
-      title: SECTION_TITLES[8]!,
-      fields: [f('s8.explanation', notYet(FORM_DEPENDENCIES.section8!))],
-      // Unticked boxes would imply "no problems"; until DRPs are classified (M4) the list is shown as not assessed.
-      checkboxes: { labels: DRP_CHECKBOXES, state: notYet(FORM_DEPENDENCIES.section8!) },
-    },
-    { number: 9, title: SECTION_TITLES[9]!, fields: [f('s9.text', notYet(FORM_DEPENDENCIES.section9!))] },
-    {
-      number: 10,
-      title: SECTION_TITLES[10]!,
-      fields: [],
-      table: {
-        columns: ['s10.parameters', 's10.frequency', 's10.target', 's10.nextReview'],
-        rows: [],
-        emptyState: notYet(FORM_DEPENDENCIES.section10!),
-      },
-    },
+    section7(ctx),
+    section8(ctx),
+    section9(ctx),
+    section10(ctx),
     section11(ctx),
   ];
 
@@ -550,7 +737,10 @@ export function deriveForm(ctx: FormContext): FormView {
         noteNotYet(sec.number, sec.title, sec.table.emptyState);
       }
     }
-    if (sec.checkboxes) noteNotYet(sec.number, sec.title, sec.checkboxes.state);
+    if (sec.checkboxes) {
+      noteNotYet(sec.number, sec.title, sec.checkboxes.state);
+      if (sec.checkboxes.state.kind === 'missing') missingItems.push({ section: sec.number, key: 'table', label: sec.title });
+    }
   }
   return { mode: ctx.case.kind === 'teaching' ? 'teaching' : ctx.mode, sections, missing: missingItems, notYet: notYetItems };
 }

@@ -7,10 +7,12 @@
  * would let the transaction auto-commit early); rows are sealed beforehand
  * and the transaction only performs synchronous-in-spirit Dexie operations.
  */
-import { open, seal } from '../crypto/crypto';
+import { open, openBytes, seal, sealBytes } from '../crypto/crypto';
 import { localToday } from '../domain/dates';
 import type { Errors } from '../domain/entries';
 import type {
+  Attachment,
+  AttachmentOrigin,
   AuditEvent,
   Case,
   CaseIdentifiers,
@@ -18,13 +20,21 @@ import type {
   EntryType,
   FormDraft,
   PayloadMap,
+  RegisterId,
+  RegisterItem,
   Rotation,
+  SourceDocType,
+  TaskRecord,
   TimelineEntry,
   TraineeSettings,
   Versioned,
 } from '../domain/types';
+import { REGISTER_IDS, SOURCE_DOC_TYPES } from '../domain/types';
+import { normalizeItemFields, REGISTERS } from '../domain/workflow/registers';
+import { normalizeTaskInput, type TaskInput } from '../domain/workflow/tasks';
+export type { TaskInput } from '../domain/workflow/tasks';
 import { isValidHospitalDay, isValidTimeOfDay } from '../domain/dates';
-import { indexTimeline, deriveMedCourses } from '../domain/timeline';
+import { indexTimeline, deriveMedCourses, deriveProblems } from '../domain/timeline';
 import {
   ValidationError,
   validateDemographics,
@@ -88,7 +98,27 @@ export interface NewEntryInput<K extends EntryType = EntryType> {
   hospitalDay: number;
   timeOfDay?: string;
   payload: PayloadMap[K];
+  /** The source document this entry was transcribed from (Section 7, sourceAttachmentId). */
+  sourceAttachmentId?: string;
 }
+
+export interface NewAttachmentInput {
+  kind: 'text' | 'image';
+  docType: SourceDocType;
+  title?: string;
+  hospitalDay?: number;
+  origin: AttachmentOrigin;
+  groupId?: string;
+  page?: number;
+  /** The trainee's confirmation that every identifier was removed. Nothing is stored without it. */
+  redactionConfirmed: boolean;
+  text?: string;
+  image?: { bytes: Uint8Array; width: number; height: number; thumb: Uint8Array };
+}
+
+export const MAX_SOURCE_TEXT = 200_000;
+export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+export const MAX_THUMB_BYTES = 200 * 1024;
 
 export type CorrectionInput =
   | { kind: 'amend'; reason: string; hospitalDay: number; timeOfDay?: string; payload: TimelineEntry['payload'] }
@@ -103,6 +133,9 @@ export interface StoreOptions {
 type AuditInput = Omit<AuditEvent, 'id' | 'at' | 'actor'> & { actor?: AuditEvent['actor'] };
 
 const APPEND_ONLY = new Set<string>(APPEND_ONLY_TABLES);
+
+/** Tables holding versioned records: one row per version, id `${entityId}@${version}`. */
+export type VersionedTable = 'rotations' | 'cases' | 'identifiers' | 'formDrafts' | 'attachments' | 'tasks' | 'items';
 
 export class Store {
   /** Decrypted immutable rows, keyed `${table}:${id}`. Cleared on lock. */
@@ -174,29 +207,23 @@ export class Store {
 
   // ------------------------------------------------------------------ versioned records
 
-  private async versionRows(table: EncryptedTableName, entityId: string): Promise<EncryptedRow[]> {
+  private async versionRows(table: VersionedTable, entityId: string): Promise<EncryptedRow[]> {
     const rows = await this.db.encryptedTable(table).where('entityId').equals(entityId).toArray();
     return rows.sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
   }
 
-  async history<T extends Versioned>(table: 'rotations' | 'cases' | 'identifiers' | 'formDrafts', entityId: string): Promise<T[]> {
+  async history<T extends Versioned>(table: VersionedTable, entityId: string): Promise<T[]> {
     return this.openRows<T>(table, await this.versionRows(table, entityId));
   }
 
-  async latest<T extends Versioned>(
-    table: 'rotations' | 'cases' | 'identifiers' | 'formDrafts',
-    entityId: string,
-  ): Promise<T | undefined> {
+  async latest<T extends Versioned>(table: VersionedTable, entityId: string): Promise<T | undefined> {
     const rows = await this.versionRows(table, entityId);
     const last = rows[rows.length - 1];
     return last ? this.openRow<T>(table, last) : undefined;
   }
 
   /** All versions in a set of raw rows, oldest first. */
-  async decodeVersions<T extends Versioned>(
-    table: 'rotations' | 'cases' | 'identifiers' | 'formDrafts',
-    rows: EncryptedRow[],
-  ): Promise<T[]> {
+  async decodeVersions<T extends Versioned>(table: VersionedTable, rows: EncryptedRow[]): Promise<T[]> {
     return this.openRows<T>(table, [...rows].sort((a, b) => (a.version ?? 0) - (b.version ?? 0)));
   }
 
@@ -205,7 +232,8 @@ export class Store {
     return this.decodeLatestOfAll<T>(table, await this.db.encryptedTable(table).toArray());
   }
 
-  async decodeLatestOfAll<T extends Versioned>(table: 'rotations' | 'cases', rows: EncryptedRow[]): Promise<T[]> {
+  /** Latest version of every entity among the given raw rows (e.g. all rows of one case). */
+  async decodeLatestOfAll<T extends Versioned>(table: VersionedTable, rows: EncryptedRow[]): Promise<T[]> {
     const newest = new Map<string, EncryptedRow>();
     for (const r of rows) {
       const cur = newest.get(r.entityId!);
@@ -217,25 +245,28 @@ export class Store {
   /**
    * Append version n+1. Optimistic concurrency: the row id embeds the version,
    * so a concurrent writer that took the same number makes `add` fail and we retry.
+   * `also` runs inside the same transaction (e.g. purging a document's content).
    */
   private async writeVersion<T extends Versioned>(
-    table: 'rotations' | 'cases' | 'identifiers' | 'formDrafts',
+    table: VersionedTable,
     entityId: string,
     build: (prev: T | undefined, version: number, at: string) => T,
     audit: (prev: T | undefined, next: T) => AuditInput,
-    extra: EncryptedRow[] = [],
+    opts: { caseId?: string; extraAudit?: EncryptedRow[]; also?: { tables: EncryptedTableName[]; run: () => Promise<void> } } = {},
   ): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       const prev = await this.latest<T>(table, entityId);
       const version = (prev?.version ?? 0) + 1;
       const next = stripUndefined(build(prev, version, this.nowIso()));
-      const row = await this.sealRow(table, { id: `${entityId}@${version}`, entityId, version }, next);
+      const row = await this.sealRow(table, { id: `${entityId}@${version}`, entityId, version, caseId: opts.caseId }, next);
       const auditRow = await this.auditRow(audit(prev, next));
+      const tables = [table, 'audit', ...(opts.also?.tables ?? [])].map((t) => this.db.encryptedTable(t as EncryptedTableName));
       try {
-        await this.db.transaction('rw', [this.db.encryptedTable(table), this.db.audit], async () => {
+        await this.db.transaction('rw', tables, async () => {
           await this.db.encryptedTable(table).add(row);
           await this.db.audit.add(auditRow);
-          for (const r of extra) await this.db.audit.add(r);
+          for (const r of opts.extraAudit ?? []) await this.db.audit.add(r);
+          if (opts.also) await opts.also.run();
         });
         return next;
       } catch (e) {
@@ -502,6 +533,7 @@ export class Store {
       if (!course) throw new IntegrityError('That medication course does not exist in this case.');
       if (course.status !== 'active') throw new IntegrityError('That medication course has already been stopped.');
     }
+    if (input.sourceAttachmentId !== undefined) await this.assertActiveAttachment(caseId, input.sourceAttachmentId);
     const entry = stripUndefined({
       id: this.uuid(),
       caseId,
@@ -512,6 +544,7 @@ export class Store {
       type: input.type,
       payload: input.payload,
       unit: unitOf(input.type, input.payload),
+      sourceAttachmentId: input.sourceAttachmentId,
       provenance: 'user_entered' as const,
     }) as TimelineEntry;
     const row = await this.sealRow('timeline', { id: entry.id, caseId }, entry);
@@ -565,6 +598,7 @@ export class Store {
       type: original.type,
       payload,
       unit: unitOf(original.type, payload),
+      sourceAttachmentId: original.sourceAttachmentId,
       provenance: 'user_entered' as const,
       supersedesEntryId: originalId,
       correction,
@@ -594,6 +628,299 @@ export class Store {
       throw e;
     }
     return entry;
+  }
+
+  // ------------------------------------------------------------------ source documents (the patient file)
+
+  private async assertActiveAttachment(caseId: string, id: string): Promise<Attachment> {
+    const a = await this.latest<Attachment>('attachments', id);
+    if (!a || a.caseId !== caseId) throw new IntegrityError('That source document does not exist in this case.');
+    if (a.status !== 'active') throw new IntegrityError('That source document has been removed.');
+    return a;
+  }
+
+  /**
+   * Store a source document. Nothing is stored unless the trainee has confirmed
+   * that every identifier was removed (Section 13): for an image the redaction
+   * is already burned into the pixels before this is called.
+   */
+  async addAttachment(caseId: string, input: NewAttachmentInput): Promise<Attachment> {
+    await this.writableCase(caseId);
+    const e: Errors = {};
+    if (!(SOURCE_DOC_TYPES as readonly string[]).includes(input.docType)) e.docType = 'invalidChoice';
+    if (input.hospitalDay !== undefined && !isValidHospitalDay(input.hospitalDay)) e.hospitalDay = 'hospitalDay';
+    if (input.title !== undefined && input.title.trim().length > 200) e.title = 'tooLong';
+    if (input.redactionConfirmed !== true) e.redactionConfirmed = 'required';
+    if (input.page !== undefined && (!Number.isInteger(input.page) || input.page < 1 || input.page > 500)) e.page = 'range';
+    let bytes: Uint8Array;
+    let thumb: Uint8Array | undefined;
+    if (input.kind === 'text') {
+      const text = input.text ?? '';
+      if (!text.trim()) e.text = 'required';
+      else if (text.length > MAX_SOURCE_TEXT) e.text = 'tooLong';
+      bytes = new TextEncoder().encode(text);
+    } else {
+      const img = input.image;
+      if (!img || img.bytes.byteLength === 0) e.image = 'required';
+      else if (img.bytes.byteLength > MAX_IMAGE_BYTES || img.thumb.byteLength > MAX_THUMB_BYTES) e.image = 'tooLarge';
+      else if (!isJpeg(img.bytes) || !isJpeg(img.thumb)) e.image = 'invalidChoice';
+      bytes = img?.bytes ?? new Uint8Array();
+      thumb = img?.thumb;
+    }
+    if (Object.keys(e).length) throw new ValidationError(e);
+
+    const id = this.uuid();
+    const at = this.nowIso();
+    const meta: Attachment = stripUndefined({
+      id,
+      caseId,
+      kind: input.kind,
+      mime: input.kind === 'text' ? ('text/plain' as const) : ('image/jpeg' as const),
+      docType: input.docType,
+      title: input.title?.trim() || undefined,
+      hospitalDay: input.hospitalDay,
+      origin: input.origin,
+      groupId: input.groupId,
+      page: input.page,
+      width: input.image?.width,
+      height: input.image?.height,
+      byteLength: bytes.byteLength,
+      redacted: true as const,
+      redactionConfirmedAt: at,
+      status: 'active' as const,
+      createdAt: at,
+      version: 1,
+      versionCreatedAt: at,
+    });
+    const metaRow = await this.sealRow('attachments', { id: `${id}@1`, entityId: id, version: 1, caseId }, meta);
+    const blobRows = [await this.sealBlob(caseId, id, bytes)];
+    if (thumb) blobRows.push(await this.sealBlob(caseId, `${id}#thumb`, thumb));
+    const auditRow = await this.auditRow({
+      entity: 'attachment',
+      entityId: id,
+      caseId,
+      action: 'create',
+      // The content itself is never written to the audit log.
+      diff: { after: meta },
+    });
+    await this.db.transaction('rw', [this.db.attachments, this.db.blobs, this.db.audit], async () => {
+      await this.db.attachments.add(metaRow);
+      for (const r of blobRows) await this.db.blobs.add(r);
+      await this.db.audit.add(auditRow);
+    });
+    return meta;
+  }
+
+  private async sealBlob(caseId: string, id: string, bytes: Uint8Array): Promise<EncryptedRow> {
+    const index = { id, caseId };
+    const sealed = await sealBytes(this.key(), bytes, rowAad('blobs', index));
+    return { ...index, iv: sealed.iv, ct: sealed.ct };
+  }
+
+  rawAttachments(caseId: string): Promise<EncryptedRow[]> {
+    return this.db.attachments.where('caseId').equals(caseId).toArray();
+  }
+
+  async listAttachments(caseId: string): Promise<Attachment[]> {
+    return this.decodeAttachments(await this.rawAttachments(caseId));
+  }
+
+  async decodeAttachments(rows: EncryptedRow[]): Promise<Attachment[]> {
+    const list = await this.decodeLatestOfAll<Attachment>('attachments', rows);
+    return list.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : (a.page ?? 0) - (b.page ?? 0)));
+  }
+
+  /** The decrypted content of a source document (the full image, its thumbnail, or the text as UTF-8). */
+  async attachmentBytes(caseId: string, id: string, which: 'content' | 'thumb' = 'content'): Promise<Uint8Array | undefined> {
+    const rowId = which === 'thumb' ? `${id}#thumb` : id;
+    const row = await this.db.blobs.get(rowId);
+    if (!row || row.caseId !== caseId) return undefined;
+    return openBytes(this.key(), { iv: row.iv, ct: row.ct }, rowAad('blobs', { id: row.id, caseId: row.caseId }));
+  }
+
+  async attachmentText(caseId: string, id: string): Promise<string | undefined> {
+    const b = await this.attachmentBytes(caseId, id);
+    return b ? new TextDecoder().decode(b) : undefined;
+  }
+
+  /**
+   * Remove a source document, e.g. a page that still shows an identifier. Its
+   * content is purged; its description and the removal stay on record.
+   */
+  async removeAttachment(caseId: string, id: string, reason: string): Promise<Attachment> {
+    await this.writableCase(caseId);
+    if (!reason.trim()) throw new ValidationError({ reason: 'required' });
+    await this.assertActiveAttachment(caseId, id);
+    return this.writeVersion<Attachment>(
+      'attachments',
+      id,
+      (prev, version, at) => {
+        if (!prev || prev.status !== 'active') throw new IntegrityError('That source document has been removed.');
+        return { ...prev, status: 'removed', removedReason: reason.trim(), version, versionCreatedAt: at, changeReason: reason.trim() };
+      },
+      (prev) => ({
+        entity: 'attachment',
+        entityId: id,
+        caseId,
+        action: 'remove',
+        diff: { reason: reason.trim(), docType: prev?.docType, kind: prev?.kind, contentPurged: true },
+      }),
+      {
+        caseId,
+        also: {
+          tables: ['blobs'],
+          run: async () => {
+            await this.db.blobs.delete(id);
+            await this.db.blobs.delete(`${id}#thumb`);
+          },
+        },
+      },
+    );
+  }
+
+  // ------------------------------------------------------------------ clinical modules: task worksheets
+
+  rawTasks(caseId: string): Promise<EncryptedRow[]> {
+    return this.db.tasks.where('caseId').equals(caseId).toArray();
+  }
+
+  async listTasks(caseId: string): Promise<TaskRecord[]> {
+    return this.decodeLatestOfAll<TaskRecord>('tasks', await this.rawTasks(caseId));
+  }
+
+  taskHistory(caseId: string, taskId: string): Promise<TaskRecord[]> {
+    return this.history<TaskRecord>('tasks', `${caseId}:${taskId}`);
+  }
+
+  /** Save the worksheet as a new version. Saving an unchanged worksheet writes nothing. */
+  async saveTask(caseId: string, taskId: string, input: TaskInput): Promise<TaskRecord> {
+    await this.writableCase(caseId);
+    const n = normalizeTaskInput(taskId, input);
+    if (!n.ok) throw new ValidationError(n.errors);
+    const entityId = `${caseId}:${taskId}`;
+    const prev = await this.latest<TaskRecord>('tasks', entityId);
+    if (prev && sameTask(prev, n.value)) return prev;
+    return this.writeVersion<TaskRecord>(
+      'tasks',
+      entityId,
+      (_p, version, at) => ({ caseId, taskId, ...n.value, version, versionCreatedAt: at }),
+      (p, next) => ({
+        entity: 'task',
+        entityId,
+        caseId,
+        action: p ? 'update' : 'create',
+        diff: {
+          task: taskId,
+          status: { before: p?.status, after: next.status },
+          changed: changedKeys(
+            { ...p?.checks, ...prefix(p?.fields, 'field:'), notes: p?.notes ?? '' },
+            { ...next.checks, ...prefix(next.fields, 'field:'), notes: next.notes ?? '' },
+          ),
+        },
+      }),
+      { caseId },
+    );
+  }
+
+  // ------------------------------------------------------------------ clinical modules: register rows
+
+  rawItems(caseId: string): Promise<EncryptedRow[]> {
+    return this.db.items.where('caseId').equals(caseId).toArray();
+  }
+
+  async listItems(caseId: string): Promise<RegisterItem[]> {
+    return this.decodeItems(await this.rawItems(caseId));
+  }
+
+  async decodeItems(rows: EncryptedRow[]): Promise<RegisterItem[]> {
+    const items = await this.decodeLatestOfAll<RegisterItem>('items', rows);
+    return items.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
+  }
+
+  itemHistory(itemId: string): Promise<RegisterItem[]> {
+    return this.history<RegisterItem>('items', itemId);
+  }
+
+  /** Checks medication, problem and entry references against the case's current record. */
+  private async checkItemRefs(caseId: string, register: RegisterId, fields: Record<string, string>): Promise<void> {
+    const refs = REGISTERS[register].fields.filter((f) => fields[f.id] !== undefined && (f.kind === 'medRef' || f.kind === 'problemRef' || f.kind === 'entryRef'));
+    if (!refs.length) return;
+    const current = indexTimeline(await this.listEntries(caseId)).current;
+    const e: Errors = {};
+    for (const f of refs) {
+      const v = fields[f.id]!;
+      const ok =
+        f.kind === 'medRef'
+          ? deriveMedCourses(current).some((m) => m.medId === v)
+          : f.kind === 'problemRef'
+            ? deriveProblems(current).some((p) => p.problemId === v)
+            : current.some((x) => x.id === v);
+      if (!ok) e[f.id] = 'invalidChoice';
+    }
+    if (Object.keys(e).length) throw new ValidationError(e);
+  }
+
+  async addItem(caseId: string, register: RegisterId, input: Record<string, string>): Promise<RegisterItem> {
+    await this.writableCase(caseId);
+    if (!(REGISTER_IDS as readonly string[]).includes(register)) throw new ValidationError({ register: 'invalidChoice' });
+    const n = normalizeItemFields(register, input);
+    if (!n.ok) throw new ValidationError(n.errors);
+    await this.checkItemRefs(caseId, register, n.fields);
+    const id = this.uuid();
+    return this.writeVersion<RegisterItem>(
+      'items',
+      id,
+      (_p, version, at) => ({ id, caseId, register, fields: n.fields, status: 'active', createdAt: at, version, versionCreatedAt: at }),
+      (_p, next) => ({ entity: 'item', entityId: id, caseId, action: 'create', diff: { register, after: next.fields } }),
+      { caseId },
+    );
+  }
+
+  /** Edit a row: a new version; the previous one stays readable. Saving unchanged values writes nothing. */
+  async updateItem(caseId: string, itemId: string, input: Record<string, string>, reason?: string): Promise<RegisterItem> {
+    await this.writableCase(caseId);
+    const prev = await this.latest<RegisterItem>('items', itemId);
+    if (!prev || prev.caseId !== caseId) throw new IntegrityError('That record does not exist in this case.');
+    if (prev.status !== 'active') throw new IntegrityError('That record was retracted and cannot be edited.');
+    const n = normalizeItemFields(prev.register, input);
+    if (!n.ok) throw new ValidationError(n.errors);
+    await this.checkItemRefs(caseId, prev.register, n.fields);
+    if (sameStrings(prev.fields, n.fields)) return prev;
+    return this.writeVersion<RegisterItem>(
+      'items',
+      itemId,
+      (p, version, at) => {
+        if (!p || p.status !== 'active') throw new IntegrityError('That record was retracted and cannot be edited.');
+        return { ...p, fields: n.fields, version, versionCreatedAt: at, changeReason: reason?.trim() || undefined };
+      },
+      (p, next) => ({
+        entity: 'item',
+        entityId: itemId,
+        caseId,
+        action: 'update',
+        diff: { register: prev.register, reason: reason?.trim() || undefined, changed: changedKeys(p?.fields ?? {}, next.fields), before: p?.fields, after: next.fields },
+      }),
+      { caseId },
+    );
+  }
+
+  /** "Entered in error": the row stays readable, marked retracted, with the reason. */
+  async retractItem(caseId: string, itemId: string, reason: string): Promise<RegisterItem> {
+    await this.writableCase(caseId);
+    if (!reason.trim()) throw new ValidationError({ reason: 'required' });
+    const prev = await this.latest<RegisterItem>('items', itemId);
+    if (!prev || prev.caseId !== caseId) throw new IntegrityError('That record does not exist in this case.');
+    if (prev.status !== 'active') throw new IntegrityError('That record has already been retracted.');
+    return this.writeVersion<RegisterItem>(
+      'items',
+      itemId,
+      (p, version, at) => {
+        if (!p || p.status !== 'active') throw new IntegrityError('That record has already been retracted.');
+        return { ...p, status: 'retracted', version, versionCreatedAt: at, changeReason: reason.trim() };
+      },
+      () => ({ entity: 'item', entityId: itemId, caseId, action: 'retract', diff: { register: prev.register, reason: reason.trim() } }),
+      { caseId },
+    );
   }
 
   // ------------------------------------------------------------------ department form drafts
@@ -677,6 +1004,37 @@ export class Store {
 }
 
 // ------------------------------------------------------------------ helpers
+
+function isJpeg(b: Uint8Array): boolean {
+  return b.byteLength > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+}
+
+function sameStrings(a: Record<string, string>, b: Record<string, string>): boolean {
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  return ka.length === kb.length && ka.every((k) => a[k] === b[k]);
+}
+
+function sameTask(prev: TaskRecord, next: TaskInput): boolean {
+  return (
+    prev.status === next.status &&
+    (prev.naReason ?? '') === (next.naReason ?? '') &&
+    (prev.notes ?? '') === (next.notes ?? '') &&
+    sameStrings(prev.checks, next.checks) &&
+    sameStrings(prev.fields, next.fields)
+  );
+}
+
+function prefix(o: Record<string, string> | undefined, p: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(o ?? {})) out[p + k] = v;
+  return out;
+}
+
+function changedKeys(a: Record<string, string>, b: Record<string, string>): string[] {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].filter((k) => a[k] !== b[k]).sort();
+}
 
 function cleanIdentifiers(i: CaseIdentifiersInput | undefined): CaseIdentifiersInput | undefined {
   if (!i) return undefined;

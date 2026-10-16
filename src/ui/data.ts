@@ -1,4 +1,15 @@
-import type { AuditEvent, Case, CaseIdentifiers, FormDraft, Rotation, TimelineEntry, TraineeSettings } from '../domain/types';
+import type {
+  Attachment,
+  AuditEvent,
+  Case,
+  CaseIdentifiers,
+  FormDraft,
+  RegisterItem,
+  Rotation,
+  TaskRecord,
+  TimelineEntry,
+  TraineeSettings,
+} from '../domain/types';
 import { useLiveDecoded } from './hooks';
 
 export const useRotations = () =>
@@ -61,5 +72,55 @@ export const useTrainee = () =>
   useLiveDecoded(
     (s) => s.db.settings.get('trainee'),
     async (s, row): Promise<TraineeSettings> => (row ? s.openRow<TraineeSettings>('settings', row) : {}),
+    [],
+  );
+
+export const useAttachments = (caseId: string) =>
+  useLiveDecoded(
+    (s) => s.rawAttachments(caseId),
+    (s, rows): Promise<Attachment[]> => s.decodeAttachments(rows),
+    [caseId],
+  );
+
+export const useTasks = (caseId: string) =>
+  useLiveDecoded(
+    (s) => s.rawTasks(caseId),
+    (s, rows): Promise<TaskRecord[]> => s.decodeLatestOfAll<TaskRecord>('tasks', rows),
+    [caseId],
+  );
+
+export const useTaskHistory = (caseId: string, taskId: string) =>
+  useLiveDecoded(
+    (s) => s.db.tasks.where('entityId').equals(`${caseId}:${taskId}`).toArray(),
+    (s, rows) => s.decodeVersions<TaskRecord>('tasks', rows),
+    [caseId, taskId],
+  );
+
+export const useItems = (caseId: string) =>
+  useLiveDecoded(
+    (s) => s.rawItems(caseId),
+    (s, rows): Promise<RegisterItem[]> => s.decodeItems(rows),
+    [caseId],
+  );
+
+export const useItemHistory = (itemId: string) =>
+  useLiveDecoded(
+    (s) => s.db.items.where('entityId').equals(itemId).toArray(),
+    (s, rows) => s.decodeVersions<RegisterItem>('items', rows),
+    [itemId],
+  );
+
+/** Task progress of every case, for lists (Home, Cases, Workflow). */
+export const useAllTasks = () =>
+  useLiveDecoded(
+    (s) => s.db.tasks.toArray(),
+    (s, rows): Promise<TaskRecord[]> => s.decodeLatestOfAll<TaskRecord>('tasks', rows),
+    [],
+  );
+
+export const useAllItems = () =>
+  useLiveDecoded(
+    (s) => s.db.items.toArray(),
+    (s, rows): Promise<RegisterItem[]> => s.decodeItems(rows),
     [],
   );

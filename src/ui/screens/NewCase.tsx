@@ -90,7 +90,8 @@ export function NewCase() {
     try {
       const c = await store.createCase(input as NewCaseInput);
       await draft.clear();
-      if (window.location.hash === here) navigate(`/cases/${c.id}`);
+      // Step 2: the patient file, then "Next" into the Clinical Modules.
+      if (window.location.hash === here) navigate(`/cases/${c.id}/intake`);
     } catch (e) {
       if (e instanceof ValidationError) setErrors(e.errors);
       else setFailure(t('err.generic', { message: (e as Error).message }));

@@ -316,6 +316,110 @@ interface EntryBase {
 export type TimelineEntry = { [K in EntryType]: EntryBase & { type: K; payload: PayloadMap[K] } }[EntryType];
 export type EntryOf<K extends EntryType> = Extract<TimelineEntry, { type: K }>;
 
+// ---------------------------------------------------------------- source documents (Section 7 "Attachment", Section 13)
+
+/** What kind of chart document a source is. Used to label and group the patient file. */
+export const SOURCE_DOC_TYPES = [
+  'admission_note',
+  'progress_note',
+  'lab_report',
+  'medication_chart',
+  'prescription',
+  'vital_signs',
+  'diagnostic_report',
+  'referral_letter',
+  'discharge_summary',
+  'handover',
+  'other',
+] as const;
+export type SourceDocType = (typeof SOURCE_DOC_TYPES)[number];
+
+export type AttachmentOrigin = 'typed' | 'text_file' | 'camera' | 'image_file' | 'pdf_page';
+
+/**
+ * A source document of the patient file: typed or pasted text, a text file, a
+ * photographed or uploaded page, or a rendered PDF page.
+ *
+ * M1 extensions to the specification's Attachment: the content lives in a
+ * separate encrypted row (table `blobs`) so that it can be purged — a page
+ * found to still show an identifier must be removable, because "the
+ * unredacted original is never stored" (Section 13) outranks keeping it. The
+ * metadata stays append-only and the removal is audited.
+ */
+export interface Attachment extends Versioned {
+  id: string;
+  caseId: string;
+  kind: 'text' | 'image';
+  mime: 'text/plain' | 'image/jpeg';
+  docType: SourceDocType;
+  title?: string;
+  /** The hospital day the document refers to, when known. */
+  hospitalDay?: number;
+  origin: AttachmentOrigin;
+  /** Pages captured together share a group id and are numbered from 1. */
+  groupId?: string;
+  page?: number;
+  width?: number;
+  height?: number;
+  byteLength: number;
+  /** Identifiers removed and confirmed by the trainee before anything was stored. Never false: unredacted content is never stored. */
+  redacted: true;
+  redactionConfirmedAt: string;
+  status: 'active' | 'removed';
+  removedReason?: string;
+  createdAt: string;
+  /** Specification field, used from M3 (model extraction). */
+  extractionRunId?: string;
+}
+
+// ---------------------------------------------------------------- clinical modules (owner's change request, M1 revision)
+
+export type TaskStatus = 'not_started' | 'in_progress' | 'done' | 'not_applicable';
+/** A checklist answer: done/no problem, a problem found, or not applicable. Unanswered items have no key. */
+export type CheckValue = 'ok' | 'issue' | 'na';
+
+/** The trainee's worksheet for one of the thirty clinical pharmacist tasks in one case. Versioned; never overwritten. */
+export interface TaskRecord extends Versioned {
+  caseId: string;
+  taskId: string;
+  status: TaskStatus;
+  /** Required when status is 'not_applicable'. */
+  naReason?: string;
+  /** Checklist answers by item id; items repeated per medication or problem use `${itemId}@${scopeId}`. */
+  checks: Record<string, CheckValue>;
+  /** Text and choice answers by field id, scoped the same way. */
+  fields: Record<string, string>;
+  notes?: string;
+}
+
+/** Lists shared between tasks (enter data once). */
+export const REGISTER_IDS = [
+  'home_med',
+  'drp',
+  'interaction',
+  'adr',
+  'med_error',
+  'tdm',
+  'monitoring',
+  'rounds',
+  'counseling',
+  'discharge_med',
+  'reference',
+  'calc_check',
+] as const;
+export type RegisterId = (typeof REGISTER_IDS)[number];
+
+/** One row of a register (a home medication, a drug-related problem, an interaction…). Versioned; never overwritten. */
+export interface RegisterItem extends Versioned {
+  id: string;
+  caseId: string;
+  register: RegisterId;
+  /** Values validated against the register's schema. Multi-choice values are joined with "|". */
+  fields: Record<string, string>;
+  status: 'active' | 'retracted';
+  createdAt: string;
+}
+
 // ---------------------------------------------------------------- form, settings, audit
 
 /** Trainee-authored text on the department form (e.g. Section 5 interpretation). Versioned. */
@@ -338,13 +442,17 @@ export type AuditEntity =
   | 'settings'
   | 'intended_use'
   | 'key'
-  | 'backup';
+  | 'backup'
+  | 'attachment'
+  | 'task'
+  | 'item';
 
 export type AuditAction =
   | 'create'
   | 'update'
   | 'correct'
   | 'retract'
+  | 'remove'
   | 'acknowledge'
   | 'export'
   | 'restore'
