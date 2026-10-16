@@ -12,6 +12,7 @@ import { usePersistentDraft } from '../hooks';
 import { navigate } from '../router';
 import { useSession } from '../session-context';
 import { rotationName } from './Home';
+import { Stepper } from './Intake';
 
 const EMPTY = {
   kind: '',
@@ -103,6 +104,7 @@ export function NewCase() {
 
   return (
     <div className="flex flex-col gap-4">
+      <Stepper step={1} />
       <PageTitle back="#/cases">{t('newCase.title')}</PageTitle>
       {draft.restored && <Banner tone="info">{t('ed.restored')}</Banner>}
       <Card>

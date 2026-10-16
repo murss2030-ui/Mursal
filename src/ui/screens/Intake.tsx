@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon';
 import { Banner, LinkButton } from '../components/ui';
 import { AddSourceTiles, SourceList } from './SourceIntake';
 
-function Stepper({ step }: { step: 1 | 2 | 3 }) {
+export function Stepper({ step }: { step: 1 | 2 | 3 }) {
   const { t } = useI18n();
   const steps = [t('intake.step1'), t('intake.step2'), t('intake.step3')];
   return (

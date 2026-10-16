@@ -44,7 +44,7 @@ function EntryCard({ e, idx, c }: { e: TimelineEntry; idx: TimelineIndex; c: Cas
       data-testid="timeline-entry"
       data-entry-id={e.id}
       data-superseded={successor ? 'true' : 'false'}
-      className={`rounded-lg border p-3 ${successor ? 'border-dashed border-slate-300 bg-slate-100 text-slate-500' : 'border-slate-200 bg-white'}`}
+      className={`rounded-xl border p-3 ${successor ? 'border-dashed border-slate-300 bg-slate-100 text-slate-500' : 'border-line bg-white shadow-card'}`}
     >
       <div className="flex items-start gap-2">
         <Icon name={ENTRY_ICONS[e.type]} className="mt-0.5 h-5 w-5 text-teal-800" />
@@ -67,6 +67,16 @@ function EntryCard({ e, idx, c }: { e: TimelineEntry; idx: TimelineIndex; c: Cas
           ))}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <ProvenanceBadge state={e.provenance} />
+            {e.sourceAttachmentId && (
+              <a
+                href={`#/cases/${c.id}/sources/${e.sourceAttachmentId}`}
+                className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-xs font-medium text-sky-900 hover:bg-sky-100"
+                data-testid="entry-source-link"
+              >
+                <Icon name="file-text" className="h-3.5 w-3.5" />
+                {t('tl.fromSource')}
+              </a>
+            )}
             <span className="text-xs text-slate-600">{t('tl.recorded', { when: when(e.recordedAt) })}</span>
           </div>
           {e.correction && (
