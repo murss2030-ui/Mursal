@@ -420,8 +420,8 @@ export interface RegisterItem extends Versioned {
   fields: Record<string, string>;
   status: 'active' | 'retracted';
   createdAt: string;
-  /** M3 extension: the row was confirmed from a document the model read. */
-  origin?: { kind: 'extraction'; runId: string; fieldId: string; attachmentId: string };
+  /** M3 extension: the row was confirmed from a document the model read, or accepted from the model's draft. */
+  origin?: { kind: 'extraction'; runId: string; fieldId: string; attachmentId: string } | { kind: 'suggestion'; analysisId: string; suggestionId: string };
 }
 
 // ---------------------------------------------------------------- M3: what the model read (Section 7 ExtractionRun, Section 13)
@@ -500,6 +500,74 @@ export interface ExtractionRun extends Versioned {
   fields: ExtractedField[];
   /** What the last check before sending did to the text. */
   sent: { identifiersMasked: number; datesReplaced: number };
+  usage: { inputTokens: number; outputTokens: number; costUsd: number };
+}
+
+// ---------------------------------------------------------------- M3: case analysis drafts (owner decisions D2, D3 of 16 Oct 2026)
+
+/** What a statement rests on: the case data sent (with its references), or the model's general knowledge (no source). */
+export type ClaimBasis = 'case_data' | 'general_knowledge';
+
+/** What the checks in code did to a suggestion (Section 12, "verification enforced in code"). */
+export const SUGGESTION_CHECKS = [
+  'unknown_ref_removed',
+  'no_valid_ref',
+  'number_removed',
+  'dose_withheld',
+  'citation_removed',
+  'source_named',
+  'invalid_value_removed',
+  'incomplete',
+] as const;
+export type SuggestionCheck = (typeof SUGGESTION_CHECKS)[number];
+
+/** One proposal of the model for one task. It changes nothing until the trainee accepts or edits it. */
+export interface Suggestion {
+  id: string;
+  taskId: string;
+  kind: 'check' | 'item' | 'note';
+  /** check: a checklist item (scoped per medication or problem with `scope`) and the proposed answer. */
+  checkId?: string;
+  scope?: string;
+  answer?: CheckValue;
+  /** item: a row for one of the task's registers. */
+  register?: RegisterId;
+  fields?: Record<string, string>;
+  /** note: summary, missing data or a question to ask. */
+  noteKind?: 'summary' | 'missing' | 'question';
+  text?: string;
+  /** Why, as the model put it after the checks in code. */
+  reason: string;
+  basis: ClaimBasis;
+  /** References to the case data that was sent (timeline entries and register rows). */
+  refs: { kind: 'entry' | 'item' | 'medication' | 'problem'; id: string; label: string }[];
+  checks: SuggestionCheck[];
+  decision?: SuggestionDecision;
+}
+
+export interface SuggestionDecision {
+  kind: 'accepted' | 'edited' | 'rejected';
+  at: string;
+  reason?: string;
+  /** What accepting changed: a task version, or a register row. */
+  appliedTo?: { kind: 'task'; taskId: string; version: number } | { kind: 'item'; itemId: string };
+}
+
+/** One analysis of one module (Section 7 AnalysisVersion). Versioned: each decision is a new version. */
+export interface CaseAnalysis extends Versioned {
+  id: string;
+  caseId: string;
+  moduleId: string;
+  model: string;
+  promptVersion: string;
+  createdAt: string;
+  /** Exactly what was sent, for staleness: entries and register rows (ids and versions). */
+  basedOn: { entryIds: string[]; items: string[] };
+  /** Evidence chunks used (none until the evidence library, M5). */
+  retrievedChunkIds: string[];
+  suggestions: Suggestion[];
+  /** Proposals dropped by the checks (unknown task, check or register). */
+  dropped: number;
   usage: { inputTokens: number; outputTokens: number; costUsd: number };
 }
 

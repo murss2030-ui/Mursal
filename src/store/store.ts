@@ -18,8 +18,10 @@ import type {
   CaseIdentifiers,
   Correction,
   EntryType,
+  CaseAnalysis,
   ExtractionRun,
   FieldDecision,
+  SuggestionDecision,
   FormDraft,
   PayloadMap,
   RegisterId,
@@ -106,6 +108,26 @@ export interface NewEntryInput<K extends EntryType = EntryType> {
 }
 
 export type NewExtractionRun = Omit<ExtractionRun, keyof Versioned | 'id' | 'caseId' | 'runAt'>;
+
+export type NewAnalysis = Omit<CaseAnalysis, keyof Versioned | 'id' | 'caseId' | 'createdAt'>;
+
+export type SuggestionDecisionInput =
+  | { kind: 'accept' }
+  | { kind: 'edit'; fields?: Record<string, string>; text?: string }
+  | { kind: 'reject'; reason: string };
+
+/**
+ * Stale when the record differs from what was sent: an entry added,
+ * corrected or retracted, or a register row added, edited or retracted —
+ * except the rows this analysis's own accepted suggestions created.
+ */
+export function analysisStale(a: CaseAnalysis, entries: readonly TimelineEntry[], items: readonly RegisterItem[]): boolean {
+  const current = indexTimeline(entries).current.map((e) => e.id).sort();
+  if (current.join() !== [...a.basedOn.entryIds].sort().join()) return true;
+  const own = (r: RegisterItem) => r.origin?.kind === 'suggestion' && r.origin.analysisId === a.id;
+  const rows = items.filter((r) => r.status === 'active' && !own(r)).map((r) => `${r.id}@${r.version}`).sort();
+  return rows.join() !== [...a.basedOn.items].sort().join();
+}
 
 export type FieldDecisionInput =
   | { kind: 'confirm' }
@@ -1085,6 +1107,147 @@ export class Store {
       },
     );
     return { run: next, entry, item };
+  }
+
+  // ------------------------------------------------------------------ M3: case analysis drafts (owner decisions D2, D3)
+
+  rawAnalyses(caseId: string): Promise<EncryptedRow[]> {
+    return this.db.analyses.where('caseId').equals(caseId).toArray();
+  }
+
+  async decodeAnalyses(rows: EncryptedRow[]): Promise<CaseAnalysis[]> {
+    const list = await this.decodeLatestOfAll<CaseAnalysis>('analyses', rows);
+    return list.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
+  }
+
+  async listAnalyses(caseId: string): Promise<CaseAnalysis[]> {
+    return this.decodeAnalyses(await this.rawAnalyses(caseId));
+  }
+
+  async addAnalysis(caseId: string, input: NewAnalysis): Promise<CaseAnalysis> {
+    await this.writableCase(caseId);
+    if (input.suggestions.some((x) => x.decision)) throw new IntegrityError('A new analysis cannot carry decisions.');
+    const id = this.uuid();
+    return this.writeVersion<CaseAnalysis>(
+      'analyses',
+      id,
+      (_p, version, at) => ({ ...input, id, caseId, createdAt: at, version, versionCreatedAt: at }),
+      (_p, next) => ({
+        entity: 'analysis',
+        entityId: id,
+        caseId,
+        action: 'create',
+        actor: 'model',
+        diff: {
+          moduleId: next.moduleId,
+          model: next.model,
+          promptVersion: next.promptVersion,
+          retrievedChunkIds: next.retrievedChunkIds,
+          suggestions: next.suggestions.length,
+          generalKnowledge: next.suggestions.filter((x) => x.basis === 'general_knowledge').length,
+          checked: next.suggestions.filter((x) => x.checks.length > 0).length,
+          dropped: next.dropped,
+          usage: next.usage,
+        },
+      }),
+      { caseId },
+    );
+  }
+
+  /** Whether the data an analysis was built on has changed since (Section 7, staleness). */
+  async isAnalysisStale(a: CaseAnalysis): Promise<boolean> {
+    return analysisStale(a, await this.listEntries(a.caseId), await this.listItems(a.caseId));
+  }
+
+  /**
+   * The trainee's decision on one suggestion — one at a time, never in bulk.
+   * Accepting applies it (a checklist answer or a note on the task worksheet,
+   * or a register row) in the same transaction as the decision; a rejection
+   * needs a reason. A stale analysis cannot be accepted from: it must be
+   * re-run on the current data first.
+   */
+  async decideSuggestion(caseId: string, analysisId: string, suggestionId: string, d: SuggestionDecisionInput): Promise<CaseAnalysis> {
+    await this.writableCase(caseId);
+    const a = await this.latest<CaseAnalysis>('analyses', analysisId);
+    if (!a || a.caseId !== caseId) throw new IntegrityError('That analysis does not exist in this case.');
+    const sg = a.suggestions.find((x) => x.id === suggestionId);
+    if (!sg) throw new IntegrityError('That suggestion does not exist.');
+    if (sg.decision) throw new IntegrityError('That suggestion has already been decided.');
+    if (d.kind === 'reject' && !d.reason.trim()) throw new ValidationError({ reason: 'required' });
+    if (d.kind !== 'reject' && (await this.isAnalysisStale(a))) throw new IntegrityError('The data changed after this analysis. Re-analyse before accepting its suggestions.');
+
+    let applied: SuggestionDecision['appliedTo'];
+    let also: { tables: EncryptedTableName[]; run: () => Promise<void> } | undefined;
+    const extraAudit: EncryptedRow[] = [];
+    if (d.kind !== 'reject') {
+      if (sg.kind === 'item') {
+        const fields = (d.kind === 'edit' ? d.fields : undefined) ?? sg.fields ?? {};
+        const n = normalizeItemFields(sg.register!, fields);
+        if (!n.ok) throw new ValidationError(n.errors);
+        await this.checkItemRefs(caseId, sg.register!, n.fields);
+        const id = this.uuid();
+        const now = this.nowIso();
+        const item: RegisterItem = {
+          id,
+          caseId,
+          register: sg.register!,
+          fields: n.fields,
+          status: 'active',
+          createdAt: now,
+          version: 1,
+          versionCreatedAt: now,
+          origin: { kind: 'suggestion', analysisId, suggestionId },
+        };
+        const row = await this.sealRow('items', { id: `${id}@1`, entityId: id, version: 1, caseId }, item);
+        extraAudit.push(await this.auditRow({ entity: 'item', entityId: id, caseId, action: 'create', diff: { register: item.register, after: n.fields, origin: item.origin } }));
+        applied = { kind: 'item', itemId: id };
+        also = { tables: ['items'], run: async () => void (await this.db.items.add(row)) };
+      } else {
+        // A checklist answer or a note goes onto the task worksheet as its next version.
+        const entityId = `${caseId}:${sg.taskId}`;
+        const prev = await this.latest<TaskRecord>('tasks', entityId);
+        const base: TaskInput = prev
+          ? { status: prev.status, naReason: prev.naReason, checks: { ...prev.checks }, fields: { ...prev.fields }, notes: prev.notes }
+          : { status: 'not_started', checks: {}, fields: {} };
+        if (sg.kind === 'check') {
+          base.checks[sg.scope ? `${sg.checkId}@${sg.scope}` : sg.checkId!] = sg.answer!;
+        } else {
+          const text = (d.kind === 'edit' ? d.text : sg.text) ?? '';
+          base.notes = [base.notes?.trim(), text.trim()].filter(Boolean).join('\n');
+        }
+        if (base.status === 'not_started') base.status = 'in_progress';
+        const n = normalizeTaskInput(sg.taskId, base);
+        if (!n.ok) throw new ValidationError(n.errors);
+        const version = (prev?.version ?? 0) + 1;
+        const now = this.nowIso();
+        const rec: TaskRecord = stripUndefined({ ...n.value, caseId, taskId: sg.taskId, version, versionCreatedAt: now, changeReason: 'Accepted from the AI draft' });
+        const row = await this.sealRow('tasks', { id: `${entityId}@${version}`, entityId, version, caseId }, rec);
+        extraAudit.push(
+          await this.auditRow({ entity: 'task', entityId, caseId, action: 'update', diff: { task: sg.taskId, fromSuggestion: { analysisId, suggestionId }, status: { before: prev?.status ?? 'not_started', after: rec.status } } }),
+        );
+        applied = { kind: 'task', taskId: sg.taskId, version };
+        also = { tables: ['tasks'], run: async () => void (await this.db.tasks.add(row)) };
+      }
+    }
+    const kind = d.kind === 'accept' ? 'accepted' : d.kind === 'edit' ? 'edited' : 'rejected';
+    return this.writeVersion<CaseAnalysis>(
+      'analyses',
+      analysisId,
+      (p, version, at) => {
+        const cur = p?.suggestions.find((x) => x.id === suggestionId);
+        if (!p || !cur || cur.decision) throw new IntegrityError('That suggestion has already been decided.');
+        const decision = stripUndefined({ kind, at, reason: d.kind === 'reject' ? d.reason.trim() : undefined, appliedTo: applied }) as SuggestionDecision;
+        return { ...p, suggestions: p.suggestions.map((x) => (x.id === suggestionId ? { ...x, decision } : x)), version, versionCreatedAt: at };
+      },
+      () => ({
+        entity: 'suggestion',
+        entityId: `${analysisId}:${suggestionId}`,
+        caseId,
+        action: d.kind === 'accept' ? 'accept' : d.kind === 'edit' ? 'edit' : 'reject',
+        diff: stripUndefined({ taskId: sg.taskId, kind: sg.kind, basis: sg.basis, appliedTo: applied, reason: d.kind === 'reject' ? d.reason.trim() : undefined }),
+      }),
+      { caseId, extraAudit, also },
+    );
   }
 
   // ------------------------------------------------------------------ open-data cache (Section 19: the same lookup never costs twice)

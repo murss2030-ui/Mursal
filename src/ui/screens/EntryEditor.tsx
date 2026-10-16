@@ -20,7 +20,7 @@ import {
 } from '../../domain/entries';
 import { parseInteger } from '../../domain/numbers';
 import { deriveMedCourses, deriveProblems, indexTimeline, regimenText } from '../../domain/timeline';
-import { M1_MANUAL_ENTRY_TYPES, type Case, type EntryType, type TimelineEntry } from '../../domain/types';
+import { M1_MANUAL_ENTRY_TYPES, type Case, type EntryType, type ExtractedField, type TimelineEntry } from '../../domain/types';
 import { ValidationError } from '../../domain/validation';
 import { Term, useI18n } from '../../i18n/i18n';
 import type { MsgKey } from '../../i18n/en';
@@ -38,7 +38,9 @@ export type EditorMode =
   | { kind: 'correct'; entryId: string }
   | { kind: 'med_change'; medId: string }
   | { kind: 'med_stop'; medId: string }
-  | { kind: 'problem_update'; problemId: string };
+  | { kind: 'problem_update'; problemId: string }
+  /** M3: correcting a value the model read, before it enters the timeline as "confirmed". */
+  | { kind: 'extracted'; runId: string; field: ExtractedField; attachmentId: string; back: string };
 
 interface FieldProps {
   v: Values;
@@ -353,6 +355,8 @@ function draftIdFor(caseId: string, mode: EditorMode): string {
       return `med:stop:${mode.medId}`;
     case 'problem_update':
       return `problem:update:${mode.problemId}`;
+    case 'extracted':
+      return `entry:extracted:${mode.runId}:${mode.field.id}`;
   }
 }
 
@@ -372,6 +376,10 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
     if (original) return { ...entryToValues(original), correctionKind: '', reason: '' };
     if (problem) return { ...entryToValues(problem.latest), hospitalDay: '', timeOfDay: '' };
     if (mode.kind === 'new') return { type: mode.type, category: mode.category, hospitalDay: '' };
+    if (mode.kind === 'extracted') {
+      const f = mode.field;
+      return { ...f.values, hospitalDay: f.day !== undefined ? String(f.day) : '', timeOfDay: f.timeOfDay ?? '' };
+    }
     return { hospitalDay: '' };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -382,7 +390,17 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
   const [failure, setFailure] = useState<string>();
 
   const type: string =
-    mode.kind === 'new' ? v.type ?? '' : mode.kind === 'correct' ? original?.type ?? '' : mode.kind === 'problem_update' ? 'note' : mode.kind;
+    mode.kind === 'new'
+      ? v.type ?? ''
+      : mode.kind === 'correct'
+        ? original?.type ?? ''
+        : mode.kind === 'problem_update'
+          ? 'note'
+          : mode.kind === 'extracted'
+            ? mode.field.target.kind === 'entry'
+              ? mode.field.target.type
+              : ''
+            : mode.kind;
   const err = (k: string) => errText(errors[k]);
   const todayDay = hospitalDayOf(c.admissionDay0, store.today());
   const dayParsed = parseInteger(v.hospitalDay ?? '');
@@ -397,7 +415,8 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
 
   const retracting = mode.kind === 'correct' && v.correctionKind === 'retract';
   // Only in-app destinations of this case are accepted as a return path.
-  const backTo = mode.kind === 'new' && mode.back && mode.back.startsWith(`/cases/${c.id}/`) ? mode.back : undefined;
+  const backTo =
+    (mode.kind === 'new' || mode.kind === 'extracted') && mode.back && mode.back.startsWith(`/cases/${c.id}/`) ? mode.back : undefined;
 
   const save = async () => {
     const editorHash = window.location.hash;
@@ -423,6 +442,15 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
 
     setBusy(true);
     try {
+      if (mode.kind === 'extracted') {
+        // The corrected value becomes the confirmed entry, linked to the reading it corrects.
+        const m = meta as { hospitalDay: number; timeOfDay?: string };
+        const values = Object.fromEntries(Object.entries(v).filter(([k]) => k !== 'type' && k !== 'hospitalDay' && k !== 'timeOfDay'));
+        await store.decideExtractedField(c.id, mode.runId, mode.field.id, { kind: 'correct', values, day: m.hospitalDay, timeOfDay: m.timeOfDay });
+        await draft.clear();
+        if (window.location.hash === editorHash) navigate(backTo ?? `/cases/${c.id}/analyse`);
+        return;
+      }
       let saved: TimelineEntry;
       if (mode.kind === 'correct') {
         saved = retracting
@@ -461,7 +489,17 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
   };
 
   const titleKey: MsgKey =
-    mode.kind === 'new' ? 'ed.addTitle' : mode.kind === 'correct' ? 'ed.correctTitle' : mode.kind === 'med_change' ? 'ed.changeTitle' : mode.kind === 'med_stop' ? 'ed.stopTitle' : 'ed.problemTitle';
+    mode.kind === 'new'
+      ? 'ed.addTitle'
+      : mode.kind === 'correct'
+        ? 'ed.correctTitle'
+        : mode.kind === 'med_change'
+          ? 'ed.changeTitle'
+          : mode.kind === 'med_stop'
+            ? 'ed.stopTitle'
+            : mode.kind === 'extracted'
+              ? 'ed.extractedTitle'
+              : 'ed.problemTitle';
   const o = (items: readonly string[]): Option[] => items.map((x) => ({ value: x, label: i18n.term(`entry.${x}` as TermId) }));
 
   const wrap = (children: ReactNode) => <div className="flex flex-col gap-4">{children}</div>;
@@ -470,6 +508,16 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
     <>
       <PageTitle back={backTo ? `#${backTo}` : `#/cases/${c.id}/timeline`}>{t(titleKey)}</PageTitle>
       {mode.kind === 'new' && mode.src && <SourcePeek caseId={c.id} attachmentId={mode.src} />}
+      {mode.kind === 'extracted' && (
+        <>
+          <SourcePeek caseId={c.id} attachmentId={mode.attachmentId} />
+          <Banner tone="info">
+            <span dir="auto">
+              {t('review.readAs')} <q className="font-mono text-[13px]">{mode.field.rawText}</q>
+            </span>
+          </Banner>
+        </>
+      )}
       {draft.restored && (
         <Banner tone="info">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -544,7 +592,7 @@ function EditorBody({ c, entries, mode }: { c: Case; entries: TimelineEntry[]; m
       {Object.keys(errors).length > 0 && <Banner tone="danger" role="alert">{t('err.fixFields')}</Banner>}
       {failure && <Banner tone="danger" role="alert">{failure}</Banner>}
       <Button variant="primary" onClick={save} disabled={busy}>
-        {busy ? t('common.saving') : mode.kind === 'correct' ? t('ed.saveCorrection') : t('ed.save')}
+        {busy ? t('common.saving') : mode.kind === 'correct' ? t('ed.saveCorrection') : mode.kind === 'extracted' ? t('ed.saveExtracted') : t('ed.save')}
       </Button>
     </>,
   );

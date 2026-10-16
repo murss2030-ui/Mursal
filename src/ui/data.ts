@@ -2,7 +2,9 @@ import type {
   Attachment,
   AuditEvent,
   Case,
+  CaseAnalysis,
   CaseIdentifiers,
+  ExtractionRun,
   FormDraft,
   RegisterItem,
   Rotation,
@@ -123,4 +125,20 @@ export const useAllItems = () =>
     (s) => s.db.items.toArray(),
     (s, rows): Promise<RegisterItem[]> => s.decodeItems(rows),
     [],
+  );
+
+/** What the model read from each document of the case (latest version of every reading). */
+export const useExtractions = (caseId: string) =>
+  useLiveDecoded(
+    (s) => s.rawExtractions(caseId),
+    (s, rows): Promise<ExtractionRun[]> => s.decodeExtractions(rows),
+    [caseId],
+  );
+
+/** The model's drafts for the case, latest version of every analysis (one per module run). */
+export const useAnalyses = (caseId: string) =>
+  useLiveDecoded(
+    (s) => s.rawAnalyses(caseId),
+    (s, rows): Promise<CaseAnalysis[]> => s.decodeAnalyses(rows),
+    [caseId],
   );

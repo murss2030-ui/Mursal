@@ -4,13 +4,13 @@ import { Icon } from '../components/Icon';
 import { Banner, LinkButton } from '../components/ui';
 import { AddSourceTiles, SourceList } from './SourceIntake';
 
-export function Stepper({ step }: { step: 1 | 2 | 3 }) {
+export function Stepper({ step }: { step: 1 | 2 | 3 | 4 }) {
   const { t } = useI18n();
-  const steps = [t('intake.step1'), t('intake.step2'), t('intake.step3')];
+  const steps = [t('intake.step1'), t('intake.step2'), t('intake.stepAnalyse'), t('intake.step3')];
   return (
     <ol className="flex items-center gap-2 text-xs font-medium" aria-label={t('intake.steps')}>
       {steps.map((s, i) => {
-        const n = (i + 1) as 1 | 2 | 3;
+        const n = (i + 1) as 1 | 2 | 3 | 4;
         const done = n < step;
         const on = n === step;
         return (
@@ -21,7 +21,7 @@ export function Stepper({ step }: { step: 1 | 2 | 3 }) {
               {done ? <Icon name="check" className="h-4 w-4" /> : n}
             </span>
             <span className={on ? 'text-slate-900' : 'text-slate-500'}>{s}</span>
-            {n < 3 && <span className="h-px flex-1 bg-slate-300" aria-hidden="true" />}
+            {n < steps.length && <span className="h-px flex-1 bg-slate-300" aria-hidden="true" />}
           </li>
         );
       })}
@@ -62,14 +62,21 @@ export function Intake({ caseId }: { caseId: string }) {
   );
 }
 
-/** The "Next" bar that leads from the patient file to the Clinical Modules (intake step 2 and the Patient file tab). */
+/**
+ * The "Next" bar of the patient file (intake step 2 and the Patient file tab):
+ * Next analyses the file (owner decision D2); the Clinical Modules stay one
+ * tap away for working by hand.
+ */
 export function NextToModules({ caseId, count, help }: { caseId: string; count: number; help?: string }) {
   const { t } = useI18n();
   return (
     <div className="sticky bottom-[112px] z-10 flex flex-col gap-2 rounded-2xl border border-line bg-white/95 p-3 shadow-lift backdrop-blur" data-testid="next-to-modules">
-      <LinkButton href={`#/cases/${caseId}/modules`} variant="primary" icon="arrow" className="w-full">
-        {t('intake.next')}
+      <LinkButton href={`#/cases/${caseId}/analyse`} variant="primary" icon="sparkle" className="w-full">
+        {t('intake.nextAnalyse')}
       </LinkButton>
+      <a href={`#/cases/${caseId}/modules`} className="inline-flex min-h-touch items-center justify-center gap-1 text-sm font-medium text-teal-900 underline">
+        {t('intake.skipToModules')}
+      </a>
       <p className="text-center text-xs text-slate-600">{help ?? (count === 0 ? t('intake.nextEmpty') : t('intake.nextHelp'))}</p>
     </div>
   );

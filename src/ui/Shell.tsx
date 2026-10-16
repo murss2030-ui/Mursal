@@ -1,3 +1,7 @@
+import { EditSuggestion } from './screens/EditSuggestion';
+import { AnalyseScreen } from './screens/Analyse';
+import { ExtractionReview } from './screens/ExtractionReview';
+import { FixExtracted } from './screens/FixExtracted';
 import { AiSettingsScreen } from './screens/AiSettings';
 import { useState, type ReactNode } from 'react';
 import { CURRENT_MILESTONE, RELEASE_GATE_MET } from '../config/release';
@@ -52,6 +56,12 @@ function Route({ path, query }: { path: string; query: URLSearchParams }): React
     return <EntryEditor caseId={m.id!} mode={{ kind: 'problem_update', problemId: m.problemId! }} />;
   }
   if ((m = match('/cases/:id/intake', path))) return <Intake caseId={m.id!} />;
+  if ((m = match('/cases/:id/analyse', path))) return <AnalyseScreen caseId={m.id!} />;
+  if ((m = match('/cases/:id/review/:runId/fix/:fieldId', path))) return <FixExtracted caseId={m.id!} runId={m.runId!} fieldId={m.fieldId!} />;
+  if ((m = match('/cases/:id/review/:runId', path))) return <ExtractionReview caseId={m.id!} runId={m.runId!} />;
+  if ((m = match('/cases/:id/suggestion/:analysisId/:suggestionId/edit', path))) {
+    return <EditSuggestion caseId={m.id!} analysisId={m.analysisId!} suggestionId={m.suggestionId!} />;
+  }
   if ((m = match('/cases/:id/sources/new/text', path))) return <TextSourceEditor caseId={m.id!} back={query.get('back') ?? 'sources'} />;
   if ((m = match('/cases/:id/sources/:attId', path))) return <SourceViewer caseId={m.id!} attachmentId={m.attId!} />;
   if ((m = match('/cases/:id/modules/:moduleId', path))) return <ModulePage caseId={m.id!} moduleId={m.moduleId!} />;

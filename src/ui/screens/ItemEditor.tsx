@@ -3,7 +3,7 @@ import { ANALYTE_BY_ID } from '../../domain/catalogue';
 import type { Errors } from '../../domain/entries';
 import { formatNumber } from '../../domain/numbers';
 import { regimenText, unitText } from '../../domain/timeline';
-import type { EntryOf, RegisterId, RegisterItem } from '../../domain/types';
+import type { EntryOf, ExtractedField, RegisterId, RegisterItem, Suggestion } from '../../domain/types';
 import { REGISTER_IDS } from '../../domain/types';
 import { ValidationError } from '../../domain/validation';
 import { TASKS } from '../../domain/workflow/catalogue';
@@ -18,9 +18,18 @@ import { usePersistentDraft } from '../hooks';
 import { navigate } from '../router';
 import { useSession } from '../session-context';
 import { ChoicePills, MultiPills } from './choice-controls';
+import { SourcePeek } from './SourceViewer';
 import { itemTitle } from './RegisterList';
 
-type Mode = { kind: 'new'; register: string } | { kind: 'edit'; itemId: string };
+type Mode =
+  | { kind: 'new'; register: string }
+  | { kind: 'edit'; itemId: string }
+  /** M3: correcting a medicine the model read from a document, before it becomes a row of the list. */
+  | { kind: 'extracted'; runId: string; field: ExtractedField; attachmentId: string; back: string }
+  /** M3: editing a register row the model suggested, before accepting it. */
+  | { kind: 'suggested'; analysisId: string; suggestion: Suggestion; back: string };
+
+export type ItemEditorMode = Mode;
 
 function FieldControl({ f, value, set, error, b, register }: { f: FieldDef; value: string; set: (v: string) => void; error?: string; b: CaseBundle; register: RegisterId }) {
   const tl = useL();
@@ -137,7 +146,21 @@ function History({ itemId }: { itemId: string }) {
   );
 }
 
-function EditorBody({ b, register, item, query }: { b: CaseBundle; register: RegisterId; item?: RegisterItem; query: URLSearchParams }) {
+function EditorBody({
+  b,
+  register,
+  item,
+  query,
+  extracted,
+  suggested,
+}: {
+  b: CaseBundle;
+  register: RegisterId;
+  item?: RegisterItem;
+  query: URLSearchParams;
+  extracted?: { runId: string; field: ExtractedField; attachmentId: string; back: string };
+  suggested?: { analysisId: string; suggestion: Suggestion; back: string };
+}) {
   const { t } = useI18n();
   const tl = useL();
   const errText = useErrorText();
@@ -145,12 +168,19 @@ function EditorBody({ b, register, item, query }: { b: CaseBundle; register: Reg
   const def = REGISTERS[register];
   const returnTask = query.get('task');
   const fromTask = query.get('from');
-  const back = returnTask && TASKS.has(returnTask) ? `/cases/${b.case.id}/task/${returnTask}` : `/cases/${b.case.id}/modules`;
+  const back = extracted ? extracted.back : suggested ? suggested.back : returnTask && TASKS.has(returnTask) ? `/cases/${b.case.id}/task/${returnTask}` : `/cases/${b.case.id}/modules`;
 
   const prefill: Record<string, string> = {};
   if (!item) for (const f of def.fields) if (query.get(f.id)) prefill[f.id] = query.get(f.id)!;
-  const initial: Record<string, string> = item ? { ...item.fields } : prefill;
-  const draft = usePersistentDraft<Record<string, string>>(item ? `item:edit:${item.id}` : `item:new:${b.case.id}:${register}`, initial);
+  const initial: Record<string, string> = item ? { ...item.fields } : extracted ? { ...extracted.field.values } : suggested ? { ...(suggested.suggestion.fields ?? {}) } : prefill;
+  const draftId = item
+    ? `item:edit:${item.id}`
+    : extracted
+      ? `item:extracted:${extracted.runId}:${extracted.field.id}`
+      : suggested
+        ? `item:suggested:${suggested.analysisId}:${suggested.suggestion.id}`
+        : `item:new:${b.case.id}:${register}`;
+  const draft = usePersistentDraft<Record<string, string>>(draftId, initial);
   const v = draft.values;
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
@@ -177,7 +207,9 @@ function EditorBody({ b, register, item, query }: { b: CaseBundle; register: Reg
     setBusy(true);
     const here = window.location.hash;
     try {
-      if (item) await store.updateItem(b.case.id, item.id, v, reason);
+      if (extracted) await store.decideExtractedField(b.case.id, extracted.runId, extracted.field.id, { kind: 'correct', values: v });
+      else if (suggested) await store.decideSuggestion(b.case.id, suggested.analysisId, suggested.suggestion.id, { kind: 'edit', fields: v });
+      else if (item) await store.updateItem(b.case.id, item.id, v, reason);
       else await store.addItem(b.case.id, register, v);
       await draft.clear();
       if (window.location.hash === here) navigate(back);
@@ -220,6 +252,16 @@ function EditorBody({ b, register, item, query }: { b: CaseBundle; register: Reg
         </Banner>
       )}
       {item?.status === 'retracted' && <Banner tone="warning">{t('item.isRetracted', { reason: item.changeReason ?? '' })}</Banner>}
+      {extracted && (
+        <>
+          <SourcePeek caseId={b.case.id} attachmentId={extracted.attachmentId} />
+          <Banner tone="info">
+            <span dir="auto">
+              {t('review.readAs')} <q className="font-mono text-[13px]">{extracted.field.rawText}</q>
+            </span>
+          </Banner>
+        </>
+      )}
       {draft.restored && <Banner tone="info">{t('ed.restored')}</Banner>}
       {register === 'drp' && <Banner tone="info">{t('item.drpTeaching')}</Banner>}
 
@@ -290,6 +332,15 @@ export function ItemEditor({ caseId, mode, query }: { caseId: string; mode: Mode
   if (state.status === 'error') return <Banner tone="danger">{state.error.message}</Banner>;
   if (state.status === 'missing') return <Banner tone="warning">{t('caseView.notFound')}</Banner>;
   const b = state.b;
+  if (mode.kind === 'suggested') {
+    if (!mode.suggestion.register) return <Banner tone="warning">{t('modules.unknown')}</Banner>;
+    return <EditorBody b={b} register={mode.suggestion.register} query={query} suggested={mode} />;
+  }
+  if (mode.kind === 'extracted') {
+    const t = mode.field.target;
+    if (t.kind !== 'register') return <Banner tone="warning">{t.kind}</Banner>;
+    return <EditorBody b={b} register={t.register} query={query} extracted={mode} />;
+  }
   if (mode.kind === 'new') {
     if (!(REGISTER_IDS as readonly string[]).includes(mode.register)) return <Banner tone="warning">{t('modules.unknown')}</Banner>;
     return <EditorBody b={b} register={mode.register as RegisterId} query={query} />;

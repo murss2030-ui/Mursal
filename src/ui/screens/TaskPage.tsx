@@ -17,6 +17,7 @@ import { useSession } from '../session-context';
 import { ChoicePills, MultiPills } from './choice-controls';
 import { TaskPanels } from './panels';
 import { RegisterList } from './RegisterList';
+import { AiDraft } from './AiDraft';
 
 type Flat = Record<string, string>;
 
@@ -450,6 +451,8 @@ function Worksheet({ def, b, rec }: { def: TaskDef; b: CaseBundle; rec: TaskReco
           ))}
         </ol>
       </details>
+
+      <AiDraft def={def} b={b} />
 
       {ready.length > 0 && <Readiness items={ready} caseId={caseId} />}
 

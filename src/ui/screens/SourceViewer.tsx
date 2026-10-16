@@ -18,7 +18,7 @@ const ORIGIN_ICON: Record<Attachment['origin'], IconName> = {
   pdf_page: 'file-text',
 };
 
-function useAttachmentText(a: Attachment | undefined): string | undefined {
+export function useAttachmentText(a: Attachment | undefined): string | undefined {
   const { store } = useSession();
   const [text, setText] = useState<string>();
   useEffect(() => {
