@@ -144,8 +144,8 @@ function FieldRow({ f, caseId, readOnly, draft }: { f: FormFieldView; caseId: st
   const href = f.edit && !readOnly ? editHref(caseId, f.edit) : null;
   const draftKey = f.edit?.kind === 'draft' ? f.edit.key : null;
   return (
-    <div className="flex flex-col gap-1 border-b border-slate-100 py-2 last:border-b-0" data-field={f.key}>
-      <div className="flex items-start justify-between gap-2">
+    <div className="flex flex-col border-b border-slate-100 py-2 last:border-b-0" data-field={f.key}>
+      <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium text-slate-700">
           <Label l={f.label} />
         </span>

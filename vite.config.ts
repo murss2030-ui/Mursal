@@ -81,5 +81,14 @@ export default defineConfig({
   build: {
     target: 'es2022',
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        // Libraries change rarely: in their own chunks, an app update re-downloads only the app code.
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          dexie: ['dexie', 'dexie-react-hooks'],
+        },
+      },
+    },
   },
 });
