@@ -2,6 +2,7 @@ import type { Case } from '../../domain/types';
 import { useI18n } from '../../i18n/i18n';
 import { useAttachments } from '../data';
 import { Banner } from '../components/ui';
+import { NextToModules } from './Intake';
 import { AddSourceTiles, SourceList } from './SourceIntake';
 
 export function SourcesTab({ c }: { c: Case }) {
@@ -17,6 +18,7 @@ export function SourcesTab({ c }: { c: Case }) {
           <AddSourceTiles c={c} back="sources" />
         </section>
       )}
+      {c.status !== 'archived' && <NextToModules caseId={c.id} count={atts.status === 'ready' ? atts.data.filter((a) => a.status === 'active').length : 0} help={t('sources.nextHelp')} />}
     </div>
   );
 }

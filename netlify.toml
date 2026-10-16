@@ -18,5 +18,5 @@
     # The page's own Content-Security-Policy (index.html) governs scripts and connections;
     # this header adds what a meta tag cannot express: no framing by other sites.
     Content-Security-Policy = "frame-ancestors 'none'"
-    # Camera access is added in M3 (document capture), when it is first needed.
-    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    # The camera is allowed for this site only: photographing patient-file pages (M1 Revision 1).
+    Permissions-Policy = "camera=(self), microphone=(), geolocation=(), payment=(), usb=()"

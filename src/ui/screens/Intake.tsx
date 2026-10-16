@@ -57,12 +57,20 @@ export function Intake({ caseId }: { caseId: string }) {
         <h2 className="text-base font-semibold text-slate-900">{t('intake.added', { n: count })}</h2>
         <SourceList caseId={c.id} attachments={list} />
       </section>
-      <div className="sticky bottom-[112px] z-10 flex flex-col gap-2 rounded-2xl border border-line bg-white/95 p-3 shadow-lift backdrop-blur">
-        <LinkButton href={`#/cases/${c.id}/modules`} variant="primary" icon="arrow" className="w-full">
-          {t('intake.next')}
-        </LinkButton>
-        <p className="text-center text-xs text-slate-600">{count === 0 ? t('intake.nextEmpty') : t('intake.nextHelp')}</p>
-      </div>
+      <NextToModules caseId={c.id} count={count} />
+    </div>
+  );
+}
+
+/** The "Next" bar that leads from the patient file to the Clinical Modules (intake step 2 and the Patient file tab). */
+export function NextToModules({ caseId, count, help }: { caseId: string; count: number; help?: string }) {
+  const { t } = useI18n();
+  return (
+    <div className="sticky bottom-[112px] z-10 flex flex-col gap-2 rounded-2xl border border-line bg-white/95 p-3 shadow-lift backdrop-blur" data-testid="next-to-modules">
+      <LinkButton href={`#/cases/${caseId}/modules`} variant="primary" icon="arrow" className="w-full">
+        {t('intake.next')}
+      </LinkButton>
+      <p className="text-center text-xs text-slate-600">{help ?? (count === 0 ? t('intake.nextEmpty') : t('intake.nextHelp'))}</p>
     </div>
   );
 }

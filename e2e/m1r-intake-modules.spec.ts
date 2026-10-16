@@ -247,6 +247,13 @@ test('new case → patient file (typed, photographed, PDF) → Next → Clinical
   await expect(page.getByTestId('workflow-case')).toContainText(caseId);
   await shot(page, 'r12-workflow');
 
+  // Documents added later from the Patient file tab also lead on to the Clinical Modules.
+  await page.goto(`/#/cases/${caseId}/sources`);
+  await expect(page.getByTestId('source-row')).toHaveCount(3);
+  await page.getByTestId('next-to-modules').getByRole('link', { name: 'Next: Clinical modules' }).click();
+  await expect(page).toHaveURL(new RegExp(`#/cases/${caseId}/modules$`));
+  await expect(page.getByTestId('modules-hub')).toBeVisible();
+
   expect(watch.errors).toEqual([]);
   expect(watch.requests.filter((u) => !u.startsWith('http://localhost:4173/') && !u.startsWith('blob:') && !u.startsWith('data:'))).toEqual([]);
 });

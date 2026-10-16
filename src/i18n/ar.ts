@@ -699,6 +699,7 @@ export const ar: Record<MsgKey, string> = {
   'source.removeReason': 'السبب (إلزامي)',
   'source.removeConfirm': 'إزالة وحذف المحتوى',
   'sources.lead': 'كل المستندات المصدرية لهذه الحالة مشفّرة على هذا الجهاز. افتح أياً منها لنقل القيم إلى الخط الزمني.',
+  'sources.nextHelp': 'المهام الثلاثون بترتيب مسار الرعاية.',
   'sources.addMore': 'أضف إلى ملف المريض',
   'task.status': 'الحالة',
   'task.naReason': 'لماذا لا تنطبق هذه المهمة (إلزامي)',

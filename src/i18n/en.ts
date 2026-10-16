@@ -701,6 +701,7 @@ export const en = {
   'source.removeReason': 'Reason (required)',
   'source.removeConfirm': 'Remove and delete the content',
   'sources.lead': 'Every source document of this case, encrypted on this device. Open one to transcribe values into the timeline.',
+  'sources.nextHelp': 'The 30 tasks, in the order of the care process.',
   'sources.addMore': 'Add to the patient file',
   'task.status': 'Status',
   'task.naReason': 'Why this task does not apply (required)',
