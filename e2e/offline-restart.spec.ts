@@ -34,7 +34,7 @@ test('a case survives a full browser restart with the device offline and the ser
   const nav = await page.goto(`${base}/`);
   expect(nav?.fromServiceWorker()).toBe(true); // served from the precached shell, not the network
   await unlock(page); // the key never persisted: the passphrase is required again
-  await page.goto(`${base}/#/cases/${caseId}`);
+  await page.goto(`${base}/#/cases/${caseId}/timeline`);
   await expect(page.getByRole('heading', { name: caseId })).toBeVisible();
   await expect(page.getByTestId('entry-main')).toHaveText('Serum creatinine: 1.4 mg/dL');
   await expect(page.getByTestId('connection-status')).toHaveText(/Offline/);

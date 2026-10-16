@@ -80,6 +80,12 @@ export function ModulePage({ caseId, moduleId }: { caseId: string; moduleId: str
                         {t('modules.issues', { n: p.issues })}
                       </span>
                     )}
+                    {status === 'done' && p.answered < p.total && (
+                      // A medication or problem added after the task was finished still needs its own review.
+                      <span className="rounded-full bg-saffron-100 px-2 py-0.5 text-xs font-medium text-saffron-900" data-testid="review-new">
+                        {t('task.reviewNew', { n: p.total - p.answered })}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <Icon name="chevron-forward" className="mt-2 h-5 w-5 text-slate-400" />

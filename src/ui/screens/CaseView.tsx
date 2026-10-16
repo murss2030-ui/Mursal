@@ -36,20 +36,26 @@ export function CaseHero({ c }: { c: Case }) {
               {c.id}
             </h1>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-teal-50">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-teal-50">
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.kind === 'clinical' ? 'bg-violet-200 text-violet-950' : 'bg-teal-200 text-teal-950'}`}>
               <Term id={c.kind === 'clinical' ? 'clinical_case' : 'teaching_case'} />
             </span>
             <span>{t('case.ageSex', { age: c.demographics.ageYears, sex: t(`sex.${c.demographics.sex}`) })}</span>
-            {c.ward && <span className="text-teal-100/90">· {c.ward}</span>}
           </div>
-          <div className="text-sm text-teal-100">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-teal-100">
             {c.status === 'active' ? (
-              <span>
-                <Term id="hospital_day" />: <DayLabel day={hospitalDayOf(c.admissionDay0, store.today())} />
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-0.5 font-medium text-white">
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-saffron-400" />
+                <DayLabel day={hospitalDayOf(c.admissionDay0, store.today())} />
               </span>
             ) : (
               <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs">{t(`case.status.${c.status}`)}</span>
+            )}
+            {c.ward && (
+              <span className="inline-flex min-w-0 items-center gap-1" dir="auto">
+                <Icon name="bed" className="h-4 w-4 shrink-0 text-teal-200" />
+                <span className="truncate">{c.ward}</span>
+              </span>
             )}
           </div>
         </div>

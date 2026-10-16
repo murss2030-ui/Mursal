@@ -6,7 +6,7 @@ import { Term, useI18n } from '../../i18n/i18n';
 import type { MsgKey } from '../../i18n/en';
 import { ProvenanceBadge } from '../components/ProvenanceBadge';
 import { Banner, Button, Card, Chip, DayLabel, Num, TextAreaField } from '../components/ui';
-import { useEntries, useFormDraft, useIdentifiers, useTrainee } from '../data';
+import { useEntries, useFormDraft, useIdentifiers, useItems, useTasks, useTrainee } from '../data';
 import { usePersistentDraft } from '../hooks';
 import { useSession } from '../session-context';
 
@@ -247,13 +247,21 @@ export function FormTab({ c }: { c: Case }) {
   const ids = useIdentifiers(c.id);
   const formDraft = useFormDraft(c.id);
   const trainee = useTrainee();
+  const items = useItems(c.id);
+  const tasks = useTasks(c.id);
   const [mode, setMode] = useState<CopyMode>('teaching'); // Teaching copy is the default (Section 15)
   const [editing, setEditing] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string>();
   const notes = usePersistentDraft<Record<string, string>>(`form:${c.id}`, {});
   const readOnly = c.status === 'archived';
 
-  const ready = entries.status === 'ready' && ids.status === 'ready' && formDraft.status === 'ready' && trainee.status === 'ready';
+  const ready =
+    entries.status === 'ready' &&
+    ids.status === 'ready' &&
+    formDraft.status === 'ready' &&
+    trainee.status === 'ready' &&
+    items.status === 'ready' &&
+    tasks.status === 'ready';
   const view = useMemo(
     () =>
       ready
@@ -263,10 +271,12 @@ export function FormTab({ c }: { c: Case }) {
             entries: entries.data,
             draft: formDraft.data,
             trainee: trainee.data,
+            items: items.data,
+            tasks: tasks.data,
             mode,
           })
         : null,
-    [ready, c, ids, entries, formDraft, trainee, mode],
+    [ready, c, ids, entries, formDraft, trainee, items, tasks, mode],
   );
   if (!view) return <p className="text-slate-600">{t('common.loading')}</p>;
 

@@ -73,7 +73,7 @@ export function Home() {
     <div className="flex flex-col gap-4">
       <section className="relative overflow-hidden rounded-2xl bg-ink p-5 text-white shadow-lift" data-testid="home-hero">
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-16 -end-10 h-48 w-48 rounded-full bg-saffron-400/20 blur-3xl" />
-        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-saffron-300">{t('home.rotation')}</span>
+        <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-saffron-300">{t('home.rotation')}</h2>
         {rotations.status !== 'ready' ? (
           <p className="mt-2 text-teal-100">{t('common.loading')}</p>
         ) : rot && prog ? (

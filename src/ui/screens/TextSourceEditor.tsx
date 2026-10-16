@@ -129,6 +129,7 @@ export function TextSourceEditor({ caseId, back }: { caseId: string; back: strin
         </div>
       </Card>
 
+      <div data-testid="identifier-check">
       <Card
         title={hits.length ? t('source.hitsFound', { n: hits.length }) : t('source.hitsNone')}
         actions={
@@ -139,7 +140,7 @@ export function TextSourceEditor({ caseId, back }: { caseId: string; back: strin
           ) : undefined
         }
       >
-        <div className="flex flex-col gap-3" data-testid="identifier-check">
+        <div className="flex flex-col gap-3">
           <p className="text-sm text-slate-700">{hits.length ? t('source.hitsHelp') : t('source.hitsNoneHelp')}</p>
           {hits.length > 0 && (
             <>
@@ -165,6 +166,7 @@ export function TextSourceEditor({ caseId, back }: { caseId: string; back: strin
           <CheckboxField label={t('source.confirmText')} checked={confirmed} onChange={setConfirmed} error={errText(errors.confirm)} name="confirmText" />
         </div>
       </Card>
+      </div>
 
       {failure && (
         <Banner tone="danger" role="alert">

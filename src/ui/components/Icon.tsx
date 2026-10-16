@@ -44,6 +44,7 @@ const PATHS = {
   briefcase: 'M3 8h18v12H3zM8 8V5h8v3',
   shield: 'M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6zM9 12l2 2 4-4',
   door: 'M4 21h16M6 21V4h9v17M15 4l4 2v15M11.5 12.5h.01',
+  bed: 'M3 6v13M3 16h18v3M21 16v-4a3 3 0 00-3-3h-7v7M7 12.5a1.5 1.5 0 100-.01',
   camera: 'M3 8h4l2-3h6l2 3h4v12H3zM15.5 13.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0z',
   type: 'M4 7V5h16v2M9 19h6M12 5v14',
   'file-plus': 'M6 2h9l5 5v15H6zM14 2v6h6M12 11v6M9 14h6',

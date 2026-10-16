@@ -52,7 +52,7 @@ test('encrypted backup exported from Settings restores into a fresh installation
   await other.getByLabel('Passphrase of the backup').fill(PASSPHRASE);
   await other.getByRole('button', { name: 'Restore backup' }).click();
   await expect(other.getByRole('navigation', { name: 'Primary' })).toBeVisible({ timeout: 30_000 });
-  await other.goto(`${page.url().split('#')[0]}#/cases/${caseId}`);
+  await other.goto(`${page.url().split('#')[0]}#/cases/${caseId}/timeline`);
   await expect(other.getByTestId('entry-main')).toHaveText('Serum creatinine: 1.2 mg/dL');
   await ctx.close();
 });

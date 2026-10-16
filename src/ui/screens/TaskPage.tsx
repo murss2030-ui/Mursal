@@ -338,8 +338,16 @@ function Worksheet({ def, b, rec }: { def: TaskDef; b: CaseBundle; rec: TaskReco
     return `#/cases/${caseId}/item/new/drp?${q.toString()}`;
   };
 
+  const unanswered = progress.total - progress.answered;
+  // "Done" is a statement that every item was looked at; an unanswered item can still be marked N/A.
+  const doneBlocked = status === 'done' && unanswered > 0;
+
   const save = async () => {
     setErrors({});
+    if (doneBlocked) {
+      setErrors({ save: t('task.doneBlocked', { n: unanswered }) });
+      return;
+    }
     const n = normalizeTaskInput(def.id, input);
     if (!n.ok) {
       setErrors(n.errors);
@@ -404,6 +412,12 @@ function Worksheet({ def, b, rec }: { def: TaskDef; b: CaseBundle; rec: TaskReco
           </div>
           {status === 'not_applicable' && (
             <TextField label={t('task.naReason')} value={v.naReason ?? ''} onChange={(x) => set('naReason', x)} error={errText(errors.naReason as never)} />
+          )}
+          {doneBlocked && (
+            <p className="flex items-start gap-2 rounded-xl bg-saffron-50 px-3 py-2 text-sm text-saffron-900" data-testid="done-blocked">
+              <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{t('task.doneBlocked', { n: unanswered })}</span>
+            </p>
           )}
         </div>
       </section>

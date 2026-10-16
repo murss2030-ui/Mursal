@@ -61,7 +61,7 @@ export async function createRotation(page: Page): Promise<void> {
 
 export async function createCase(
   page: Page,
-  opts: { kind: 'teaching' | 'clinical'; age?: string; admissionOffset?: number; name?: string; mrn?: string } ,
+  opts: { kind: 'teaching' | 'clinical'; age?: string; admissionOffset?: number; name?: string; mrn?: string; consultant?: string },
 ): Promise<string> {
   await page.goto('/#/cases/new');
   await page.getByRole('radio', { name: opts.kind === 'clinical' ? /Clinical Case/ : /Teaching Case/ }).check();
@@ -74,13 +74,14 @@ export async function createCase(
     if (opts.name) await page.getByLabel(/Patient name/).fill(opts.name);
     if (opts.mrn) await page.getByLabel(/MRN \/ ID/).fill(opts.mrn);
     await page.getByLabel(/Room \/ bed/).fill('Bed 14');
-    await page.getByLabel(/Consultant/).fill('Dr Synthetic Consultant');
+    await page.getByLabel(/Consultant/).fill(opts.consultant ?? 'Dr Synthetic Consultant');
   }
   await page.getByLabel(/I confirm this case contains synthetic/).check();
   await page.getByRole('button', { name: 'Create case' }).click();
-  await expect(page).toHaveURL(/#\/cases\/CASE-\d+/);
+  // Step 2 of the new-case flow: the patient file.
+  await expect(page).toHaveURL(/#\/cases\/CASE-\d+\/intake/);
   const id = /CASE-\d+/.exec(page.url())![0];
-  await expect(page.getByRole('heading', { name: id })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Add the patient file' })).toBeVisible();
   return id;
 }
 

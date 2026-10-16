@@ -2,13 +2,21 @@ import { useEffect, useState } from 'react';
 import type { Attachment } from '../../domain/types';
 import { ValidationError } from '../../domain/validation';
 import { useI18n } from '../../i18n/i18n';
-import { Icon } from '../components/Icon';
+import { Icon, type IconName } from '../components/Icon';
 import { Banner, Button, Card, DayLabel, LinkButton, Num, PageTitle, TextField, useErrorText } from '../components/ui';
 import { useAttachments, useEntries } from '../data';
 import { navigate } from '../router';
 import { useSession } from '../session-context';
 import { entryText } from '../format';
 import { useAttachmentUrl } from './panels';
+
+const ORIGIN_ICON: Record<Attachment['origin'], IconName> = {
+  typed: 'type',
+  text_file: 'file-text',
+  camera: 'camera',
+  image_file: 'image',
+  pdf_page: 'file-text',
+};
 
 function useAttachmentText(a: Attachment | undefined): string | undefined {
   const { store } = useSession();
@@ -96,15 +104,22 @@ export function SourceViewer({ caseId, attachmentId }: { caseId: string; attachm
   return (
     <div className="flex flex-col gap-4" data-testid="source-viewer">
       <PageTitle back={`#/cases/${caseId}/sources`}>{t(`source.docType.${a.docType}`)}</PageTitle>
-      <p className="-mt-3 flex flex-wrap gap-x-2 text-sm text-slate-600">
-        {a.title && <span>{a.title}</span>}
-        <span>{a.hospitalDay !== undefined ? <DayLabel day={a.hospitalDay} /> : t('source.noDay')}</span>
-        <span>{t(`source.origin.${a.origin}`)}</span>
-        {a.page !== undefined && <span>{t('source.page', { n: a.page })}</span>}
-        <span>
+      <ul className="-mt-3 flex flex-wrap gap-1.5 text-xs text-slate-700" data-testid="source-meta">
+        {a.title && (
+          <li className="rounded-full border border-line bg-white px-2.5 py-1 font-medium text-slate-900" dir="auto">
+            {a.title}
+          </li>
+        )}
+        <li className="rounded-full border border-line bg-white px-2.5 py-1">{a.hospitalDay !== undefined ? <DayLabel day={a.hospitalDay} /> : t('source.noDay')}</li>
+        <li className="inline-flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1">
+          <Icon name={ORIGIN_ICON[a.origin]} className="h-3.5 w-3.5 text-slate-500" />
+          {t(`source.origin.${a.origin}`)}
+          {a.page !== undefined && <> · {t('source.page', { n: a.page })}</>}
+        </li>
+        <li className="rounded-full border border-line bg-white px-2.5 py-1">
           <Num>{when(a.createdAt)}</Num>
-        </span>
-      </p>
+        </li>
+      </ul>
       {a.status === 'active' && (
         <Banner tone="info">
           <span className="flex items-center gap-2">
