@@ -1,3 +1,4 @@
+import { AiSettingsScreen } from './screens/AiSettings';
 import { useState, type ReactNode } from 'react';
 import { CURRENT_MILESTONE, RELEASE_GATE_MET } from '../config/release';
 import { useI18n } from '../i18n/i18n';
@@ -70,6 +71,7 @@ function Route({ path, query }: { path: string; query: URLSearchParams }): React
   if (path === '/more') return <More />;
   if (path === '/audit') return <AuditPage />;
   if (path === '/settings') return <Settings />;
+  if (path === '/settings/ai') return <AiSettingsScreen />;
   if (path === '/about') return <About />;
   return <Home />;
 }

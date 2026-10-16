@@ -310,6 +310,8 @@ interface EntryBase {
   supersedesEntryId?: string; // a correction points at what it replaces
   /** M1 extension: present on every correction — what kind, and why. */
   correction?: Correction;
+  /** M3 extension: the extracted field this entry confirms, and where it is on the page. */
+  extraction?: { runId: string; fieldId: string; box?: [number, number, number, number] };
 }
 
 /** APPEND-ONLY — never updated in place. Discriminated on `type`. */
@@ -418,6 +420,87 @@ export interface RegisterItem extends Versioned {
   fields: Record<string, string>;
   status: 'active' | 'retracted';
   createdAt: string;
+  /** M3 extension: the row was confirmed from a document the model read. */
+  origin?: { kind: 'extraction'; runId: string; fieldId: string; attachmentId: string };
+}
+
+// ---------------------------------------------------------------- M3: what the model read (Section 7 ExtractionRun, Section 13)
+
+/** Why an extracted field needs a look before it is confirmed. */
+export const EXTRACTION_FLAGS = [
+  'illegible',
+  'uncertain_reading',
+  'handwritten',
+  'handwritten_dose',
+  'name_unmatched',
+  'unit_unknown',
+  'out_of_range',
+  'abbreviation',
+  'route_unmatched',
+  'frequency_unmatched',
+  'dose_unparsed',
+  'value_not_number',
+  'no_day',
+  'day_from_document',
+  'needs_choice',
+  'dual_pass_disagreement',
+  'single_pass',
+  'drug_unmatched',
+  'drug_not_checked',
+  'identifier_in_output',
+] as const;
+export type ExtractionFlag = (typeof EXTRACTION_FLAGS)[number];
+
+export type ExtractionTarget = { kind: 'entry'; type: EntryType } | { kind: 'register'; register: 'home_med' | 'discharge_med' };
+
+/** One field read from a document, as a draft. It is never used until the trainee confirms or corrects it. */
+export interface ExtractedField {
+  id: string;
+  kind: 'lab' | 'vital' | 'weight' | 'medication' | 'allergy' | 'problem' | 'history' | 'social' | 'culture' | 'imaging' | 'procedure' | 'event';
+  medContext?: 'home' | 'inpatient' | 'discharge' | 'unknown';
+  target: ExtractionTarget;
+  /** The same form values a typed entry (or register row) would have. */
+  values: Record<string, string>;
+  day?: number;
+  timeOfDay?: string;
+  /** Exactly what was read, shown beside the value. */
+  rawText: string;
+  legibility: 'clear' | 'uncertain' | 'illegible';
+  handwritten: boolean;
+  /** [ymin, xmin, ymax, xmax] scaled 0–1000 of the page. */
+  box?: [number, number, number, number];
+  flags: ExtractionFlag[];
+  note?: string;
+  /** The second reading, when the two disagreed. */
+  alternative?: string;
+  drug?: { status: 'matched' | 'unmatched' | 'not_checked'; rxcui?: string; name?: string };
+  decision?: FieldDecision;
+}
+
+export interface FieldDecision {
+  kind: 'confirmed' | 'corrected' | 'rejected';
+  at: string;
+  entryId?: string;
+  itemId?: string;
+  reason?: string;
+}
+
+/** One reading of one document (Section 7). Versioned: each decision on a field is a new version. */
+export interface ExtractionRun extends Versioned {
+  id: string;
+  caseId: string;
+  attachmentId: string;
+  model: string;
+  /** The model of the second reading, when there was one. */
+  secondModel?: string;
+  promptVersion: string;
+  runAt: string;
+  passes: 1 | 2;
+  readable: boolean;
+  fields: ExtractedField[];
+  /** What the last check before sending did to the text. */
+  sent: { identifiersMasked: number; datesReplaced: number };
+  usage: { inputTokens: number; outputTokens: number; costUsd: number };
 }
 
 // ---------------------------------------------------------------- form, settings, audit
@@ -445,7 +528,11 @@ export type AuditEntity =
   | 'backup'
   | 'attachment'
   | 'task'
-  | 'item';
+  | 'item'
+  | 'model_call'
+  | 'extraction'
+  | 'analysis'
+  | 'suggestion';
 
 export type AuditAction =
   | 'create'
@@ -456,7 +543,12 @@ export type AuditAction =
   | 'acknowledge'
   | 'export'
   | 'restore'
-  | 'change_passphrase';
+  | 'change_passphrase'
+  | 'call'
+  | 'confirm'
+  | 'reject'
+  | 'accept'
+  | 'edit';
 
 export interface AuditEvent {
   // append-only, never pruned

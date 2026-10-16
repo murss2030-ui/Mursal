@@ -3,7 +3,7 @@ import { MIN_PASSPHRASE_LENGTH, WrongPassphraseError } from '../../crypto/crypto
 import { useI18n } from '../../i18n/i18n';
 import { createBackup } from '../../store/backup';
 import { IDLE_LOCK_CHOICES } from '../../store/session';
-import { Banner, Button, Card, PageTitle, SelectField, TextField } from '../components/ui';
+import { Banner, Button, Card, LinkButton, PageTitle, SelectField, TextField } from '../components/ui';
 import { useTrainee } from '../data';
 import { useSession } from '../session-context';
 
@@ -155,6 +155,14 @@ export function Settings() {
             onChange={(x) => x && void setPrefs({ idleLockMinutes: Number(x) })}
             options={IDLE_LOCK_CHOICES.map((n) => ({ value: String(n), label: t('set.minutes', { n }) }))}
           />
+        </div>
+      </Card>
+      <Card title={t('set.aiService')}>
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-sm text-slate-700">{t('set.aiServiceLead')}</p>
+          <LinkButton href="#/settings/ai" icon="sparkle">
+            {t('set.aiService')}
+          </LinkButton>
         </div>
       </Card>
       <TraineeCard />

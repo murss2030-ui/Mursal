@@ -5,10 +5,11 @@ import { VitePWA } from 'vite-plugin-pwa';
 /**
  * Content-Security-Policy for the production build.
  *
- * M1 has no network features at all, so `connect-src 'self'` is a hard,
- * browser-enforced guarantee that no case data can leave the device from
- * this build. Later milestones widen connect-src only to the serverless
- * relay and the permitted open-data APIs (Section 4).
+ * `connect-src` is a browser-enforced list of the only places this app can
+ * send anything: its own origin (which includes the model relay, a
+ * serverless function on the same site) and, from M3, the NIH RxNav service
+ * for drug-name matching (Section 4, only the drug name is sent). Nothing
+ * else — in particular no model provider — is reachable from the browser.
  *
  * Applied only to `vite build`, because the dev server relies on inline
  * scripts for hot reload.
@@ -19,7 +20,7 @@ const CSP = [
   "style-src 'self'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  "connect-src 'self'",
+  "connect-src 'self' https://rxnav.nlm.nih.gov",
   "worker-src 'self'",
   "manifest-src 'self'",
   "object-src 'none'",

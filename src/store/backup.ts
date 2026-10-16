@@ -16,11 +16,12 @@ import { IntegrityError, rowAad } from './store';
 
 export const BACKUP_FORMAT = 'preceptor-backup';
 /** Version 2 adds the patient file (attachments, blobs) and the clinical modules (tasks, items). Version 1 files still restore. */
-export const BACKUP_FORMAT_VERSION = 2;
-const READABLE_FORMAT_VERSIONS = [1, 2];
+export const BACKUP_FORMAT_VERSION = 3;
+const READABLE_FORMAT_VERSIONS = [1, 2, 3];
 
 /** Working drafts are transient and not part of the record. */
-const BACKED_UP_TABLES = ENCRYPTED_TABLES.filter((t) => t !== 'uiDrafts');
+// Working drafts and the open-data cache are not part of the record.
+const BACKED_UP_TABLES = ENCRYPTED_TABLES.filter((t) => t !== 'uiDrafts' && t !== 'lookups');
 
 type SerializedRow = Omit<EncryptedRow, 'iv' | 'ct'> & { iv: string; ct: string };
 

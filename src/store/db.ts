@@ -39,6 +39,8 @@ export const APPEND_ONLY_TABLES = [
   'attachments',
   'tasks',
   'items',
+  'extractions',
+  'analyses',
 ] as const;
 /**
  * Source-document content. Rows can be added and, only to purge a document
@@ -46,7 +48,8 @@ export const APPEND_ONLY_TABLES = [
  * attachment's metadata and the removal itself stay in append-only tables.
  */
 export const PURGEABLE_TABLES = ['blobs'] as const;
-export const MUTABLE_ENCRYPTED_TABLES = ['settings', 'uiDrafts'] as const;
+/** `lookups` caches open-data answers (e.g. RxNorm) with their retrieval date (Section 19). */
+export const MUTABLE_ENCRYPTED_TABLES = ['settings', 'uiDrafts', 'lookups'] as const;
 export const ENCRYPTED_TABLES = [...APPEND_ONLY_TABLES, ...PURGEABLE_TABLES, ...MUTABLE_ENCRYPTED_TABLES] as const;
 export type EncryptedTableName = (typeof ENCRYPTED_TABLES)[number];
 export type AppendOnlyTableName = (typeof APPEND_ONLY_TABLES)[number];
@@ -114,6 +117,9 @@ export class PreceptorDB extends Dexie {
   blobs!: Table<EncryptedRow, string>;
   tasks!: Table<EncryptedRow, string>;
   items!: Table<EncryptedRow, string>;
+  extractions!: Table<EncryptedRow, string>;
+  analyses!: Table<EncryptedRow, string>;
+  lookups!: Table<EncryptedRow, string>;
 
   constructor(name = 'preceptor') {
     super(name);
@@ -136,6 +142,12 @@ export class PreceptorDB extends Dexie {
       blobs: 'id, caseId',
       tasks: 'id, entityId, caseId',
       items: 'id, entityId, caseId',
+    });
+    // M3: what the model read (extraction runs) and its case analyses, both versioned; the open-data cache.
+    this.version(3).stores({
+      extractions: 'id, entityId, caseId',
+      analyses: 'id, entityId, caseId',
+      lookups: 'id',
     });
     this.use(appendOnlyMiddleware);
   }

@@ -53,7 +53,8 @@ export type FieldError =
   | 'tooLarge'
   | 'unknownField'
   | 'unknownTask'
-  | 'confirm';
+  | 'confirm'
+  | 'modelId';
 
 export type Values = Record<string, string>;
 export type Errors = Record<string, FieldError>;

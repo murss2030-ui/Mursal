@@ -9,7 +9,7 @@
  */
 import { open, openBytes, seal, sealBytes } from '../crypto/crypto';
 import { localToday } from '../domain/dates';
-import type { Errors } from '../domain/entries';
+import { buildEntryMeta, buildPayload, type Errors } from '../domain/entries';
 import type {
   Attachment,
   AttachmentOrigin,
@@ -18,6 +18,8 @@ import type {
   CaseIdentifiers,
   Correction,
   EntryType,
+  ExtractionRun,
+  FieldDecision,
   FormDraft,
   PayloadMap,
   RegisterId,
@@ -46,6 +48,7 @@ import {
   type RotationInput,
 } from '../domain/validation';
 import { M1_MANUAL_ENTRY_TYPES } from '../domain/types';
+import { auditView, newInstallId, normalizeAiSettings, type AiSettings, type AiSettingsInput } from '../ai/settings';
 import {
   APPEND_ONLY_TABLES,
   type EncryptedRow,
@@ -102,6 +105,13 @@ export interface NewEntryInput<K extends EntryType = EntryType> {
   sourceAttachmentId?: string;
 }
 
+export type NewExtractionRun = Omit<ExtractionRun, keyof Versioned | 'id' | 'caseId' | 'runAt'>;
+
+export type FieldDecisionInput =
+  | { kind: 'confirm' }
+  | { kind: 'correct'; values: Record<string, string>; day?: number; timeOfDay?: string }
+  | { kind: 'reject'; reason?: string };
+
 export interface NewAttachmentInput {
   kind: 'text' | 'image';
   docType: SourceDocType;
@@ -135,7 +145,7 @@ type AuditInput = Omit<AuditEvent, 'id' | 'at' | 'actor'> & { actor?: AuditEvent
 const APPEND_ONLY = new Set<string>(APPEND_ONLY_TABLES);
 
 /** Tables holding versioned records: one row per version, id `${entityId}@${version}`. */
-export type VersionedTable = 'rotations' | 'cases' | 'identifiers' | 'formDrafts' | 'attachments' | 'tasks' | 'items';
+export type VersionedTable = 'rotations' | 'cases' | 'identifiers' | 'formDrafts' | 'attachments' | 'tasks' | 'items' | 'extractions' | 'analyses';
 
 export class Store {
   /** Decrypted immutable rows, keyed `${table}:${id}`. Cleared on lock. */
@@ -923,6 +933,171 @@ export class Store {
     );
   }
 
+  // ------------------------------------------------------------------ M3: what the model read (extraction runs)
+
+  rawExtractions(caseId: string): Promise<EncryptedRow[]> {
+    return this.db.extractions.where('caseId').equals(caseId).toArray();
+  }
+
+  async decodeExtractions(rows: EncryptedRow[]): Promise<ExtractionRun[]> {
+    const runs = await this.decodeLatestOfAll<ExtractionRun>('extractions', rows);
+    return runs.sort((a, b) => (a.runAt < b.runAt ? -1 : a.runAt > b.runAt ? 1 : 0));
+  }
+
+  async listExtractions(caseId: string): Promise<ExtractionRun[]> {
+    return this.decodeExtractions(await this.rawExtractions(caseId));
+  }
+
+  /** Records one reading of a document. Nothing in it is used until each field is confirmed. */
+  async addExtractionRun(caseId: string, input: NewExtractionRun): Promise<ExtractionRun> {
+    await this.writableCase(caseId);
+    await this.assertActiveAttachment(caseId, input.attachmentId);
+    if (input.fields.some((f) => f.decision)) throw new IntegrityError('A new reading cannot carry decisions.');
+    const id = this.uuid();
+    return this.writeVersion<ExtractionRun>(
+      'extractions',
+      id,
+      (_p, version, at) => ({ ...input, id, caseId, runAt: at, version, versionCreatedAt: at }),
+      (_p, next) => ({
+        entity: 'extraction',
+        entityId: id,
+        caseId,
+        action: 'create',
+        actor: 'model',
+        // Counts only: the values themselves are in the encrypted run, not repeated in the log.
+        diff: {
+          attachmentId: next.attachmentId,
+          model: next.model,
+          secondModel: next.secondModel,
+          promptVersion: next.promptVersion,
+          passes: next.passes,
+          fields: next.fields.length,
+          flagged: next.fields.filter((f) => f.flags.length > 0).length,
+          sent: next.sent,
+          usage: next.usage,
+        },
+      }),
+      { caseId },
+    );
+  }
+
+  /**
+   * The trainee's decision on one extracted field (Section 13): confirm it as
+   * read, correct it, or reject it. A confirmed or corrected field becomes a
+   * timeline entry (provenance "confirmed", linked to its source and box) or a
+   * register row, through the same validation as a typed entry. One field, one
+   * decision; there is no way to decide several at once.
+   */
+  async decideExtractedField(
+    caseId: string,
+    runId: string,
+    fieldId: string,
+    d: FieldDecisionInput,
+  ): Promise<{ run: ExtractionRun; entry?: TimelineEntry; item?: RegisterItem }> {
+    await this.writableCase(caseId);
+    const run = await this.latest<ExtractionRun>('extractions', runId);
+    if (!run || run.caseId !== caseId) throw new IntegrityError('That reading does not exist in this case.');
+    const field = run.fields.find((f) => f.id === fieldId);
+    if (!field) throw new IntegrityError('That field does not exist in this reading.');
+    if (field.decision) throw new IntegrityError('That field has already been decided.');
+
+    let entry: TimelineEntry | undefined;
+    let item: RegisterItem | undefined;
+    let row: { table: 'timeline' | 'items'; row: EncryptedRow } | undefined;
+    let createAudit: EncryptedRow | undefined;
+    const values = d.kind === 'correct' ? d.values : field.values;
+    if (d.kind !== 'reject') {
+      await this.assertActiveAttachment(caseId, run.attachmentId);
+      const now = this.nowIso();
+      if (field.target.kind === 'entry') {
+        const type = field.target.type;
+        if (!(M1_MANUAL_ENTRY_TYPES as readonly string[]).includes(type)) throw new ValidationError({ type: 'notInM1' });
+        const day = d.kind === 'correct' ? d.day : field.day;
+        const time = d.kind === 'correct' ? d.timeOfDay : field.timeOfDay;
+        const meta = buildEntryMeta({ hospitalDay: day === undefined ? '' : String(day), timeOfDay: time ?? '' });
+        const built = buildPayload(type, values, { newId: this.uuid });
+        const errors = { ...(meta.ok ? {} : meta.errors), ...(built.ok ? {} : built.errors) };
+        if (!meta.ok || !built.ok) throw new ValidationError(errors);
+        entry = stripUndefined({
+          id: this.uuid(),
+          caseId,
+          hospitalDay: meta.hospitalDay,
+          timeOfDay: meta.timeOfDay,
+          recordedAt: now,
+          author: 'ai_extracted' as const,
+          type,
+          payload: built.payload,
+          unit: unitOf(type, built.payload),
+          sourceAttachmentId: run.attachmentId,
+          provenance: 'confirmed' as const,
+          extraction: stripUndefined({ runId, fieldId, box: field.box }),
+        }) as TimelineEntry;
+        row = { table: 'timeline', row: await this.sealRow('timeline', { id: entry.id, caseId }, entry) };
+        createAudit = await this.auditRow({ entity: 'timeline_entry', entityId: entry.id, caseId, action: 'create', diff: { after: entry } });
+      } else {
+        const register = field.target.register;
+        const n = normalizeItemFields(register, values);
+        if (!n.ok) throw new ValidationError(n.errors);
+        const id = this.uuid();
+        item = {
+          id,
+          caseId,
+          register,
+          fields: n.fields,
+          status: 'active',
+          createdAt: now,
+          version: 1,
+          versionCreatedAt: now,
+          origin: { kind: 'extraction', runId, fieldId, attachmentId: run.attachmentId },
+        };
+        row = { table: 'items', row: await this.sealRow('items', { id: `${id}@1`, entityId: id, version: 1, caseId }, item) };
+        createAudit = await this.auditRow({ entity: 'item', entityId: id, caseId, action: 'create', diff: { register, after: n.fields, origin: item.origin } });
+      }
+    }
+    const kind = d.kind === 'confirm' ? 'confirmed' : d.kind === 'correct' ? 'corrected' : 'rejected';
+    const next = await this.writeVersion<ExtractionRun>(
+      'extractions',
+      runId,
+      (p, version, at) => {
+        const f = p?.fields.find((x) => x.id === fieldId);
+        if (!p || !f || f.decision) throw new IntegrityError('That field has already been decided.');
+        const decision = stripUndefined({ kind, at, entryId: entry?.id, itemId: item?.id, reason: d.kind === 'reject' ? d.reason?.trim() || undefined : undefined }) as FieldDecision;
+        return { ...p, fields: p.fields.map((x) => (x.id === fieldId ? { ...x, decision } : x)), version, versionCreatedAt: at };
+      },
+      () => ({
+        entity: 'extraction',
+        entityId: runId,
+        caseId,
+        action: d.kind === 'confirm' ? 'confirm' : d.kind === 'correct' ? 'edit' : 'reject',
+        diff: stripUndefined({
+          fieldId,
+          kind: field.kind,
+          entryId: entry?.id,
+          itemId: item?.id,
+          changed: d.kind === 'correct' ? changedKeys(field.values, values) : undefined,
+          reason: d.kind === 'reject' ? d.reason?.trim() || undefined : undefined,
+        }),
+      }),
+      {
+        caseId,
+        extraAudit: createAudit ? [createAudit] : [],
+        also: row ? { tables: [row.table], run: async () => void (await this.db.encryptedTable(row!.table).add(row!.row)) } : undefined,
+      },
+    );
+    return { run: next, entry, item };
+  }
+
+  // ------------------------------------------------------------------ open-data cache (Section 19: the same lookup never costs twice)
+
+  async getLookup<T>(id: string): Promise<{ value: T; retrievedAt: string } | undefined> {
+    const row = await this.db.lookups.get(id);
+    return row ? this.openRow<{ value: T; retrievedAt: string }>('lookups', row) : undefined;
+  }
+
+  async putLookup<T>(id: string, value: T): Promise<void> {
+    await this.db.lookups.put(await this.sealRow('lookups', { id }, { value, retrievedAt: this.nowIso() }));
+  }
+
   // ------------------------------------------------------------------ department form drafts
 
   async saveFormDraft(caseId: string, fields: Record<string, string>): Promise<FormDraft> {
@@ -970,6 +1145,38 @@ export class Store {
       await this.db.audit.add(auditRow);
     });
     return clean;
+  }
+
+  // ------------------------------------------------------------------ AI settings (M3)
+
+  /** The AI settings; the installation id is created on first use. */
+  async getAiSettings(): Promise<AiSettings> {
+    const row = await this.db.settings.get('ai');
+    if (row) return this.openRow<AiSettings>('settings', row);
+    const created: AiSettings = { installId: newInstallId(this.uuid), models: {} };
+    const sealed = await this.sealRow('settings', { id: 'ai' }, created);
+    const auditRow = await this.auditRow({ entity: 'settings', entityId: 'ai', action: 'create', actor: 'system', diff: { after: auditView(created) } });
+    await this.db.transaction('rw', [this.db.settings, this.db.audit], async () => {
+      if (await this.db.settings.get('ai')) return; // another tab created it first
+      await this.db.settings.add(sealed);
+      await this.db.audit.add(auditRow);
+    });
+    const now = await this.db.settings.get('ai');
+    return now ? this.openRow<AiSettings>('settings', now) : created;
+  }
+
+  async updateAiSettings(input: AiSettingsInput): Promise<AiSettings> {
+    const prev = await this.getAiSettings();
+    const n = normalizeAiSettings(prev, input);
+    if (!n.ok) throw new ValidationError(n.errors);
+    const row = await this.sealRow('settings', { id: 'ai' }, n.value);
+    // The access code itself is never written to the audit log.
+    const auditRow = await this.auditRow({ entity: 'settings', entityId: 'ai', action: 'update', diff: { before: auditView(prev), after: auditView(n.value) } });
+    await this.db.transaction('rw', [this.db.settings, this.db.audit], async () => {
+      await this.db.settings.put(row);
+      await this.db.audit.add(auditRow);
+    });
+    return n.value;
   }
 
   // ------------------------------------------------------------------ encrypted working drafts (interruption survival)
