@@ -8,7 +8,10 @@
  * teaching content (why and how), a checklist the trainee answers, the
  * registers it shares with other tasks, the data it depends on, and what the
  * later milestones add. The application never answers a task for the
- * trainee: every answer is the trainee's own entry.
+ * trainee: every answer is the trainee's own entry. From M3 the model may
+ * draft suggestions (owner decisions D2, D3; src/ai/analysis), but nothing
+ * enters a worksheet until the trainee accepts or edits that one item, and
+ * what only the trainee can record is never drafted (src/ai/analysis/limits.ts).
  */
 import type { Milestone } from '../../config/release';
 import { L } from '../label';

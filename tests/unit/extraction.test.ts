@@ -9,6 +9,7 @@ import { readApproximateTerm, rxnormMatch } from '../../src/ai/connectors/rxnorm
 import type { ModelResponse } from '../../src/ai/protocol';
 import { ValidationError } from '../../src/domain/validation';
 import { IntegrityError } from '../../src/store/store';
+import { locate } from '../../src/ui/screens/ExtractionReview';
 import { newCase, newSession } from './helpers';
 
 const CTX = { admissionDay0: '2026-10-13', docType: 'lab_report' as const, docDay: undefined, known: { patientName: 'Saleh Qaid', mrn: 'MRN-77120' } };
@@ -295,5 +296,15 @@ describe('reading a document', () => {
     expect(latest.fields[2]!.decision?.reason).toBe('Not this admission');
     expect(await store.listEntries(c.id)).toHaveLength(1);
     expect(await store.listItems(c.id)).toHaveLength(1);
+  });
+});
+
+describe('finding what was read in the stored document', () => {
+  it('finds the exact text, or the longest part of it when a date was sent as a hospital day', () => {
+    const body = 'Admitted 13/10/2026 with fever, productive cough and confusion for 3 days.';
+    expect(locate(body, 'fever, productive cough')).toEqual([25, 48]);
+    const [a, b] = locate(body, 'Admitted Day 0 with fever, productive cough and confusion for 3 days.')!;
+    expect(body.slice(a, b)).toBe('with fever, productive cough and confusion for 3 days.');
+    expect(locate(body, 'not in the document at all')).toBeUndefined();
   });
 });

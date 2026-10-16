@@ -268,6 +268,7 @@ test('Teaching Case: Next → the model reads the file → each value checked �
   const draft = page.getByTestId('ai-draft');
   await expect(draft).toHaveAttribute('data-state', 'current');
   await expect(draft.getByRole('button', { name: /all/i })).toHaveCount(0);
+  expect(await page.evaluate(() => (document.activeElement instanceof HTMLButtonElement ? document.activeElement.textContent : ''))).not.toMatch(/Accept|Add to my notes/);
   // From the case data, with its references…
   const inputs = suggestion(page, 'Inputs confirmed');
   await expect(inputs.locator('[data-basis="case_data"]')).toContainText('From the case data:');
@@ -333,6 +334,17 @@ test('Teaching Case: Next → the model reads the file → each value checked �
   await expect(page.getByTestId('ai-device-usage')).toContainText('Reading documents');
   await expect(page.getByTestId('ai-device-usage')).toContainText('Case analysis');
   await shot(page, 'm3-12-usage', true);
+
+  // In Arabic, right to left; clinical values stay as written.
+  await page.getByRole('button', { name: 'العربية' }).first().click();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await page.goto(`/#/cases/${caseId}/analyse`);
+  await expect(page.getByRole('heading', { name: 'تحليل ملف المريض' })).toBeVisible();
+  await shot(page, 'm3-15-analyse-arabic');
+  await page.goto(`/#/cases/${caseId}/task/t09`);
+  await expect(page.getByTestId('ai-draft')).toContainText('مسودة الذكاء الاصطناعي لهذه المهمة');
+  await shot(page, 'm3-16-draft-arabic', true);
+  await page.getByRole('button', { name: 'English' }).first().click();
 
   // Nothing went anywhere but the app's own relay — and RxNav, with a drug name only.
   const external = watch.requests.filter((u) => !u.startsWith('http://localhost:4173/') && !u.startsWith('blob:') && !u.startsWith('data:'));

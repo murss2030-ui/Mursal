@@ -39,6 +39,27 @@ function targetLabel(f: ExtractedField, t: (k: MsgKey, p?: Record<string, string
   return t(`review.to.${f.target.type}` as MsgKey);
 }
 
+/**
+ * Where what was read appears in the stored document. Calendar dates were
+ * sent to the model as hospital days ("Day 0"), so when the exact text is not
+ * found, the longest part of it that is in the document is shown.
+ */
+export function locate(body: string, read: string): [number, number] | undefined {
+  if (!read) return undefined;
+  const at = body.indexOf(read);
+  if (at >= 0) return [at, at + read.length];
+  const parts = read
+    .split(/\bDay -?\d+\b/)
+    .map((p) => p.trim())
+    .filter((p) => p.length >= 8)
+    .sort((a, b) => b.length - a.length);
+  for (const p of parts) {
+    const i = body.indexOf(p);
+    if (i >= 0) return [i, i + p.length];
+  }
+  return undefined;
+}
+
 /** The page, with every value's box; the selected one stands out. */
 function SourcePane({ a, run, selected }: { a: Attachment; run: ExtractionRun; selected?: string }) {
   const { t } = useI18n();
@@ -78,7 +99,7 @@ function SourcePane({ a, run, selected }: { a: Attachment; run: ExtractionRun; s
   // Text: the selected value's raw text is highlighted where it occurs.
   const sel = run.fields.find((f) => f.id === selected)?.rawText ?? '';
   const body = text ?? '';
-  const at = sel ? body.indexOf(sel) : -1;
+  const [at, end] = locate(body, sel) ?? [-1, -1];
   return (
     // A fixed height: selecting a value must never move the buttons under the trainee's finger.
     <pre
@@ -94,8 +115,8 @@ function SourcePane({ a, run, selected }: { a: Attachment; run: ExtractionRun; s
       ) : (
         <>
           {body.slice(0, at)}
-          <mark className="rounded bg-saffron-200 px-0.5">{body.slice(at, at + sel.length)}</mark>
-          {body.slice(at + sel.length)}
+          <mark className="rounded bg-saffron-200 px-0.5">{body.slice(at, end)}</mark>
+          {body.slice(end)}
         </>
       )}
     </pre>

@@ -1,6 +1,8 @@
 # Static hosting on Netlify, the host named in the specification (Section 6).
 # Connect the GitHub repository in Netlify and these settings are applied automatically.
-# M1 has no serverless functions; the stateless model relay arrives with M3.
+# The stateless model relay (M3) is netlify/functions/model.mts, serving /api/model and
+# /api/status. It is configured only through environment variables: see the README,
+# "AI service". The API key is never part of the site's files.
 
 [build]
   command = "npm run build"

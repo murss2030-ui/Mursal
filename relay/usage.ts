@@ -89,36 +89,38 @@ export async function reconcile(
 
 export type RateResult = { ok: true } | { ok: false; retryAfterSeconds: number; window: 'minute' | 'day' };
 
-/** Per-installation limits per minute and per day, independent of the monthly cap. */
+interface RateState {
+  day: string;
+  dayCount: number;
+  minute: string;
+  minuteCount: number;
+}
+
+/**
+ * Per-installation limits per minute and per day, independent of the monthly
+ * cap. One record per installation, rewritten in place: the store never grows
+ * with use.
+ */
 export async function takeRate(store: CounterStore, now: Date, installId: string, perMinute: number, perDay: number): Promise<RateResult> {
   const iso = now.toISOString();
-  const minuteKey = `rate-${installId}-${iso.slice(0, 16)}`;
-  const dayKey = `rate-${installId}-${iso.slice(0, 10)}`;
+  const day = iso.slice(0, 10);
+  const minute = iso.slice(0, 16);
   let result: RateResult = { ok: true };
-  await update<number>(store, dayKey, (prev) => {
-    const n = prev ?? 0;
-    if (n >= perDay) {
+  await update<RateState>(store, `rate-${installId}`, (prev) => {
+    const dayCount = prev?.day === day ? prev.dayCount : 0;
+    const minuteCount = prev?.minute === minute ? prev.minuteCount : 0;
+    if (dayCount >= perDay) {
       const tomorrow = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
       result = { ok: false, window: 'day', retryAfterSeconds: Math.ceil((tomorrow - now.getTime()) / 1000) };
-      return n;
+      return { day, dayCount, minute, minuteCount };
     }
-    result = { ok: true };
-    return n + 1;
-  });
-  if (!result.ok) return result;
-  await update<number>(store, minuteKey, (prev) => {
-    const n = prev ?? 0;
-    if (n >= perMinute) {
+    if (minuteCount >= perMinute) {
       result = { ok: false, window: 'minute', retryAfterSeconds: 60 - now.getUTCSeconds() };
-      return n;
+      return { day, dayCount, minute, minuteCount };
     }
     result = { ok: true };
-    return n + 1;
+    return { day, dayCount: dayCount + 1, minute, minuteCount: minuteCount + 1 };
   });
-  if (!result.ok) {
-    // The day counter was taken for a request that will not run; give it back.
-    await update<number>(store, dayKey, (prev) => Math.max(0, (prev ?? 1) - 1));
-  }
   return result;
 }
 
