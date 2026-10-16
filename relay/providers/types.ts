@@ -1,0 +1,43 @@
+/** The provider-agnostic interface (Section 6): swapping provider means writing one module like gemini.ts. */
+import type { RequestPart } from '../../src/ai/protocol';
+import type { OutputSchema } from '../../src/ai/schema';
+
+export interface GenerateInput {
+  model: string;
+  system: string;
+  parts: RequestPart[];
+  schema: OutputSchema;
+  maxOutputTokens: number;
+  temperature: number;
+}
+
+export interface GenerateOutput {
+  /** The model's JSON text, not yet parsed. */
+  text: string;
+  usage: { inputTokens: number; outputTokens: number };
+}
+
+export type ProviderErrorCode =
+  | 'model_unavailable'
+  | 'provider_auth'
+  | 'provider_rate_limited'
+  | 'provider_rejected'
+  | 'provider_blocked'
+  | 'provider_unavailable'
+  | 'output_truncated';
+
+export class ProviderError extends Error {
+  constructor(
+    readonly code: ProviderErrorCode,
+    message: string,
+    /** Tokens the provider reports as used, when it still charged for the call. */
+    readonly usage?: { inputTokens: number; outputTokens: number },
+  ) {
+    super(message);
+  }
+}
+
+export interface Provider {
+  readonly name: string;
+  generate(input: GenerateInput): Promise<GenerateOutput>;
+}
