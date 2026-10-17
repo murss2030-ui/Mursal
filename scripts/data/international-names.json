@@ -1,0 +1,24 @@
+{
+  "note": "International (INN/BAN) or older spellings common outside the United States. Each is kept in the offline index only if the RxNav normalised name search resolves it to a prescribable RxNorm ingredient (scripts/data/build-rxnorm.mjs); names RxNorm does not resolve stay unmatched and are reported as not checked.",
+  "names": [
+    "paracetamol", "salbutamol", "adrenaline", "noradrenaline", "frusemide", "glibenclamide", "lignocaine", "pethidine",
+    "isoprenaline", "amoxycillin", "cefalexin", "cefradine", "cephradine", "ciclosporin", "colecalciferol", "dexamfetamine",
+    "dicycloverine", "hyoscine", "mesalazine", "phenobarbitone", "rifampicin", "sodium cromoglicate", "thiopentone",
+    "aciclovir", "valaciclovir", "beclometasone", "chlorphenamine", "clomifene", "dimeticone", "eformoterol",
+    "glyceryl trinitrate", "indometacin", "oestradiol", "ethinyloestradiol", "oxpentifylline", "benzylpenicillin",
+    "phenoxymethylpenicillin", "sodium valproate", "tetracosactide", "phytomenadione", "hydroxycarbamide", "metamizole",
+    "dipyrone", "bendrofluazide", "thyroxine", "acetylsalicylic acid", "gentamycin", "sulphamethoxazole", "co-trimoxazole",
+    "flucloxacillin", "cloxacillin", "teicoplanin", "gliclazide", "carbimazole", "domperidone", "trimetazidine", "mebeverine",
+    "perindopril", "nimesulide", "cinnarizine", "betahistine", "ambroxol", "bromhexine", "diloxanide", "ornidazole",
+    "secnidazole", "artemether", "lumefantrine", "artesunate", "dihydroartemisinin", "piperaquine", "fusidic acid",
+    "cefoperazone", "sulbactam", "colistin", "colistimethate", "ceftazidime", "cefotaxime", "netilmicin", "ofloxacin",
+    "levofloxacin", "moxifloxacin", "esomeprazole", "lansoprazole", "rabeprazole", "famotidine", "sucralfate",
+    "hyoscine butylbromide", "drotaverine", "tranexamic acid", "enoxaparin", "nadroparin", "tinzaparin", "fondaparinux",
+    "insulin glargine", "insulin detemir", "insulin aspart", "insulin lispro", "insulin isophane", "insulin regular",
+    "potassium chloride", "magnesium sulphate", "ferrous sulphate", "ferrous fumarate", "calcium carbonate", "alfacalcidol",
+    "calcitriol", "salmeterol", "formoterol", "budesonide", "fluticasone", "ipratropium", "tiotropium", "montelukast",
+    "aminophylline", "theophylline", "levetiracetam", "sodium valproate", "carbamazepine", "phenytoin", "diazepam",
+    "midazolam", "haloperidol", "metoclopramide", "ondansetron", "promethazine", "dexamethasone", "hydrocortisone",
+    "prednisolone", "methylprednisolone"
+  ]
+}

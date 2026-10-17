@@ -42,6 +42,12 @@ export const APPEND_ONLY_TABLES = [
   'extractions',
   'analyses',
   'calcResults',
+  'formulary',
+  'adjustments',
+  'thresholds',
+  'alertFirings',
+  'alertAcks',
+  'causality',
 ] as const;
 /**
  * Source-document content. Rows can be added and, only to purge a document
@@ -122,6 +128,12 @@ export class PreceptorDB extends Dexie {
   analyses!: Table<EncryptedRow, string>;
   lookups!: Table<EncryptedRow, string>;
   calcResults!: Table<EncryptedRow, string>;
+  formulary!: Table<EncryptedRow, string>;
+  adjustments!: Table<EncryptedRow, string>;
+  thresholds!: Table<EncryptedRow, string>;
+  alertFirings!: Table<EncryptedRow, string>;
+  alertAcks!: Table<EncryptedRow, string>;
+  causality!: Table<EncryptedRow, string>;
 
   constructor(name = 'preceptor') {
     super(name);
@@ -151,9 +163,18 @@ export class PreceptorDB extends Dexie {
       analyses: 'id, entityId, caseId',
       lookups: 'id',
     });
-    // M2: calculation results (append-only; a recomputation is a new row).
+    // M2: calculation results (append-only; a recomputation is a new row) and the
+    // trainee's reference tables (local formulary, dose-adjustment table, lab thresholds), versioned.
     this.version(4).stores({
       calcResults: 'id, caseId',
+      formulary: 'id, entityId',
+      adjustments: 'id, entityId',
+      thresholds: 'id, entityId',
+      // Rules engine: each alert first shown (firing) and each acknowledgement with its reason — append-only, for the per-rule counts.
+      alertFirings: 'id, caseId',
+      alertAcks: 'id, caseId',
+      // Naranjo and WHO-UMC questionnaires attached to ADR register rows, versioned.
+      causality: 'id, entityId, caseId',
     });
     this.use(appendOnlyMiddleware);
   }

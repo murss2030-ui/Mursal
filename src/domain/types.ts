@@ -580,6 +580,43 @@ export interface CaseAnalysis extends Versioned {
   usage: { inputTokens: number; outputTokens: number; costUsd: number };
 }
 
+// ---------------------------------------------------------------- M2: rules engine records
+
+/** The first time an alert (one key, one data hash) was shown in a case. Append-only; counts firings per rule. */
+export interface AlertFiring {
+  id: string;
+  caseId: string;
+  key: string;
+  ruleId: string;
+  level: 'critical' | 'important' | 'informational';
+  dataHash: string;
+  at: string;
+}
+
+/** An acknowledgement, always with a reason. It covers one key and one data hash: changed data brings the alert back. */
+export interface AlertAck {
+  id: string;
+  caseId: string;
+  key: string;
+  ruleId: string;
+  level: 'critical' | 'important' | 'informational';
+  dataHash: string;
+  reason: string;
+  at: string;
+}
+
+/** A causality questionnaire attached to an ADR register row (Naranjo or WHO-UMC). Versioned. */
+export interface CausalityAssessment extends Versioned {
+  id: string;
+  caseId: string;
+  itemId: string;
+  method: 'naranjo' | 'who_umc';
+  answers: Record<string, string>;
+  score?: number;
+  category: string;
+  createdAt: string;
+}
+
 // ---------------------------------------------------------------- form, settings, audit
 
 /** Trainee-authored text on the department form (e.g. Section 5 interpretation). Versioned. */
@@ -610,7 +647,12 @@ export type AuditEntity =
   | 'extraction'
   | 'analysis'
   | 'suggestion'
-  | 'calc_result';
+  | 'calc_result'
+  | 'formulary'
+  | 'adjustment'
+  | 'threshold'
+  | 'alert'
+  | 'causality';
 
 export type AuditAction =
   | 'create'

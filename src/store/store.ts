@@ -32,6 +32,9 @@ import type {
   TimelineEntry,
   TraineeSettings,
   Versioned,
+  AlertAck,
+  AlertFiring,
+  CausalityAssessment,
 } from '../domain/types';
 import { REGISTER_IDS, SOURCE_DOC_TYPES } from '../domain/types';
 import { normalizeItemFields, REGISTERS } from '../domain/workflow/registers';
@@ -56,6 +59,9 @@ import { pendingFromRuns } from '../calc/currency';
 import { newGatedAnswers, renalDoseReviewGate } from '../calc/gate';
 import type { GatherContext, GatherRequest } from '../calc/gather';
 import { CALC_BY_ID } from '../calc/registry';
+import { assessUmc, scoreNaranjo } from '../rules/causality';
+import type { Alert } from '../rules/types';
+import { normalizeAdjustment, normalizeFormulary, normalizeThreshold, type AdjustmentRule, type FormularyItem, type LabThreshold, type ReferenceKind } from '../domain/reference';
 import type { CalcInputs, CalcResult, Calculator, CalculatorId, Problem } from '../calc/types';
 import {
   APPEND_ONLY_TABLES,
@@ -179,7 +185,22 @@ type AuditInput = Omit<AuditEvent, 'id' | 'at' | 'actor'> & { actor?: AuditEvent
 const APPEND_ONLY = new Set<string>(APPEND_ONLY_TABLES);
 
 /** Tables holding versioned records: one row per version, id `${entityId}@${version}`. */
-export type VersionedTable = 'rotations' | 'cases' | 'identifiers' | 'formDrafts' | 'attachments' | 'tasks' | 'items' | 'extractions' | 'analyses';
+export type VersionedTable =
+  | 'rotations'
+  | 'cases'
+  | 'identifiers'
+  | 'formDrafts'
+  | 'attachments'
+  | 'tasks'
+  | 'items'
+  | 'extractions'
+  | 'analyses'
+  | 'formulary'
+  | 'adjustments'
+  | 'thresholds'
+  | 'causality';
+
+const REFERENCE_TABLE = { formulary: 'formulary', adjustment: 'adjustments', threshold: 'thresholds' } as const;
 
 export class Store {
   /** Decrypted immutable rows, keyed `${table}:${id}`. Cleared on lock. */
@@ -1342,6 +1363,168 @@ export class Store {
       for (const a of audits) await this.db.audit.add(a);
     });
     return { ok: true, results };
+  }
+
+  // ------------------------------------------------------------------ M2: reference tables (formulary, adjustments, thresholds)
+
+  rawReference(kind: ReferenceKind): Promise<EncryptedRow[]> {
+    return this.db.encryptedTable(REFERENCE_TABLE[kind]).toArray();
+  }
+
+  async decodeReference<T extends Versioned>(kind: ReferenceKind, rows: EncryptedRow[]): Promise<T[]> {
+    return this.decodeLatestOfAll<T>(REFERENCE_TABLE[kind], rows);
+  }
+
+  async listReference<T extends Versioned>(kind: ReferenceKind): Promise<T[]> {
+    return this.decodeReference<T>(kind, await this.rawReference(kind));
+  }
+
+  referenceHistory<T extends Versioned>(kind: ReferenceKind, id: string): Promise<T[]> {
+    return this.history<T>(REFERENCE_TABLE[kind], id);
+  }
+
+  /**
+   * Add a reference record, or a new version of one (with a reason). The
+   * ingredients come from the offline RxNorm match the trainee saw on screen.
+   */
+  async saveReference(
+    kind: ReferenceKind,
+    id: string | undefined,
+    values: Record<string, string>,
+    match: { rxcui?: string; ingredients: string[] } = { ingredients: [] },
+    reason?: string,
+  ): Promise<FormularyItem | AdjustmentRule | LabThreshold> {
+    const n =
+      kind === 'formulary' ? normalizeFormulary(values, match) : kind === 'adjustment' ? normalizeAdjustment(values, match.ingredients) : normalizeThreshold(values);
+    if (!n.ok) throw new ValidationError(n.errors as Errors);
+    const table = REFERENCE_TABLE[kind];
+    const entityId = id ?? this.uuid();
+    if (id) {
+      const prev = await this.latest<FormularyItem>(table, id);
+      if (!prev) throw new IntegrityError('That record does not exist.');
+      if (!reason?.trim()) throw new ValidationError({ reason: 'required' });
+    }
+    return this.writeVersion<FormularyItem | AdjustmentRule | LabThreshold>(
+      table,
+      entityId,
+      (prev, version, at) =>
+        ({
+          ...n.value,
+          id: entityId,
+          status: 'active',
+          createdAt: prev?.createdAt ?? at,
+          version,
+          versionCreatedAt: at,
+          ...(prev ? { changeReason: reason!.trim() } : {}),
+        }) as FormularyItem | AdjustmentRule | LabThreshold,
+      (prev, next) => ({ entity: kind, entityId, action: prev ? 'update' : 'create', diff: { before: prev, after: next } }),
+    );
+  }
+
+  async retractReference(kind: ReferenceKind, id: string, reason: string): Promise<FormularyItem | AdjustmentRule | LabThreshold> {
+    if (!reason.trim()) throw new ValidationError({ reason: 'required' });
+    const table = REFERENCE_TABLE[kind];
+    const prev = await this.latest<FormularyItem | AdjustmentRule | LabThreshold>(table, id);
+    if (!prev) throw new IntegrityError('That record does not exist.');
+    if (prev.status === 'retracted') return prev;
+    return this.writeVersion<FormularyItem | AdjustmentRule | LabThreshold>(
+      table,
+      id,
+      (p, version, at) => ({ ...p!, status: 'retracted', version, versionCreatedAt: at, changeReason: reason.trim() }),
+      () => ({ entity: kind, entityId: id, action: 'retract', diff: { reason: reason.trim() } }),
+    );
+  }
+
+  // ------------------------------------------------------------------ M2: alerts (firings, acknowledgements) and causality
+
+  rawAlertAcks(caseId: string): Promise<EncryptedRow[]> {
+    return this.db.alertAcks.where('caseId').equals(caseId).toArray();
+  }
+
+  async decodeAlertAcks(rows: EncryptedRow[]): Promise<AlertAck[]> {
+    return (await this.openRows<AlertAck>('alertAcks', rows)).sort((a, b) => (a.at < b.at ? -1 : 1));
+  }
+
+  async listAlertAcks(caseId: string): Promise<AlertAck[]> {
+    return this.decodeAlertAcks(await this.rawAlertAcks(caseId));
+  }
+
+  /** Every firing and acknowledgement of every case, for the per-rule counts. */
+  async allAlertRecords(): Promise<{ firings: AlertFiring[]; acks: AlertAck[] }> {
+    const [f, a] = await Promise.all([this.db.alertFirings.toArray(), this.db.alertAcks.toArray()]);
+    return { firings: await this.openRows<AlertFiring>('alertFirings', f), acks: await this.openRows<AlertAck>('alertAcks', a) };
+  }
+
+  /** Record the alerts shown for the first time (one record per key and data hash). */
+  async recordAlertFirings(caseId: string, alerts: readonly Pick<Alert, 'key' | 'ruleId' | 'level' | 'dataHash'>[]): Promise<number> {
+    if (!alerts.length) return 0;
+    const seen = new Set((await this.openRows<AlertFiring>('alertFirings', await this.db.alertFirings.where('caseId').equals(caseId).toArray())).map((f) => `${f.key}#${f.dataHash}`));
+    const fresh = alerts.filter((a) => !seen.has(`${a.key}#${a.dataHash}`));
+    if (!fresh.length) return 0;
+    const at = this.nowIso();
+    const rows = await Promise.all(
+      fresh.map((a) => {
+        const f: AlertFiring = { id: this.uuid(), caseId, key: a.key, ruleId: a.ruleId, level: a.level, dataHash: a.dataHash, at };
+        return this.sealRow('alertFirings', { id: f.id, caseId }, f);
+      }),
+    );
+    await this.db.transaction('rw', [this.db.alertFirings], async () => {
+      for (const r of rows) await this.db.alertFirings.add(r);
+    });
+    return rows.length;
+  }
+
+  /** Acknowledge an alert. A reason is always required (Section 10). */
+  async acknowledgeAlert(caseId: string, alert: Pick<Alert, 'key' | 'ruleId' | 'level' | 'dataHash'>, reason: string): Promise<AlertAck> {
+    await this.writableCase(caseId);
+    const r = reason.trim();
+    if (r.length < 3) throw new ValidationError({ reason: 'required' });
+    if (r.length > 1000) throw new ValidationError({ reason: 'tooLong' });
+    const ack: AlertAck = { id: this.uuid(), caseId, key: alert.key, ruleId: alert.ruleId, level: alert.level, dataHash: alert.dataHash, reason: r, at: this.nowIso() };
+    const row = await this.sealRow('alertAcks', { id: ack.id, caseId }, ack);
+    const auditRow = await this.auditRow({ entity: 'alert', entityId: alert.key, caseId, action: 'acknowledge', diff: { ruleId: alert.ruleId, level: alert.level, dataHash: alert.dataHash, reason: r } });
+    await this.db.transaction('rw', [this.db.alertAcks, this.db.audit], async () => {
+      await this.db.alertAcks.add(row);
+      await this.db.audit.add(auditRow);
+    });
+    return ack;
+  }
+
+  rawCausality(caseId: string): Promise<EncryptedRow[]> {
+    return this.db.causality.where('caseId').equals(caseId).toArray();
+  }
+
+  async decodeCausality(rows: EncryptedRow[]): Promise<CausalityAssessment[]> {
+    return this.decodeLatestOfAll<CausalityAssessment>('causality', rows);
+  }
+
+  /** Save a complete questionnaire for an ADR row as a new version; the score or category is computed here. */
+  async saveCausality(caseId: string, itemId: string, method: 'naranjo' | 'who_umc', answers: Record<string, string>): Promise<CausalityAssessment> {
+    await this.writableCase(caseId);
+    const item = await this.latest<RegisterItem>('items', itemId);
+    if (!item || item.caseId !== caseId || item.register !== 'adr') throw new IntegrityError('That suspected ADR does not exist in this case.');
+    const result = method === 'naranjo' ? scoreNaranjo(answers) : assessUmc(answers);
+    if (!result.ok) throw new ValidationError(Object.fromEntries(result.unanswered.map((k) => [k, 'required' as const])));
+    const entityId = `${itemId}:${method}`;
+    const clean = Object.fromEntries(Object.entries(answers).filter(([, v]) => v));
+    return this.writeVersion<CausalityAssessment>(
+      'causality',
+      entityId,
+      (prev, version, at) => ({
+        id: entityId,
+        caseId,
+        itemId,
+        method,
+        answers: clean,
+        ...('score' in result ? { score: result.score } : {}),
+        category: result.category,
+        createdAt: prev?.createdAt ?? at,
+        version,
+        versionCreatedAt: at,
+      }),
+      (prev, next) => ({ entity: 'causality', entityId, caseId, action: prev ? 'update' : 'create', diff: { method, category: next.category, score: next.score, answers: clean } }),
+      { caseId },
+    );
   }
 
   async getLookup<T>(id: string): Promise<{ value: T; retrievedAt: string } | undefined> {
