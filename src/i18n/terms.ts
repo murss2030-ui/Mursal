@@ -45,6 +45,7 @@ export const TERMS = {
   'note.family_history': { en: 'Family history', ar: 'التاريخ العائلي' },
   'note.social_history': { en: 'Social history / lifestyle', ar: 'التاريخ الاجتماعي / نمط الحياة' },
   'note.problem': { en: 'Problem / diagnosis', ar: 'مشكلة / تشخيص' },
+  'note.renal_replacement': { en: 'Dialysis / renal replacement therapy', ar: 'الغسيل الكلوي / العلاج البديل للكلى' },
   'note.progress': { en: 'Progress note', ar: 'ملاحظة متابعة' },
   'note.other': { en: 'Other note', ar: 'ملاحظة أخرى' },
   khat: { en: 'Khat use', ar: 'تعاطي القات' },

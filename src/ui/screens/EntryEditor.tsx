@@ -12,6 +12,7 @@ import {
   HABIT_STATUSES,
   NOTE_CATEGORIES,
   PROBLEM_STATUSES,
+  RRT_STATUSES,
   SEVERITIES,
   WEIGHT_METHODS,
   type BuildContext,
@@ -250,6 +251,11 @@ function NoteFields({ v, set, err, lockCategory }: FieldProps & { lockCategory: 
           <TextField label={t('ed.problemType')} name="problemType" optional value={v.problemType ?? ''} onChange={(x) => set('problemType', x)} />
           <TextField label={t('ed.duration')} name="duration" optional value={v.duration ?? ''} onChange={(x) => set('duration', x)} />
           <CheckboxField label={t('ed.primaryDiagnosis')} name="primaryDiagnosis" checked={v.primaryDiagnosis === 'yes'} onChange={(x) => set('primaryDiagnosis', x ? 'yes' : 'no')} />
+        </>
+      ) : cat === 'renal_replacement' ? (
+        <>
+          <RadioGroup name="status" label={t('ed.rrtStatus')} value={v.status ?? ''} onChange={(x) => set('status', x)} options={o.keyed(RRT_STATUSES, 'rrt')} error={err('status')} />
+          <TextField label={t('ed.rrtDetails')} name="details" optional value={v.details ?? ''} onChange={(x) => set('details', x)} />
         </>
       ) : cat ? (
         <TextAreaField label={t('ed.noteText')} name="text" rows={4} value={v.text ?? ''} onChange={(x) => set('text', x)} error={err('text')} />

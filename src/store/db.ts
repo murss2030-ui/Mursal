@@ -41,6 +41,7 @@ export const APPEND_ONLY_TABLES = [
   'items',
   'extractions',
   'analyses',
+  'calcResults',
 ] as const;
 /**
  * Source-document content. Rows can be added and, only to purge a document
@@ -120,6 +121,7 @@ export class PreceptorDB extends Dexie {
   extractions!: Table<EncryptedRow, string>;
   analyses!: Table<EncryptedRow, string>;
   lookups!: Table<EncryptedRow, string>;
+  calcResults!: Table<EncryptedRow, string>;
 
   constructor(name = 'preceptor') {
     super(name);
@@ -148,6 +150,10 @@ export class PreceptorDB extends Dexie {
       extractions: 'id, entityId, caseId',
       analyses: 'id, entityId, caseId',
       lookups: 'id',
+    });
+    // M2: calculation results (append-only; a recomputation is a new row).
+    this.version(4).stores({
+      calcResults: 'id, caseId',
     });
     this.use(appendOnlyMiddleware);
   }

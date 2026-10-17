@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-17T21:46:42.627Z",
+  "engineHash": "c4817a085b00f13267d376be4fb43335d49030a9ff2b265b198b9ff2beb34341",
+  "engineTests": {
+    "passed": 61,
+    "failed": 0
+  },
+  "calculators": {
+    "anc": {
+      "formulaVersion": "1",
+      "passed": 7,
+      "failed": 0
+    },
+    "anion_gap": {
+      "formulaVersion": "1",
+      "passed": 7,
+      "failed": 0
+    },
+    "bmi": {
+      "formulaVersion": "1",
+      "passed": 8,
+      "failed": 0
+    },
+    "bsa_mosteller": {
+      "formulaVersion": "1",
+      "passed": 4,
+      "failed": 0
+    },
+    "cha2ds2vasc": {
+      "formulaVersion": "1",
+      "passed": 6,
+      "failed": 0
+    },
+    "child_pugh": {
+      "formulaVersion": "1",
+      "passed": 10,
+      "failed": 0
+    },
+    "corrected_calcium": {
+      "formulaVersion": "1",
+      "passed": 5,
+      "failed": 0
+    },
+    "crcl_cg": {
+      "formulaVersion": "1",
+      "passed": 10,
+      "failed": 0
+    },
+    "curb65": {
+      "formulaVersion": "1",
+      "passed": 7,
+      "failed": 0
+    },
+    "egfr_ckdepi2021": {
+      "formulaVersion": "1",
+      "passed": 10,
+      "failed": 0
+    },
+    "has_bled": {
+      "formulaVersion": "1",
+      "passed": 5,
+      "failed": 0
+    },
+    "ibw_adjbw": {
+      "formulaVersion": "1",
+      "passed": 8,
+      "failed": 0
+    },
+    "phenytoin_corrected": {
+      "formulaVersion": "1",
+      "passed": 14,
+      "failed": 0
+    },
+    "qsofa": {
+      "formulaVersion": "1",
+      "passed": 5,
+      "failed": 0
+    },
+    "qtc_bazett": {
+      "formulaVersion": "1",
+      "passed": 8,
+      "failed": 0
+    },
+    "qtc_fridericia": {
+      "formulaVersion": "1",
+      "passed": 6,
+      "failed": 0
+    },
+    "vancomycin_auc": {
+      "formulaVersion": "1",
+      "passed": 24,
+      "failed": 0
+    }
+  }
+}

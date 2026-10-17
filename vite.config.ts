@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { calcValidationPlugin } from './scripts/calc-validation';
 
 /**
  * Content-Security-Policy for the production build.
@@ -45,6 +46,7 @@ export default defineConfig({
   plugins: [
     react(),
     cspMeta(),
+    calcValidationPlugin(),
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,

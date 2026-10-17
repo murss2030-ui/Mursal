@@ -51,6 +51,11 @@ import {
 } from '../domain/validation';
 import { M1_MANUAL_ENTRY_TYPES } from '../domain/types';
 import { auditView, newInstallId, normalizeAiSettings, type AiSettings, type AiSettingsInput } from '../ai/settings';
+import { run as runCalculator } from '../calc/engine';
+import { pendingFromRuns } from '../calc/currency';
+import type { GatherContext, GatherRequest } from '../calc/gather';
+import { CALC_BY_ID } from '../calc/registry';
+import type { CalcInputs, CalcResult, Calculator, CalculatorId, Problem } from '../calc/types';
 import {
   APPEND_ONLY_TABLES,
   type EncryptedRow,
@@ -160,7 +165,13 @@ export interface StoreOptions {
   now?: () => Date;
   uuid?: () => string;
   random?: () => number;
+  /** The calculators and whether each passed its tests (tests inject their own). */
+  calculators?: ReadonlyMap<CalculatorId, Calculator>;
 }
+
+export type CalculateOutcome =
+  | { ok: true; results: CalcResult[] }
+  | { ok: false; problems: Problem[]; inputs: CalcInputs; pendingKeys: string[] };
 
 type AuditInput = Omit<AuditEvent, 'id' | 'at' | 'actor'> & { actor?: AuditEvent['actor'] };
 
@@ -175,6 +186,7 @@ export class Store {
   private readonly now: () => Date;
   private readonly uuid: () => string;
   private readonly random: () => number;
+  readonly calculators: ReadonlyMap<CalculatorId, Calculator>;
 
   constructor(
     readonly db: PreceptorDB,
@@ -184,6 +196,7 @@ export class Store {
     this.now = opts.now ?? (() => new Date());
     this.uuid = opts.uuid ?? (() => crypto.randomUUID());
     this.random = opts.random ?? Math.random;
+    this.calculators = opts.calculators ?? CALC_BY_ID;
   }
 
   private key(): CryptoKey {
@@ -1251,6 +1264,72 @@ export class Store {
   }
 
   // ------------------------------------------------------------------ open-data cache (Section 19: the same lookup never costs twice)
+
+  // ------------------------------------------------------------------ M2: calculations
+
+  rawCalcResults(caseId: string): Promise<EncryptedRow[]> {
+    return this.db.calcResults.where('caseId').equals(caseId).toArray();
+  }
+
+  async decodeCalcResults(rows: EncryptedRow[]): Promise<CalcResult[]> {
+    const results = await this.openRows<CalcResult>('calcResults', rows);
+    return results.sort((a, b) => (a.computedAt < b.computedAt ? -1 : a.computedAt > b.computedAt ? 1 : a.id < b.id ? -1 : 1));
+  }
+
+  async listCalcResults(caseId: string): Promise<CalcResult[]> {
+    return this.decodeCalcResults(await this.rawCalcResults(caseId));
+  }
+
+  /** What a calculator reads: the effective timeline, the case's demographics, and values still waiting for confirmation. */
+  async calculationContext(caseId: string): Promise<GatherContext> {
+    const c = await this.getCase(caseId);
+    if (!c) throw new IntegrityError(`Case ${caseId} does not exist.`);
+    const [entries, runs, attachments] = await Promise.all([this.listEntries(caseId), this.listExtractions(caseId), this.listAttachments(caseId)]);
+    const active = new Set(attachments.filter((a) => a.status === 'active').map((a) => a.id));
+    return { demographics: c.demographics, current: indexTimeline(entries).current, pending: pendingFromRuns(runs, active) };
+  }
+
+  /**
+   * Run a calculator on the stored record and persist its result (append-only,
+   * audited). Inputs are always read here from stored data, never taken from the
+   * screen. A calculator shown together with another (QTc) runs as a pair and
+   * both results share a group id; if either is refused, nothing is stored.
+   */
+  async calculate(caseId: string, calcId: CalculatorId, req: GatherRequest = {}): Promise<CalculateOutcome> {
+    await this.writableCase(caseId);
+    const calc = this.calculators.get(calcId);
+    if (!calc) throw new IntegrityError(`Unknown calculator ${calcId}.`);
+    const ctx = await this.calculationContext(caseId);
+    const ids: CalculatorId[] = calc.pairedWith ? [calcId, calc.pairedWith] : [calcId];
+    const groupId = calc.pairedWith ? this.uuid() : undefined;
+    const results: CalcResult[] = [];
+    for (const id of ids) {
+      const c = this.calculators.get(id);
+      if (!c) throw new IntegrityError(`Unknown calculator ${id}.`);
+      const outcome = runCalculator(c, ctx, req, { caseId, now: this.now, uuid: this.uuid, ...(groupId ? { groupId } : {}) });
+      if (!outcome.ok) return { ok: false, problems: outcome.problems, inputs: outcome.inputs, pendingKeys: outcome.pendingKeys };
+      results.push(outcome.result);
+    }
+    const rows: EncryptedRow[] = [];
+    const audits: EncryptedRow[] = [];
+    for (const r of results) {
+      rows.push(await this.sealRow('calcResults', { id: r.id, caseId }, r));
+      audits.push(
+        await this.auditRow({
+          entity: 'calc_result',
+          entityId: r.id,
+          caseId,
+          action: 'create',
+          diff: { calc: r.calc, formulaVersion: r.formulaVersion, value: r.value, unit: r.unit, inputs: r.inputs.values, units: r.inputs.units, entryIds: r.inputs.entryIds },
+        }),
+      );
+    }
+    await this.db.transaction('rw', [this.db.calcResults, this.db.audit], async () => {
+      for (const row of rows) await this.db.calcResults.add(row);
+      for (const a of audits) await this.db.audit.add(a);
+    });
+    return { ok: true, results };
+  }
 
   async getLookup<T>(id: string): Promise<{ value: T; retrievedAt: string } | undefined> {
     const row = await this.db.lookups.get(id);

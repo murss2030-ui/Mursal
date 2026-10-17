@@ -99,6 +99,9 @@ export function entryText(e: TimelineEntry, i18n: Pick<I18n, 't'>): { main: stri
           details: [p.alcohol ? `Alcohol: ${p.alcohol}` : '', p.occupation ? `Occupation: ${p.occupation}` : '', p.other ?? ''].filter(Boolean),
         };
       }
+      if (p.category === 'renal_replacement') {
+        return { main: `${t('rrt.title')}: ${t(`rrt.${p.status}`)}`, details: p.details ? [p.details] : [] };
+      }
       if (p.category === 'problem') {
         return {
           main: `${p.name} — ${p.acuity}, ${p.status}${p.primaryDiagnosis ? ' (primary diagnosis)' : ''}`,

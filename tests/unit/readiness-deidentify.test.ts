@@ -37,14 +37,15 @@ describe('data readiness', () => {
       ['electrolytes', 'missing'],
       ['allergy', 'missing'],
       ['home_meds', 'missing'],
-      ['dialysis', 'not_yet'],
+      ['dialysis', 'missing'],
       ['sources', 'missing'],
     ]);
     expect(r[1]!.add).toEqual({ kind: 'entry', type: 'weight' });
     expect(r[2]!.add).toEqual({ kind: 'case_details' });
     expect(r[5]!.add).toEqual({ kind: 'entry', type: 'note', category: 'allergy_adr' });
     expect(r[6]!.add).toEqual({ kind: 'register', register: 'home_med' });
-    expect(r[7]!.milestone).toBe('M2');
+    // M2: dialysis status is a structured renal-replacement-therapy note (M2 plan, decision 7).
+    expect(r[7]!.add).toEqual({ kind: 'entry', type: 'note', category: 'renal_replacement' });
     for (const x of r) if (x.state !== 'ok') expect(x.value).toBeUndefined();
   });
 

@@ -215,6 +215,8 @@ export type HabitStatus = 'current' | 'former' | 'never' | 'unknown';
 export type TextNoteCategory = 'chief_complaint' | 'hpi' | 'pmh' | 'psh' | 'family_history' | 'progress' | 'other';
 export type AllergyKind = 'allergy' | 'adr' | 'intolerance' | 'nkda';
 export type ProblemStatus = 'active' | 'improving' | 'worsening' | 'resolved' | 'inactive';
+/** M2 (M2 plan, decision 7 — proposed default): renal replacement therapy, needed by the Verify gate for renal dose reviews. */
+export type RrtStatus = 'none' | 'intermittent_hd' | 'peritoneal' | 'crrt';
 
 export type NotePayload =
   | { category: TextNoteCategory; text: string }
@@ -245,6 +247,12 @@ export type NotePayload =
       problemType?: string;
       duration?: string;
       primaryDiagnosis: boolean;
+    }
+  | {
+      /** M2 extension (decision 7): dialysis status as a structured, dated record. */
+      category: 'renal_replacement';
+      status: RrtStatus;
+      details?: string;
     };
 export type NoteCategory = NotePayload['category'];
 
@@ -601,7 +609,8 @@ export type AuditEntity =
   | 'model_call'
   | 'extraction'
   | 'analysis'
-  | 'suggestion';
+  | 'suggestion'
+  | 'calc_result';
 
 export type AuditAction =
   | 'create'

@@ -10,7 +10,7 @@ import { ANALYTE_BY_ID } from '../catalogue';
 import { L } from '../label';
 import { formatNumber } from '../numbers';
 import { compareEntries, deriveMedCourses, deriveProblems, unitText } from '../timeline';
-import type { Attachment, Case, EntryOf, EntryType, NoteCategory, RegisterId, RegisterItem, TimelineEntry } from '../types';
+import type { Attachment, Case, EntryOf, EntryType, NoteCategory, RegisterId, RegisterItem, RrtStatus, TimelineEntry } from '../types';
 import type { ReadinessId } from './catalogue';
 
 export type AddTarget =
@@ -67,6 +67,13 @@ const LABELS: Record<ReadinessId, L> = {
 };
 
 const latest = <T extends TimelineEntry>(xs: T[]): T | undefined => [...xs].sort(compareEntries).pop();
+
+const RRT_TEXT: Record<RrtStatus, string> = {
+  none: 'not on dialysis',
+  intermittent_hd: 'intermittent haemodialysis',
+  peritoneal: 'peritoneal dialysis',
+  crrt: 'CRRT',
+};
 
 function labs(current: readonly TimelineEntry[], analyte: string): EntryOf<'lab'>[] {
   return current.filter((e): e is EntryOf<'lab'> => e.type === 'lab' && e.payload.analyte === analyte);
@@ -194,9 +201,14 @@ export function readiness(ids: readonly ReadinessId[], ctx: ReadinessContext): R
         const a = ctx.attachments.filter((x) => x.status === 'active');
         return a.length ? { id, label, state: 'ok', value: String(a.length) } : { id, label, state: 'missing', add: { kind: 'sources' } };
       }
-      case 'dialysis':
-        // No structured field yet: how dialysis status is recorded is an open M2 decision.
-        return { id, label, state: 'not_yet', milestone: 'M2' };
+      case 'dialysis': {
+        // M2 plan decision 7 (proposed default): a structured renal-replacement-therapy note.
+        const r = latest(notesOf(current, 'renal_replacement'));
+        if (!r || r.payload.category !== 'renal_replacement') {
+          return { id, label, state: 'missing', add: { kind: 'entry', type: 'note', category: 'renal_replacement' } };
+        }
+        return { id, label, state: 'ok', value: RRT_TEXT[r.payload.status], day: r.hospitalDay };
+      }
     }
   });
 }

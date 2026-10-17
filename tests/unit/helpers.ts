@@ -1,6 +1,6 @@
 import { PreceptorDB } from '../../src/store/db';
 import { Session } from '../../src/store/session';
-import type { Store } from '../../src/store/store';
+import type { Store, StoreOptions } from '../../src/store/store';
 import type { RotationInput } from '../../src/domain/validation';
 
 export const PASS = 'correct horse battery staple';
@@ -14,7 +14,7 @@ export class Clock {
   }
 }
 
-export async function newSession(opts: { random?: () => number; clock?: Clock } = {}) {
+export async function newSession(opts: { random?: () => number; clock?: Clock; calculators?: StoreOptions['calculators'] } = {}) {
   const clock = opts.clock ?? new Clock();
   const db = new PreceptorDB(`test-${crypto.randomUUID()}`);
   // Advance the clock on every read so recordedAt timestamps are strictly ordered.
@@ -22,7 +22,7 @@ export async function newSession(opts: { random?: () => number; clock?: Clock } 
     clock.advance(1_000);
     return clock.now();
   };
-  const session = new Session(db, { now, random: opts.random }, FAST_ITERATIONS);
+  const session = new Session(db, { now, random: opts.random, ...(opts.calculators ? { calculators: opts.calculators } : {}) }, FAST_ITERATIONS);
   await session.acknowledgeIntendedUse(clock.now());
   await session.setup(PASS);
   return { db, session, store: session.store, clock };

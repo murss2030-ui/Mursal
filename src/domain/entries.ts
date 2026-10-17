@@ -27,6 +27,7 @@ import type {
   NotePayload,
   PayloadMap,
   ProblemStatus,
+  RrtStatus,
   TextNoteCategory,
   TimelineEntry,
   VitalKind,
@@ -82,7 +83,8 @@ export const TEXT_NOTE_CATEGORIES: readonly TextNoteCategory[] = [
   'progress',
   'other',
 ];
-export const NOTE_CATEGORIES = [...TEXT_NOTE_CATEGORIES, 'allergy_adr', 'social_history', 'problem'] as const;
+export const NOTE_CATEGORIES = [...TEXT_NOTE_CATEGORIES, 'allergy_adr', 'social_history', 'problem', 'renal_replacement'] as const;
+export const RRT_STATUSES: readonly RrtStatus[] = ['none', 'intermittent_hd', 'peritoneal', 'crrt'];
 export const HABIT_STATUSES: readonly HabitStatus[] = ['current', 'former', 'never', 'unknown'];
 export const ALLERGY_KINDS: readonly AllergyKind[] = ['allergy', 'adr', 'intolerance', 'nkda'];
 export const SEVERITIES = ['mild', 'moderate', 'severe', 'unknown'] as const;
@@ -404,6 +406,9 @@ function buildNote(v: Values, ctx: BuildContext): BuildResult<'note'> {
       });
       break;
     }
+    case 'renal_replacement':
+      payload = strip({ category, status: c.choice('status', RRT_STATUSES) ?? 'none', details: c.text('details') });
+      break;
     default:
       payload = { category, text: c.reqText('text', MAX_LONG) };
   }
@@ -600,6 +605,9 @@ export function entryToValues(e: TimelineEntry): Values {
         put('problemType', p.problemType);
         put('duration', p.duration);
         out.primaryDiagnosis = p.primaryDiagnosis ? 'yes' : 'no';
+      } else if (p.category === 'renal_replacement') {
+        out.status = p.status;
+        put('details', p.details);
       } else {
         out.text = p.text;
       }

@@ -15,9 +15,9 @@ import type { Prefs, Session } from './session';
 import { IntegrityError, rowAad } from './store';
 
 export const BACKUP_FORMAT = 'preceptor-backup';
-/** Version 2 adds the patient file (attachments, blobs) and the clinical modules (tasks, items). Version 1 files still restore. */
-export const BACKUP_FORMAT_VERSION = 3;
-const READABLE_FORMAT_VERSIONS = [1, 2, 3];
+/** Version 2 adds the patient file (attachments, blobs) and the clinical modules (tasks, items); 3 the model's readings and drafts; 4 calculation results. Older files still restore. */
+export const BACKUP_FORMAT_VERSION = 4;
+const READABLE_FORMAT_VERSIONS = [1, 2, 3, 4];
 
 /** Working drafts are transient and not part of the record. */
 // Working drafts and the open-data cache are not part of the record.
