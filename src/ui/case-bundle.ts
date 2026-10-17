@@ -9,7 +9,10 @@ import { deriveMedCourses, deriveProblems, indexTimeline, type MedCourse, type P
 import type { Attachment, Case, CaseAnalysis, CaseIdentifiers, RegisterId, RegisterItem, TaskRecord, TimelineEntry } from '../domain/types';
 import { analysisStale } from '../store/store';
 import { indexTasks } from '../domain/workflow/tasks';
-import { useAnalyses, useAttachments, useCaseVersions, useEntries, useIdentifiers, useItems, useTasks } from './data';
+import { useAnalyses, useAttachments, useCalcResults, useCaseVersions, useEntries, useExtractions, useIdentifiers, useItems, useTasks } from './data';
+import { pendingFromRuns } from '../calc/currency';
+import type { GatherContext } from '../calc/gather';
+import type { CalcResult } from '../calc/types';
 import { useSession } from './session-context';
 
 export interface CaseBundle {
@@ -32,6 +35,9 @@ export interface CaseBundle {
   today: number | null;
   /** M3: the latest AI draft of each module, and whether the record has moved on since. */
   draftOf: (moduleId: string) => { analysis: CaseAnalysis; stale: boolean } | undefined;
+  /** M2: every calculation result, oldest first, and what the calculators read. */
+  calcResults: CalcResult[];
+  calcContext: GatherContext;
 }
 
 export type BundleState = { status: 'loading' } | { status: 'error'; error: Error } | { status: 'missing' } | { status: 'ready'; b: CaseBundle };
@@ -45,9 +51,11 @@ export function useCaseBundle(caseId: string): BundleState {
   const atts = useAttachments(caseId);
   const ids = useIdentifiers(caseId);
   const analyses = useAnalyses(caseId);
+  const calcs = useCalcResults(caseId);
+  const runs = useExtractions(caseId);
   const today = store.today();
   return useMemo((): BundleState => {
-    const all = [versions, entries, tasks, items, atts, ids, analyses];
+    const all = [versions, entries, tasks, items, atts, ids, analyses, calcs, runs];
     const err = all.find((x) => x.status === 'error');
     if (err && err.status === 'error') return { status: 'error', error: err.error };
     if (
@@ -57,7 +65,9 @@ export function useCaseBundle(caseId: string): BundleState {
       items.status !== 'ready' ||
       atts.status !== 'ready' ||
       ids.status !== 'ready' ||
-      analyses.status !== 'ready'
+      analyses.status !== 'ready' ||
+      calcs.status !== 'ready' ||
+      runs.status !== 'ready'
     ) {
       return { status: 'loading' };
     }
@@ -69,6 +79,7 @@ export function useCaseBundle(caseId: string): BundleState {
     const latest = new Map<string, CaseAnalysis>();
     for (const a of analyses.data) latest.set(a.moduleId, a); // oldest first, so the last one wins
     const drafts = new Map([...latest].map(([m, a]) => [m, { analysis: a, stale: analysisStale(a, entries.data, items.data) }]));
+    const activeIds = new Set(atts.data.filter((a) => a.status === 'active').map((a) => a.id));
     return {
       status: 'ready',
       b: {
@@ -88,7 +99,9 @@ export function useCaseBundle(caseId: string): BundleState {
         activeAttachments: atts.data.filter((a) => a.status === 'active'),
         today: c.status === 'active' ? hospitalDayOf(c.admissionDay0, today) : null,
         draftOf: (m) => drafts.get(m),
+        calcResults: calcs.data,
+        calcContext: { demographics: c.demographics, current, pending: pendingFromRuns(runs.data, activeIds) },
       },
     };
-  }, [versions, entries, tasks, items, atts, ids, analyses, today]);
+  }, [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, today]);
 }

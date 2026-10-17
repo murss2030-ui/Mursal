@@ -48,6 +48,28 @@ export const RENAL_REVIEW_LABELS: Record<GateItem['key'], L> = {
   indication: L('Indication', 'دواعي الاستعمال'),
 };
 
+/**
+ * Worksheet answers that conclude an assessment the gate protects: in Task 8,
+ * "adjustment needed" or "no adjustment needed" for a medication's renal
+ * dose. They cannot be newly given while the gate is not satisfied ("unsure"
+ * and "not relevant for this drug" stay available).
+ */
+export const GATED_ANSWERS = { taskId: 't08', field: 'renal', values: ['needed', 'not_needed'] } as const;
+
+/** The gated answers a new worksheet version gives that the previous version did not. */
+export function newGatedAnswers(taskId: string, prev: Readonly<Record<string, string>> | undefined, next: Readonly<Record<string, string>>): { key: string; medId: string }[] {
+  if (taskId !== GATED_ANSWERS.taskId) return [];
+  const out: { key: string; medId: string }[] = [];
+  for (const [key, value] of Object.entries(next)) {
+    const [field, medId] = key.split('@');
+    if (field !== GATED_ANSWERS.field || !medId) continue;
+    if (!(GATED_ANSWERS.values as readonly string[]).includes(value)) continue;
+    if (prev?.[key] === value) continue;
+    out.push({ key, medId });
+  }
+  return out;
+}
+
 /** Renal dose review of one medication course (Task 8): the mandatory inputs and whether each is recorded. */
 export function renalDoseReviewGate(ctx: GatherContext, course: MedCourse): GateResult {
   const { current, demographics } = ctx;

@@ -30,7 +30,7 @@ export const WEIGHT_BASIS: InputSpec = {
 };
 
 const OPTIONAL_HEIGHT: InputSpec = { ...HEIGHT };
-const OPTIONAL_FACTOR: InputSpec = { ...ADJ_FACTOR };
+const OPTIONAL_FACTOR: InputSpec = { ...ADJ_FACTOR, showIf: { key: 'weightBasis', in: ['adjbw'] } };
 
 function cgCheck(inputs: CalcInputs): Problem[] {
   const problems: Problem[] = [...adultsOnly(inputs, 'Cockcroft–Gault')];
@@ -112,7 +112,7 @@ export const crclCg: CalculatorDef = {
         1,
       ),
     );
-    assumptions.push(L(`Sex: ${female ? 'female (× 0.85)' : 'male'} (case record).`, `الجنس: ${female ? 'أنثى (× 0.85)' : 'ذكر'} (سجل الحالة).`));
+    assumptions.push(L(`Sex: ${female ? 'female, × 0.85' : 'male'} (case record).`, `الجنس: ${female ? 'أنثى، × 0.85' : 'ذكر'} (سجل الحالة).`));
     if (age > 92)
       warnings.push(
         L(

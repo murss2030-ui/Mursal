@@ -1,0 +1,230 @@
+/**
+ * M2 calculation engine in the browser: a calculator inside its task, with
+ * the weight basis chosen by the trainee, the formula and values shown, the
+ * result stored and marked out of date when the creatinine changes; a
+ * missing input refused by name; the renal dose review locked by the Verify
+ * gate; and a calculator whose tests failed hidden from the interface.
+ */
+import { expect, test, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { addCreatinine, createCase, createRotation, onboard, watchPage } from './helpers';
+
+const SHOTS = 'docs/m2/screenshots';
+const shot = (page: Page, name: string) => page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
+
+async function addEntry(page: Page, caseId: string, fill: (p: Page) => Promise<void>) {
+  await page.goto(`/#/cases/${caseId}/entry/new`);
+  await fill(page);
+  await page.getByRole('button', { name: 'Save entry' }).click();
+  await expect(page).toHaveURL(new RegExp(`#/cases/${caseId}/timeline`));
+}
+
+async function addWeight(page: Page, caseId: string, kg: string, day: string) {
+  await addEntry(page, caseId, async (p) => {
+    await p.getByLabel('Entry type').selectOption('weight');
+    await p.getByLabel('Hospital day').fill(day);
+    await p.getByLabel('Weight (kg)').fill(kg);
+    await p.getByRole('radio', { name: 'Measured' }).check();
+  });
+}
+
+async function addMedication(page: Page, caseId: string, opts: { drug: string; indication?: string }) {
+  await addEntry(page, caseId, async (p) => {
+    await p.getByLabel('Entry type').selectOption('med_start');
+    await p.getByLabel('Hospital day').fill('0');
+    await p.getByLabel(/Drug — generic name/).fill(opts.drug);
+    await p.getByLabel('Amount', { exact: true }).fill('40');
+    await p.getByLabel('Dose unit', { exact: true }).selectOption('mg');
+    await p.getByLabel('Route', { exact: true }).selectOption('subcut');
+    await p.getByLabel('Frequency', { exact: true }).selectOption('once daily');
+    if (opts.indication) await p.getByLabel(/^Indication/).fill(opts.indication);
+  });
+}
+
+async function addDialysisStatus(page: Page, caseId: string) {
+  await addEntry(page, caseId, async (p) => {
+    await p.getByLabel('Entry type').selectOption('note');
+    await p.getByLabel('Hospital day').fill('0');
+    await p.getByLabel('Kind of note').selectOption('renal_replacement');
+    await p.getByRole('radio', { name: 'None (not on dialysis)' }).check();
+  });
+}
+
+async function newCaseWithData(page: Page): Promise<string> {
+  await onboard(page);
+  await createRotation(page);
+  // Female, 67 years, 158 cm (helpers.createCase)
+  return createCase(page, { kind: 'teaching' });
+}
+
+test('CrCl inside Task 8: weight basis chosen, formula and values shown, result stored, out of date after a new creatinine', async ({ page }) => {
+  const w = watchPage(page);
+  const caseId = await newCaseWithData(page);
+  await addWeight(page, caseId, '60', '0');
+  await addCreatinine(page, caseId, '1.1', '1');
+
+  await page.goto(`/#/cases/${caseId}/task/t08`);
+  const card = page.getByTestId('task-calculators');
+  await expect(card).toBeVisible();
+  await card.getByTestId('task-calc-crcl_cg').locator('summary').click();
+  const panel = page.getByTestId('calc-panel-crcl_cg');
+  await expect(panel.getByTestId('calc-problems')).toContainText('Weight used in the formula: missing');
+  await expect(panel.getByTestId('calc-run')).toBeDisabled();
+  await panel.getByTestId('answer-weightBasis').getByRole('radio', { name: 'Total body weight (TBW)' }).click();
+  await expect(panel.getByTestId('calc-problems')).toHaveCount(0);
+  await shot(page, 'm2-01-crcl-inputs');
+  await panel.getByTestId('calc-run').click();
+
+  // (140 − 67) × 60 ÷ (72 × 1.1) × 0.85 = 47.0 mL/min
+  const result = panel.getByTestId('calc-result-crcl_cg');
+  await expect(result.getByTestId('calc-value')).toHaveText('47 mL/min');
+  await expect(result.locator('[data-provenance="calculated"]')).toBeVisible();
+  await result.getByTestId('calc-basis').locator('summary').click();
+  await expect(result.getByTestId('calc-steps')).toContainText('CrCl = (140 − 67) × 60 ÷ (72 × 1.1) × 0.85 = 47 mL/min');
+  await expect(result.getByTestId('calc-basis')).toContainText('Total body weight used, as chosen by the trainee.');
+  await expect(result.getByTestId('calc-basis')).toContainText('Cockcroft DW, Gault MH');
+  await shot(page, 'm2-02-crcl-result');
+
+  // A newer creatinine makes the stored result out of date; it is never changed.
+  await addCreatinine(page, caseId, '1.5', '2');
+  await page.goto(`/#/cases/${caseId}/calc/crcl_cg`);
+  await expect(page.getByTestId('calc-result-crcl_cg')).toHaveAttribute('data-current', 'no');
+  await expect(page.getByTestId('calc-out-of-date')).toContainText('A newer serum creatinine was recorded (Day 2)');
+  await expect(page.getByTestId('calc-result-crcl_cg').getByTestId('calc-value')).toHaveText('47 mL/min');
+  await page.getByTestId('answer-weightBasis').getByRole('radio', { name: 'Total body weight (TBW)' }).click();
+  await page.getByTestId('calc-run').click();
+  await expect(page.getByTestId('calc-result-crcl_cg').getByTestId('calc-value')).toHaveText('34 mL/min'); // (140 − 67) × 60 ÷ (72 × 1.5) × 0.85 = 34.5
+  await expect(page.getByText('Earlier results (1)')).toBeVisible();
+  // The creatinine rose by 0.4 mg/dL within 2 days: the KDIGO warning is shown.
+  await expect(page.getByTestId('calc-warnings')).toContainText('KDIGO');
+  await shot(page, 'm2-03-crcl-recalculated');
+
+  // Audit: two calculations recorded.
+  await page.goto(`/#/cases/${caseId}/audit`);
+  await expect(page.getByText(/calc_result/).first()).toBeVisible();
+  expect(w.errors).toEqual([]);
+});
+
+test('a calculation with a missing input is refused and names the missing field', async ({ page }) => {
+  const caseId = await newCaseWithData(page);
+  await addWeight(page, caseId, '60', '0');
+  await page.goto(`/#/cases/${caseId}/calc/egfr_ckdepi2021`);
+  const panel = page.getByTestId('calc-panel-egfr_ckdepi2021');
+  await expect(panel.getByTestId('calc-problems')).toContainText('Serum creatinine: missing');
+  await expect(panel.getByTestId('calc-run')).toBeDisabled();
+  await expect(panel.locator('[data-input="scr"]')).toContainText('Not recorded');
+  await shot(page, 'm2-04-missing-input');
+});
+
+test('vancomycin AUC refuses without two picked levels, then computes from levels with draw times', async ({ page }) => {
+  const caseId = await newCaseWithData(page);
+  const level = async (value: string, day: string, time: string) =>
+    addEntry(page, caseId, async (p) => {
+      await p.getByLabel('Entry type').selectOption('lab');
+      await p.getByLabel('Hospital day').fill(day);
+      await p.getByLabel('Clock time').fill(time);
+      await p.getByLabel('Test').selectOption('vanco');
+      await p.getByLabel('Value', { exact: true }).fill(value);
+      await p.getByLabel('Unit', { exact: true }).selectOption('mg/L');
+    });
+  // Simulated steady state: CL 5 L/h, V 60 L, 1250 mg over 1 h every 12 h → AUC₂₄ 500 mg·h/L
+  await level('29.1', '2', '08:00');
+  await level('13.2', '2', '17:30');
+  await page.goto(`/#/cases/${caseId}/task/t10`);
+  await page.getByTestId('task-calc-vancomycin_auc').locator('summary').click();
+  const panel = page.getByTestId('calc-panel-vancomycin_auc');
+  await expect(panel.getByTestId('calc-problems')).toContainText('First level (after the end of the infusion): missing');
+  await expect(panel).toContainText('High-risk calculation');
+  await panel.locator('[data-input="dose"]').getByLabel('Value').fill('1250');
+  await panel.locator('[data-input="dose"]').getByLabel('Unit').selectOption('mg');
+  await panel.locator('[data-input="tinf"]').getByLabel('Value').fill('1');
+  await panel.locator('[data-input="tinf"]').getByLabel('Unit').selectOption('h');
+  await panel.locator('[data-input="tau"]').getByLabel('Value').fill('12');
+  await panel.locator('[data-input="tau"]').getByLabel('Unit').selectOption('h');
+  await panel.locator('[data-input="doseStart"]').getByLabel('Hospital day').fill('2');
+  await panel.locator('[data-input="doseStart"]').getByLabel(/Clock time/).fill('06:00');
+  const options = await panel.locator('[data-input="level1"] select option').allTextContents();
+  await panel.locator('[data-input="level1"] select').selectOption({ label: options.find((o) => o.startsWith('29.1'))! });
+  await panel.locator('[data-input="level2"] select').selectOption({ label: options.find((o) => o.startsWith('13.2'))! });
+  await panel.getByTestId('answer-steadyState').getByRole('radio', { name: 'Yes' }).click();
+  await panel.getByTestId('answer-noRrt').getByRole('radio', { name: 'Yes' }).click();
+  await expect(panel.getByTestId('calc-problems')).toHaveCount(0);
+  await panel.getByTestId('calc-run').click();
+  const result = panel.getByTestId('calc-result-vancomycin_auc');
+  await expect(result.getByTestId('calc-value')).toHaveText(/^(49\d|50\d) mg·h\/L$/);
+  await expect(result.getByTestId('calc-category')).toHaveText('Within the 400–600 target range');
+  await expect(result.getByTestId('calc-warnings')).toContainText('Evidence is insufficient to recommend AUC targeting in non-invasive infection');
+  await shot(page, 'm2-05-vancomycin');
+});
+
+test('the renal dose review is locked by the Verify gate until its data is recorded', async ({ page }) => {
+  const caseId = await newCaseWithData(page);
+  await addMedication(page, caseId, { drug: 'enoxaparin' });
+  await page.goto(`/#/cases/${caseId}/task/t08`);
+  const med = page.locator('[data-testid^="scope-"]').first();
+  const gate = med.getByTestId('renal-gate');
+  await expect(gate).toHaveAttribute('data-ok', 'no');
+  for (const item of ['weight', 'scr', 'dialysis', 'indication']) await expect(gate.locator(`[data-gate-item="${item}"]`)).toBeVisible();
+  const renal = med.locator('[data-testid^="field-renal-"]');
+  await expect(renal.getByRole('radio', { name: 'Adjustment needed', exact: true })).toBeDisabled();
+  await expect(renal.getByRole('radio', { name: 'No adjustment needed', exact: true })).toBeDisabled();
+  await expect(renal.getByRole('radio', { name: 'Unsure — needs checking' })).toBeEnabled();
+  await shot(page, 'm2-06-renal-gate-locked');
+
+  await addWeight(page, caseId, '60', '0');
+  await addCreatinine(page, caseId, '1.1', '1');
+  await addDialysisStatus(page, caseId);
+  await addMedication(page, caseId, { drug: 'apixaban', indication: 'Atrial fibrillation' });
+  await page.goto(`/#/cases/${caseId}/task/t08`);
+  const apixaban = page.locator('[data-testid^="scope-"]').filter({ hasText: 'apixaban' });
+  await expect(apixaban.getByTestId('renal-gate')).toHaveAttribute('data-ok', 'yes');
+  await expect(apixaban.locator('[data-testid^="field-renal-"]').getByRole('radio', { name: 'Adjustment needed', exact: true })).toBeEnabled();
+});
+
+test('a calculator whose tests failed is hidden, with the reason', async ({ page, browser }) => {
+  test.setTimeout(300_000);
+  // Build a copy of the app that reads a manifest in which one calculator failed.
+  const manifest = JSON.parse(readFileSync('src/calc/validation-manifest.json', 'utf8')) as { calculators: Record<string, { failed: number }> };
+  manifest.calculators.child_pugh!.failed = 1;
+  const dir = mkdtempSync(join(tmpdir(), 'preceptor-failing-'));
+  const path = join(dir, 'manifest.json');
+  writeFileSync(path, JSON.stringify(manifest));
+  const outDir = join(dir, 'dist');
+  execFileSync('npx', ['vite', 'build', '--outDir', outDir, '--emptyOutDir'], { env: { ...process.env, PRECEPTOR_CALC_MANIFEST: path }, stdio: 'pipe' });
+  const { spawn } = await import('node:child_process');
+  const server = spawn('npx', ['vite', 'preview', '--outDir', outDir, '--port', '4180', '--strictPort'], { stdio: 'pipe', detached: true });
+  try {
+    for (let i = 0; i < 100; i++) {
+      try {
+        if ((await fetch('http://localhost:4180/')).ok) break;
+      } catch {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+    const ctx = await browser.newContext({ baseURL: 'http://localhost:4180', serviceWorkers: 'block' });
+    const p = await ctx.newPage();
+    p.setDefaultTimeout(30_000);
+    const original = page;
+    void original;
+    await onboard(p);
+    await createRotation(p);
+    const caseId = await createCase(p, { kind: 'teaching' });
+    await p.goto(`/#/cases/${caseId}/calc`);
+    await expect(p.getByTestId('calc-row-crcl_cg')).toBeVisible();
+    await expect(p.getByTestId('calc-row-child_pugh')).toHaveCount(0);
+    await expect(p.getByTestId('calc-hidden').locator('[data-hidden="child_pugh"]')).toContainText('A test of this calculator failed.');
+    await p.screenshot({ path: `${SHOTS}/m2-07-hidden-calculator.png`, fullPage: true });
+    // Not reachable directly either, and not offered in its task.
+    await p.goto(`/#/cases/${caseId}/calc/child_pugh`);
+    await expect(p.getByText('A test of this calculator failed.')).toBeVisible();
+    await p.goto(`/#/cases/${caseId}/task/t08`);
+    await expect(p.getByTestId('task-calc-crcl_cg')).toBeVisible();
+    await expect(p.getByTestId('task-calc-child_pugh')).toHaveCount(0);
+    await ctx.close();
+  } finally {
+    if (server.pid) process.kill(-server.pid, 'SIGTERM');
+  }
+});

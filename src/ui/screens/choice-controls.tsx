@@ -16,6 +16,7 @@ export function ChoicePills({
   value,
   onChange,
   disabled,
+  disabledValues,
   error,
   testId,
 }: {
@@ -25,6 +26,8 @@ export function ChoicePills({
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
+  /** Options that cannot be newly chosen (e.g. locked by the Verify gate). */
+  disabledValues?: readonly string[];
   error?: string;
   testId?: string;
 }) {
@@ -47,7 +50,7 @@ export function ChoicePills({
               type="button"
               role="radio"
               aria-checked={on}
-              disabled={disabled}
+              disabled={disabled || (!on && disabledValues?.includes(o.value))}
               onClick={() => onChange(on ? '' : o.value)}
               className={`min-h-[40px] rounded-full border px-3 text-start text-sm font-medium disabled:opacity-50 ${on ? 'border-teal-800 bg-teal-800 text-white' : 'border-slate-300 bg-white text-slate-800 hover:border-slate-500'}`}
             >

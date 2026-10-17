@@ -22,7 +22,7 @@ describe(`calc:${crclCg.id}@${crclCg.formulaVersion}`, () => {
     const r = ok(crclCg, ctx(female(60, 165), [weight(70), lab('scr', 1.2, 'mg/dL')]), basis('tbw'));
     expect(r.value).toBeCloseTo(55.092592592592595, 9);
     expect(Math.round(r.value * 10) / 10).toBe(55.1);
-    expect(r.assumptions.map((a) => a.en)).toContain('Sex: female (× 0.85) (case record).');
+    expect(r.assumptions.map((a) => a.en)).toContain('Sex: female, × 0.85 (case record).');
   });
 
   it('creatinine in µmol/L gives the same result (106.08 µmol/L = 1.2 mg/dL)', () => {
@@ -43,6 +43,14 @@ describe(`calc:${crclCg.id}@${crclCg.formulaVersion}`, () => {
     expect(adj.assumptions.map((a) => a.en)).toContain('Adjusted body weight used, with factor 0.4, as chosen by the trainee.');
     // BMI 32.7: obesity warning on any basis
     expect(tbw.warnings.map((w) => w.en).join(' ')).toContain('BMI is 32.7 kg/m² (obesity)');
+  });
+
+  it('the AdjBW factor is asked and recorded only when AdjBW is chosen', () => {
+    const c = ctx(male(50, 175), [weight(100), lab('scr', 1.0, 'mg/dL')]);
+    const tbw = ok(crclCg, c, { answers: { weightBasis: pick('tbw'), adjFactor: num(0.4, 'unitless') } });
+    expect(tbw.inputs.detail.adjFactor).toBeUndefined();
+    const adj = ok(crclCg, c, { answers: { weightBasis: pick('adjbw'), adjFactor: num(0.4, 'unitless') } });
+    expect(adj.inputs.detail.adjFactor?.value).toBe(0.4);
   });
 
   it('IBW or AdjBW without a height is refused, naming the height', () => {

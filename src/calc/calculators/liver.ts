@@ -10,6 +10,7 @@ const ASCITES: InputSpec = {
   label: L('Ascites', 'الاستسقاء'),
   kind: 'choice',
   source: { kind: 'answer' },
+  showPoints: true,
   options: [
     { value: 'none', label: L('None', 'لا يوجد'), points: 1 },
     { value: 'slight', label: L('Slight (or controlled with diuretics)', 'خفيف (أو مضبوط بالمدرات)'), points: 2 },
@@ -22,6 +23,7 @@ const ENCEPHALOPATHY: InputSpec = {
   label: L('Hepatic encephalopathy', 'الاعتلال الدماغي الكبدي'),
   kind: 'choice',
   source: { kind: 'answer' },
+  showPoints: true,
   options: [
     { value: 'none', label: L('None', 'لا يوجد'), points: 1 },
     { value: 'grade12', label: L('Grade 1–2 (or controlled with treatment)', 'الدرجة 1–2 (أو مضبوط بالعلاج)'), points: 2 },
@@ -70,8 +72,8 @@ export const childPugh: CalculatorDef = {
     ];
     const sample = sameSample(inputs, ['bilirubin', 'albumin', 'inr']);
     if (sample) warnings.push(sample);
-    const ascLabel = inputs.ascites!.choice;
-    const encLabel = inputs.encephalopathy!.choice;
+    const ascLabel = ASCITES.options!.find((o) => o.value === inputs.ascites!.choice)?.label.en ?? '';
+    const encLabel = ENCEPHALOPATHY.options!.find((o) => o.value === inputs.encephalopathy!.choice)?.label.en ?? '';
     return {
       value,
       unit: 'points',

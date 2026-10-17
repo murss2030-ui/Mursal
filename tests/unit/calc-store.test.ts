@@ -209,3 +209,60 @@ describe('dialysis status (structured renal replacement therapy note)', () => {
     expect(readiness(['dialysis'], { case: caseNow, current, attachments: [], items: [] })[0]).toMatchObject({ state: 'ok', value: 'intermittent haemodialysis', day: 2 });
   });
 });
+
+describe('the Verify gate is enforced when Task 8 is saved', () => {
+  const med = {
+    type: 'med_start' as const,
+    hospitalDay: 0,
+    payload: { medId: 'm1', drug: 'enoxaparin', dose: { kind: 'structured' as const, value: 40, unit: 'mg' }, route: 'subcut', frequency: 'once daily', indication: 'VTE prophylaxis' },
+  };
+
+  it('refuses "adjustment needed" while required data is missing, accepts "unsure", and accepts the answer once the data is recorded', async () => {
+    const { store, c } = await setup();
+    await store.addEntry(c.id, med);
+    await expect(store.saveTask(c.id, 't08', { status: 'in_progress', checks: {}, fields: { 'renal@m1': 'needed' } })).rejects.toMatchObject({ errors: { 'renal@m1': 'gate' } });
+    await expect(store.saveTask(c.id, 't08', { status: 'in_progress', checks: {}, fields: { 'renal@m1': 'unsure' } })).resolves.toMatchObject({ version: 1 });
+    await store.addEntry(c.id, weight(70));
+    await store.addEntry(c.id, scr(1.2, 1));
+    await store.addEntry(c.id, { type: 'note', hospitalDay: 0, payload: { category: 'renal_replacement', status: 'none' } });
+    await expect(store.saveTask(c.id, 't08', { status: 'in_progress', checks: {}, fields: { 'renal@m1': 'needed' } })).resolves.toMatchObject({ version: 2 });
+  });
+
+  it('an answer already saved stays saveable with other changes', async () => {
+    const { store, c } = await setup();
+    await store.addEntry(c.id, med);
+    await store.addEntry(c.id, weight(70));
+    await store.addEntry(c.id, scr(1.2, 1));
+    const rrt = await store.addEntry(c.id, { type: 'note', hospitalDay: 0, payload: { category: 'renal_replacement', status: 'none' } });
+    await store.saveTask(c.id, 't08', { status: 'in_progress', checks: {}, fields: { 'renal@m1': 'not_needed' } });
+    await store.correctEntry(c.id, rrt.id, { kind: 'retract', reason: 'entered in error' });
+    await expect(store.saveTask(c.id, 't08', { status: 'in_progress', checks: {}, fields: { 'renal@m1': 'not_needed', 'source@m1': 'local guide' } })).resolves.toMatchObject({ version: 2 });
+  });
+});
+
+describe('form Section 1 from calculation results (never typed)', () => {
+  it('shows BMI and CrCl/eGFR with the calculated provenance, and marks an out-of-date result', async () => {
+    const { deriveForm } = await import('../../src/domain/form/derive');
+    const { store, c } = await setup();
+    await store.addEntry(c.id, weight(70));
+    await store.addEntry(c.id, scr(1.2, 1));
+    await store.calculate(c.id, 'bmi');
+    await store.calculate(c.id, 'crcl_cg', { answers: { weightBasis: { kind: 'choice', value: 'ibw' } } });
+    await store.calculate(c.id, 'egfr_ckdepi2021');
+    const results = await store.listCalcResults(c.id);
+    const record = { case: (await store.getCase(c.id))!, entries: await store.listEntries(c.id) };
+    const view = (outOfDate: Set<string>) => deriveForm({ ...record, calcResults: results, calcOutOfDate: outOfDate, mode: 'teaching' });
+    const s1 = view(new Set()).sections[0]!;
+    const bmi = s1.fields.find((f) => f.key === 's1.bmi')!;
+    expect(bmi.state).toMatchObject({ kind: 'value', items: [{ text: '22.9 kg/m² (Normal range (18.5–24.9))', provenance: 'calculated' }] });
+    expect(bmi.edit).toEqual({ kind: 'calc', calcId: 'bmi' });
+    const renal = s1.fields.find((f) => f.key === 's1.crclEgfr')!;
+    expect(renal.state.kind === 'value' && renal.state.items.map((i) => i.text)).toEqual([
+      // (140 − 60) × 70.46 ÷ (72 × 1.2) = 65.2; CKD-EPI 2021, male 60 y, 1.2 mg/dL = 69.2 (scripts/calc-crosscheck.py)
+      'CrCl (Cockcroft–Gault, IBW): 65 mL/min',
+      'eGFR (CKD-EPI 2021, staging): 69 mL/min/1.73 m²',
+    ]);
+    const stale = view(new Set([results[0]!.id])).sections[0]!.fields.find((f) => f.key === 's1.bmi')!;
+    expect(stale.state).toMatchObject({ kind: 'value', notes: ['calc_out_of_date'] });
+  });
+});

@@ -55,7 +55,9 @@ export type FieldError =
   | 'unknownField'
   | 'unknownTask'
   | 'confirm'
-  | 'modelId';
+  | 'modelId'
+  /** M2: the Verify gate is not satisfied (required data not recorded). */
+  | 'gate';
 
 export type Values = Record<string, string>;
 export type Errors = Record<string, FieldError>;

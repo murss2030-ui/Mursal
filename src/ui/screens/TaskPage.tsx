@@ -18,6 +18,8 @@ import { ChoicePills, MultiPills } from './choice-controls';
 import { TaskPanels } from './panels';
 import { RegisterList } from './RegisterList';
 import { AiDraft } from './AiDraft';
+import { TaskCalculators } from '../calc/TaskCalculators';
+import { GATED_ANSWERS, renalDoseReviewGate, type GateResult } from '../../calc/gate';
 
 type Flat = Record<string, string>;
 
@@ -110,11 +112,28 @@ export function CheckRow({
   );
 }
 
-function TaskField({ f, value, onChange, disabled }: { f: TaskFieldDef; value: string; onChange: (v: string) => void; disabled?: boolean }) {
+function TaskField({
+  f,
+  value,
+  onChange,
+  disabled,
+  disabledValues,
+  error,
+  testId,
+}: {
+  f: TaskFieldDef;
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  disabledValues?: readonly string[];
+  error?: string;
+  testId?: string;
+}) {
   const tl = useL();
   if (f.kind === 'text') return <TextField label={tl(f.label)} hint={f.hint ? tl(f.hint) : undefined} value={value} onChange={onChange} />;
   if (f.kind === 'longtext') return <TextAreaField label={tl(f.label)} hint={f.hint ? tl(f.hint) : undefined} value={value} onChange={onChange} />;
-  if (f.kind === 'choice') return <ChoicePills label={tl(f.label)} options={f.options ?? []} value={value} onChange={onChange} disabled={disabled} />;
+  if (f.kind === 'choice')
+    return <ChoicePills label={tl(f.label)} options={f.options ?? []} value={value} onChange={onChange} disabled={disabled} disabledValues={disabledValues} error={error} testId={testId} />;
   return <MultiPills label={tl(f.label)} options={f.options ?? []} value={value} onChange={onChange} disabled={disabled} />;
 }
 
@@ -195,6 +214,47 @@ function Readiness({ items, caseId }: { items: ReadinessItem[]; caseId: string }
   );
 }
 
+// ---------------------------------------------------------------- M2: Verify gate of a per-medication assessment
+
+function GateBox({ gate, caseId }: { gate: GateResult; caseId: string }) {
+  const { t } = useI18n();
+  const tl = useL();
+  const lacking = gate.items.filter((i) => i.state !== 'ok');
+  const href = (i: GateResult['items'][number]): string | undefined => {
+    const a = i.add;
+    if (!a) return undefined;
+    if (a.kind === 'entry') return `#/cases/${caseId}/entry/new?type=${a.type}${a.category ? `&category=${a.category}` : ''}`;
+    if (a.kind === 'medication') return `#/cases/${caseId}/timeline`;
+    return `#/cases/${caseId}/details`;
+  };
+  return (
+    <div className={`my-2 rounded-xl px-3 py-2 text-sm ${gate.ok ? 'bg-emerald-50 text-emerald-900' : 'bg-rose-50 text-rose-900'}`} data-testid="renal-gate" data-ok={gate.ok ? 'yes' : 'no'}>
+      <p className="font-medium">{t('calc.gate.title')}</p>
+      {gate.ok ? (
+        <p>{t('calc.gate.ok')}</p>
+      ) : (
+        <>
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {lacking.map((i) => (
+              <li key={i.key} className="flex flex-wrap items-center gap-2" data-gate-item={i.key}>
+                <span>
+                  {tl(i.label)} — {i.state === 'unverified' ? t('calc.gate.unverified') : t('calc.gate.missing')}
+                </span>
+                {href(i) && (
+                  <a href={href(i)} className="font-medium underline">
+                    {t('form.add')}
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs">{t('calc.gate.locked', { list: lacking.map((i) => tl(i.label)).join(', ') })}</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- scoped sections
 
 interface ScopeRow {
@@ -212,6 +272,9 @@ function ScopedBlock({
   issueHref,
   disabled,
   kind,
+  gateFor,
+  errors,
+  caseId,
 }: {
   def: TaskDef;
   sec: ScopedSection;
@@ -221,7 +284,12 @@ function ScopedBlock({
   issueHref: (label: string, drug?: string) => string;
   disabled: boolean;
   kind: 'medication' | 'problem';
+  /** M2: the Verify gate of an assessment made per row (Task 8 renal dose review). */
+  gateFor?: (rowId: string) => GateResult | undefined;
+  errors?: Record<string, string>;
+  caseId: string;
 }) {
+  const errText = useErrorText();
   const { t } = useI18n();
   const tl = useL();
   if (!rows.length) {
@@ -275,6 +343,7 @@ function ScopedBlock({
                   />
                 </div>
               )}
+              {applies === 'yes' && gateFor?.(r.id) && <GateBox gate={gateFor(r.id)!} caseId={caseId} />}
               {applies === 'yes' && (
                 <>
                   {sec.checks.map((c: CheckDef) => (
@@ -289,9 +358,23 @@ function ScopedBlock({
                     />
                   ))}
                   <div className="flex flex-col gap-3 pt-2">
-                    {(sec.fields ?? []).map((f) => (
-                      <TaskField key={f.id} f={f} value={v[`f:${scopedKey(f.id, r.id)}`] ?? ''} onChange={(x) => set(`f:${scopedKey(f.id, r.id)}`, x)} disabled={disabled} />
-                    ))}
+                    {(sec.fields ?? []).map((f) => {
+                      const key = scopedKey(f.id, r.id);
+                      const gate = gateFor?.(r.id);
+                      const locked = gate && !gate.ok && f.id === GATED_ANSWERS.field ? GATED_ANSWERS.values : undefined;
+                      return (
+                        <TaskField
+                          key={f.id}
+                          f={f}
+                          value={v[`f:${key}`] ?? ''}
+                          onChange={(x) => set(`f:${key}`, x)}
+                          disabled={disabled}
+                          disabledValues={locked}
+                          error={errors?.[key] ? errText(errors[key] as never) : undefined}
+                          testId={`field-${f.id}-${r.id}`}
+                        />
+                      );
+                    })}
                   </div>
                 </>
               )}
@@ -458,6 +541,8 @@ function Worksheet({ def, b, rec }: { def: TaskDef; b: CaseBundle; rec: TaskReco
 
       {def.panels && <TaskPanels def={def} b={b} draftFields={input.fields} />}
 
+      {def.calculators && def.calculators.length > 0 && <TaskCalculators b={b} ids={def.calculators} />}
+
       {def.case && (def.case.checks.length > 0 || (def.case.fields?.length ?? 0) > 0) && (
         <Card title={t('task.checklist')}>
           <div className="flex flex-col">
@@ -495,6 +580,12 @@ function Worksheet({ def, b, rec }: { def: TaskDef; b: CaseBundle; rec: TaskReco
             set={set}
             issueHref={issueHref}
             disabled={readOnly}
+            gateFor={def.id === GATED_ANSWERS.taskId ? (medId) => {
+              const course = b.activeCourses.find((c) => c.medId === medId);
+              return course ? renalDoseReviewGate(b.calcContext, course) : undefined;
+            } : undefined}
+            errors={errors}
+            caseId={caseId}
           />
           {b.activeCourses.length === 0 && (
             <a href={`#/cases/${caseId}/entry/new?type=med_start`} className="self-start text-sm font-medium text-teal-900 underline">
@@ -516,6 +607,7 @@ function Worksheet({ def, b, rec }: { def: TaskDef; b: CaseBundle; rec: TaskReco
             set={set}
             issueHref={issueHref}
             disabled={readOnly}
+            caseId={caseId}
           />
           {b.problems.length === 0 && (
             <a href={`#/cases/${caseId}/entry/new?type=note&category=problem`} className="self-start text-sm font-medium text-teal-900 underline">

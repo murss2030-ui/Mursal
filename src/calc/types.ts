@@ -68,6 +68,10 @@ export interface InputSpec {
   needsTime?: boolean;
   /** A timeline input the trainee must pick explicitly (no default to the most recent entry), e.g. each of two drug levels. */
   pickRequired?: boolean;
+  /** Asked, and used, only when another input's answer is one of these (e.g. the AdjBW factor when AdjBW is chosen). */
+  showIf?: { key: string; in: readonly string[] };
+  /** A choice whose points are part of the score and are shown with the answer (Child–Pugh items). */
+  showPoints?: boolean;
 }
 
 export type InputSource =

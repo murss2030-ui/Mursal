@@ -162,9 +162,10 @@ describe('department form: no invented data', () => {
     }
     // Sections 4 and 7–10 are filled from the Clinical Modules: empty means missing, never "none".
     expect(view.missing.filter((m) => m.key === 'table').map((m) => m.section).sort((a, b) => a - b)).toEqual([3, 4, 5, 6, 7, 8, 10]);
-    expect(field(view, 's1.bmi')).toEqual({ kind: 'not_yet', milestone: 'M2' });
-    expect(field(view, 's1.crclEgfr')).toEqual({ kind: 'not_yet', milestone: 'M2' });
-    expect([...new Set(view.notYet.map((x) => x.section))].sort((a, b) => a - b)).toEqual([1, 11]);
+    // Since M2, BMI and CrCl/eGFR come from calculation results: none yet is "missing", never typed.
+    expect(field(view, 's1.bmi')).toEqual({ kind: 'missing', hint: 'no_calculation' });
+    expect(field(view, 's1.crclEgfr')).toEqual({ kind: 'missing', hint: 'no_calculation' });
+    expect([...new Set(view.notYet.map((x) => x.section))].sort((a, b) => a - b)).toEqual([11]);
     expect(field(view, 's11.signature')).toEqual({ kind: 'signature_line' });
   });
 

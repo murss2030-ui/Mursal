@@ -31,6 +31,7 @@ import { ItemEditor } from './screens/ItemEditor';
 import { ModulePage } from './screens/ModulePage';
 import { SourceViewer } from './screens/SourceViewer';
 import { TaskPage } from './screens/TaskPage';
+import { CalculatorScreen, CalculatorsScreen } from './calc/CalculatorsScreen';
 import { TextSourceEditor } from './screens/TextSourceEditor';
 import { Workflow } from './screens/Workflow';
 
@@ -66,6 +67,8 @@ function Route({ path, query }: { path: string; query: URLSearchParams }): React
   if ((m = match('/cases/:id/sources/:attId', path))) return <SourceViewer caseId={m.id!} attachmentId={m.attId!} />;
   if ((m = match('/cases/:id/modules/:moduleId', path))) return <ModulePage caseId={m.id!} moduleId={m.moduleId!} />;
   if ((m = match('/cases/:id/task/:taskId', path))) return <TaskPage caseId={m.id!} taskId={m.taskId!} />;
+  if ((m = match('/cases/:id/calc', path))) return <CalculatorsScreen caseId={m.id!} />;
+  if ((m = match('/cases/:id/calc/:calcId', path))) return <CalculatorScreen caseId={m.id!} calcId={m.calcId!} />;
   if ((m = match('/cases/:id/item/new/:register', path))) {
     return <ItemEditor caseId={m.id!} mode={{ kind: 'new', register: m.register! }} query={query} />;
   }

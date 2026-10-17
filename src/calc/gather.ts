@@ -177,6 +177,14 @@ function fromAnswer(spec: InputSpec, a: Answer | undefined): { value?: InputValu
  * Collect the values for a calculator's inputs. Optional inputs that are
  * absent are simply left out; required ones are named as missing.
  */
+/** Whether an input applies, given the answers so far (see InputSpec.showIf). */
+export function applies(spec: InputSpec, answers: GatherRequest['answers']): boolean {
+  if (!spec.showIf) return true;
+  const a = answers?.[spec.showIf.key];
+  const value = a?.kind === 'choice' ? a.value : a?.kind === 'boolean' ? (a.value ? 'yes' : 'no') : undefined;
+  return value !== undefined && spec.showIf.in.includes(value);
+}
+
 export function gather(
   required: readonly InputSpec[],
   optional: readonly InputSpec[],
@@ -189,6 +197,7 @@ export function gather(
   const confirmed = new Set(req.confirmed ?? []);
 
   const one = (spec: InputSpec, isRequired: boolean) => {
+    if (!applies(spec, req.answers)) return;
     let got: { value?: InputValue; problem?: Problem };
     const s = spec.source;
     if (s.kind === 'case') got = fromCase(spec, ctx.demographics);

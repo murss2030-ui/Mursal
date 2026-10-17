@@ -142,10 +142,9 @@ export const IDENTIFIER_FIELDS: ReadonlySet<string> = new Set([
 /**
  * Where each not-yet-built part of the form comes from. Sections 4 and 7–10
  * and the references are filled from the Clinical Modules (M1 revision);
- * their engines (interaction checking M2, PCNE M4, retrieval M5) add to them later.
+ * their engines (interaction checking M2, PCNE M4, retrieval M5) add to them
+ * later. Since M2, BMI and CrCl/eGFR come from calculation results.
  */
 export const FORM_DEPENDENCIES: Readonly<Record<string, Milestone>> = {
-  's1.bmi': 'M2',
-  's1.crclEgfr': 'M2',
   's11.date': 'M6',
 };

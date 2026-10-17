@@ -133,6 +133,17 @@ export function ModulesHub({ caseId }: { caseId: string }) {
         <Banner tone="success">{t('hub.allDone')}</Banner>
       )}
 
+      <a href={`#/cases/${b.case.id}/calc`} className="surface flex items-center gap-3 p-4 hover:shadow-lift" data-testid="open-calculators">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-900">
+          <Icon name="function" className="h-5 w-5" />
+        </span>
+        <span className="flex flex-1 flex-col">
+          <span className="font-semibold text-slate-900">{t('calc.title')}</span>
+          <span className="text-sm text-slate-600">{t('calc.subtitle')}</span>
+        </span>
+        <Icon name="chevron-forward" className="h-5 w-5 text-slate-400 rtl:rotate-180" />
+      </a>
+
       <div className="flex items-end justify-between gap-2">
         <h2 className="text-lg font-semibold text-slate-900">{t('hub.journey')}</h2>
         <span className="text-xs text-slate-600">{t('hub.journeyLead')}</span>

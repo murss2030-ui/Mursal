@@ -12,6 +12,7 @@ import type {
   TimelineEntry,
   TraineeSettings,
 } from '../domain/types';
+import type { CalcResult } from '../calc/types';
 import { useLiveDecoded } from './hooks';
 
 export const useRotations = () =>
@@ -132,6 +133,14 @@ export const useExtractions = (caseId: string) =>
   useLiveDecoded(
     (s) => s.rawExtractions(caseId),
     (s, rows): Promise<ExtractionRun[]> => s.decodeExtractions(rows),
+    [caseId],
+  );
+
+/** M2: every calculation result of the case, oldest first (append-only). */
+export const useCalcResults = (caseId: string) =>
+  useLiveDecoded(
+    (s) => s.rawCalcResults(caseId),
+    (s, rows): Promise<CalcResult[]> => s.decodeCalcResults(rows),
     [caseId],
   );
 

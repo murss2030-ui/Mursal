@@ -13,6 +13,7 @@
  * enters a worksheet until the trainee accepts or edits that one item, and
  * what only the trainee can record is never drafted (src/ai/analysis/limits.ts).
  */
+import type { CalculatorId } from '../../calc/types';
 import type { Milestone } from '../../config/release';
 import { L } from '../label';
 import type { RegisterId } from '../types';
@@ -99,6 +100,8 @@ export interface TaskDef {
   registers?: readonly RegisterId[];
   needs?: readonly ReadinessId[];
   panels?: readonly PanelId[];
+  /** M2: tested calculators shown in the worksheet, beside the trainee's own calculation checks. */
+  calculators?: readonly CalculatorId[];
   later?: readonly { milestone: Milestone; what: L }[];
 }
 
@@ -355,6 +358,7 @@ const TASK_LIST: readonly TaskDef[] = [
       L('Mark anything wrong as a problem and turn it into a DRP card.', 'علّم أي خلل كمشكلة وحوّله إلى بطاقة مشكلة دوائية.'),
     ],
     needs: ['meds', 'allergy', 'weight', 'scr'],
+    calculators: ['crcl_cg', 'egfr_ckdepi2021'],
     perMedication: {
       checks: [
         ck('indication', 'Indication documented', 'دواعي الاستعمال موثّقة'),
@@ -552,6 +556,7 @@ const TASK_LIST: readonly TaskDef[] = [
     ],
     needs: ['demographics', 'weight', 'scr', 'dialysis', 'bilirubin', 'albumin', 'inr', 'meds'],
     registers: ['calc_check'],
+    calculators: ['crcl_cg', 'egfr_ckdepi2021', 'child_pugh'],
     case: {
       checks: [
         ck('inputs', 'Inputs confirmed, including which weight and the creatinine day', 'تم تأكيد المدخلات بما فيها نوع الوزن ويوم الكرياتينين'),
@@ -568,15 +573,6 @@ const TASK_LIST: readonly TaskDef[] = [
         { id: 'action', kind: 'text', label: L('Proposed action', 'الإجراء المقترح') },
       ],
     },
-    later: [
-      {
-        milestone: 'M2',
-        what: L(
-          'Tested calculators for CrCl (Cockcroft–Gault, with your weight choice), eGFR (CKD-EPI 2021) and Child–Pugh; the Verify gate refuses a dose review with missing inputs.',
-          'حاسبات مختبرة لـ CrCl (Cockcroft–Gault مع اختيارك للوزن) وeGFR (CKD-EPI 2021) وChild–Pugh؛ وبوابة التحقق ترفض مراجعة الجرعة عند نقص المدخلات.',
-        ),
-      },
-    ],
   },
   {
     id: 't09',
@@ -596,6 +592,7 @@ const TASK_LIST: readonly TaskDef[] = [
     ],
     needs: ['weight', 'height', 'demographics'],
     registers: ['calc_check'],
+    calculators: ['ibw_adjbw', 'bsa_mosteller', 'bmi'],
     perMedication: {
       applies: L('Is this given by IV infusion or as a weight-based dose?', 'هل يُعطى هذا الدواء بالتسريب الوريدي أو بجرعة محسوبة بالوزن؟'),
       checks: [
@@ -610,8 +607,8 @@ const TASK_LIST: readonly TaskDef[] = [
       {
         milestone: 'M2',
         what: L(
-          'Sixteen tested calculators, including body surface area and ideal and adjusted body weight. An infusion-rate calculator is not among the sixteen — adding it needs your decision.',
-          'ستة عشر حاسبة مختبرة، منها مساحة سطح الجسم والوزن المثالي والمعدّل. حاسبة معدل التسريب ليست ضمن الستة عشر — وإضافتها تحتاج قرارك.',
+          'An infusion-rate calculator is not among the sixteen tested calculators — adding it needs the owner’s decision.',
+          'حاسبة معدل التسريب ليست ضمن الحاسبات الست عشرة المختبرة — وإضافتها تحتاج قرار المالك.',
         ),
       },
     ],
@@ -643,12 +640,13 @@ const TASK_LIST: readonly TaskDef[] = [
     needs: ['drug_levels', 'scr', 'weight'],
     registers: ['tdm'],
     panels: ['drug_levels'],
+    calculators: ['vancomycin_auc', 'phenytoin_corrected'],
     later: [
       {
         milestone: 'M2',
         what: L(
-          'Vancomycin AUC from two levels with exact draw times, and corrected phenytoin, each with a labelled no-level path.',
-          'حساب AUC للفانكومايسين من مستويين مع أوقات السحب الدقيقة، والفينيتوين المصحّح، مع مسار موثّق عند غياب المستوى.',
+          'A labelled no-level vancomycin estimate for settings where levels cannot be measured — it needs a published method chosen by the department.',
+          'تقدير موثّق للفانكومايسين دون مستويات للأماكن التي يتعذر فيها القياس — يحتاج طريقة منشورة يختارها القسم.',
         ),
       },
     ],
@@ -675,6 +673,7 @@ const TASK_LIST: readonly TaskDef[] = [
       L('Record where you checked each interaction.', 'سجّل أين تحققت من كل تداخل.'),
     ],
     needs: ['meds', 'home_meds', 'problems'],
+    calculators: ['qtc_bazett'],
     registers: ['interaction'],
     case: {
       checks: [
@@ -881,6 +880,7 @@ const TASK_LIST: readonly TaskDef[] = [
       L('Document a planned duration or stop date.', 'وثّق مدة مخططة أو موعد إيقاف.'),
     ],
     needs: ['cultures', 'allergy', 'scr', 'weight'],
+    calculators: ['curb65', 'qsofa', 'crcl_cg'],
     panels: ['cultures', 'antimicrobial_days'],
     perMedication: {
       applies: L('Is this an antimicrobial?', 'هل هذا الدواء مضاد ميكروبي؟'),
@@ -928,11 +928,12 @@ const TASK_LIST: readonly TaskDef[] = [
         'وقاية أخرى: توقيت ومدة المضاد الحيوي الوقائي في الجراحة، وأي علاج وقائي آخر.',
       ),
       L(
-        'Risk scores are not among the sixteen calculators: record the tool and result you used. Prophylaxis without an indication is a DRP too.',
-        'مقاييس الخطورة ليست ضمن الحاسبات الستة عشر: سجّل الأداة والنتيجة التي استخدمتها. والوقاية دون استطباب هي أيضاً مشكلة دوائية.',
+        'VTE risk tools (for example Padua or Caprini) are not among the tested calculators: record the tool and the result you used. CHA₂DS₂-VASc and HAS-BLED (atrial fibrillation) are below. Prophylaxis without an indication is a DRP too.',
+        'أدوات تقييم خطر الانصمام الخثاري (مثل Padua أو Caprini) ليست ضمن الحاسبات المختبرة: سجّل الأداة والنتيجة التي استخدمتها. ومقياسا CHA₂DS₂-VASc وHAS-BLED (للرجفان الأذيني) متاحان أدناه. والوقاية دون استطباب هي أيضاً مشكلة دوائية.',
       ),
     ],
     needs: ['meds', 'problems', 'scr'],
+    calculators: ['cha2ds2vasc', 'has_bled'],
     case: {
       checks: [],
       fields: [
@@ -1022,6 +1023,7 @@ const TASK_LIST: readonly TaskDef[] = [
       L('Interpret every abnormal value yourself and record its clinical significance.', 'فسّر بنفسك كل قيمة غير طبيعية وسجّل أهميتها السريرية.'),
     ],
     needs: ['scr', 'electrolytes', 'cbc', 'vitals'],
+    calculators: ['anion_gap', 'corrected_calcium', 'anc'],
     registers: ['monitoring'],
     panels: ['monitoring_due', 'lab_trends'],
     case: {

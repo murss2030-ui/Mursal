@@ -68,7 +68,7 @@ test('M1 core flow: case, timeline, correction by supersession, audit log and de
   await expect(form).not.toContainText('Dr Synthetic Consultant');
   await expect(form.locator('[data-section="5"]')).toContainText('2.1 mg/dL');
   await expect(form.locator('[data-section="5"]')).not.toContainText('21 mg/dL');
-  await expect(form.locator('[data-field="s1.bmi"]')).toContainText('Not yet available — M2');
+  await expect(form.locator('[data-field="s1.bmi"]')).toContainText('not calculated yet');
   await expect(form.getByTestId('missing-list')).toContainText('Allergies and previous ADRs');
   await expect(form.getByTestId('missing-list')).toContainText('Chief complaint');
 

@@ -53,6 +53,7 @@ import { M1_MANUAL_ENTRY_TYPES } from '../domain/types';
 import { auditView, newInstallId, normalizeAiSettings, type AiSettings, type AiSettingsInput } from '../ai/settings';
 import { run as runCalculator } from '../calc/engine';
 import { pendingFromRuns } from '../calc/currency';
+import { newGatedAnswers, renalDoseReviewGate } from '../calc/gate';
 import type { GatherContext, GatherRequest } from '../calc/gather';
 import { CALC_BY_ID } from '../calc/registry';
 import type { CalcInputs, CalcResult, Calculator, CalculatorId, Problem } from '../calc/types';
@@ -845,6 +846,18 @@ export class Store {
     const entityId = `${caseId}:${taskId}`;
     const prev = await this.latest<TaskRecord>('tasks', entityId);
     if (prev && sameTask(prev, n.value)) return prev;
+    // M2 Verify gate: a renal dose review is not concluded while its required data is missing.
+    const gated = newGatedAnswers(taskId, prev?.fields, n.value.fields);
+    if (gated.length) {
+      const ctx = await this.calculationContext(caseId);
+      const courses = deriveMedCourses(ctx.current);
+      const errors: Errors = {};
+      for (const g of gated) {
+        const course = courses.find((c) => c.medId === g.medId);
+        if (!course || !renalDoseReviewGate(ctx, course).ok) errors[g.key] = 'gate';
+      }
+      if (Object.keys(errors).length) throw new ValidationError(errors);
+    }
     return this.writeVersion<TaskRecord>(
       'tasks',
       entityId,

@@ -1,12 +1,16 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { deriveForm, type CopyMode, type EditTarget, type FieldItem, type FieldState, type FormFieldView, type FormSectionView } from '../../domain/form/derive';
 import { FIELD_LABELS, FORM_TITLE, type FormLabel } from '../../domain/form/spec';
-import type { Case } from '../../domain/types';
+import type { Case, TimelineEntry } from '../../domain/types';
+import type { CalcResult } from '../../calc/types';
 import { Term, useI18n } from '../../i18n/i18n';
 import type { MsgKey } from '../../i18n/en';
 import { ProvenanceBadge } from '../components/ProvenanceBadge';
 import { Banner, Button, Card, Chip, DayLabel, Num, TextAreaField } from '../components/ui';
-import { useEntries, useFormDraft, useIdentifiers, useItems, useTasks, useTrainee } from '../data';
+import { useCalcResults, useEntries, useFormDraft, useIdentifiers, useItems, useTasks, useTrainee } from '../data';
+import { resultCurrency } from '../../calc/currency';
+import { CALC_BY_ID } from '../../calc/registry';
+import { indexTimeline } from '../../domain/timeline';
 import { usePersistentDraft } from '../hooks';
 import { useSession } from '../session-context';
 
@@ -117,6 +121,17 @@ function StateView({ s }: { s: FieldState }) {
   }
 }
 
+/** Ids of calculation results whose inputs changed since (see src/calc/currency.ts). */
+function outOfDate(c: Case, entries: readonly TimelineEntry[], results: readonly CalcResult[]): Set<string> {
+  const ctx = { demographics: c.demographics, current: indexTimeline(entries).current };
+  const ids = new Set<string>();
+  for (const r of results) {
+    const def = CALC_BY_ID.get(r.calc);
+    if (def && !resultCurrency(r, def, ctx).current) ids.add(r.id);
+  }
+  return ids;
+}
+
 function editHref(caseId: string, e: EditTarget): string | null {
   switch (e.kind) {
     case 'identifiers':
@@ -128,6 +143,8 @@ function editHref(caseId: string, e: EditTarget): string | null {
       return '#/settings';
     case 'task':
       return `#/cases/${caseId}/task/${e.taskId}`;
+    case 'calc':
+      return `#/cases/${caseId}/calc/${e.calcId}`;
     case 'draft':
       return null;
   }
@@ -249,6 +266,7 @@ export function FormTab({ c }: { c: Case }) {
   const trainee = useTrainee();
   const items = useItems(c.id);
   const tasks = useTasks(c.id);
+  const calcs = useCalcResults(c.id);
   const [mode, setMode] = useState<CopyMode>('teaching'); // Teaching copy is the default (Section 15)
   const [editing, setEditing] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string>();
@@ -261,7 +279,8 @@ export function FormTab({ c }: { c: Case }) {
     formDraft.status === 'ready' &&
     trainee.status === 'ready' &&
     items.status === 'ready' &&
-    tasks.status === 'ready';
+    tasks.status === 'ready' &&
+    calcs.status === 'ready';
   const view = useMemo(
     () =>
       ready
@@ -273,10 +292,12 @@ export function FormTab({ c }: { c: Case }) {
             trainee: trainee.data,
             items: items.data,
             tasks: tasks.data,
+            calcResults: calcs.data,
+            calcOutOfDate: outOfDate(c, entries.data, calcs.data),
             mode,
           })
         : null,
-    [ready, c, ids, entries, formDraft, trainee, items, tasks, mode],
+    [ready, c, ids, entries, formDraft, trainee, items, tasks, calcs, mode],
   );
   if (!view) return <p className="text-slate-600">{t('common.loading')}</p>;
 

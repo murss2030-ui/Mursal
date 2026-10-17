@@ -28,6 +28,8 @@ import type {
   TraineeSettings,
 } from '../types';
 import { choiceLabel, DRP_CATEGORIES } from '../workflow/registers';
+import type { CalcResult } from '../../calc/types';
+import { show } from '../../calc/units';
 import { DRP_CHECKBOXES, FIELD_LABELS, FORM_DEPENDENCIES, SECTION_TITLES, type FieldKey, type FormLabel } from './spec';
 
 export type CopyMode = 'teaching' | 'ward';
@@ -42,6 +44,8 @@ export interface FieldItem {
   date?: string;
   provenance?: ProvenanceState;
   entryId?: string;
+  /** M2: the calculation result this value comes from (provenance "calculated"). */
+  calcResultId?: string;
 }
 
 export type MissingCode =
@@ -60,8 +64,10 @@ export type MissingCode =
   /** Section 9: DRPs exist but no recommendation is marked final. */
   | 'no_final_recommendation'
   /** Section 10: a monitoring parameter without a next review day. */
-  | 'no_next_review';
-export type FormNote = 'case_id_replaces_identifier' | 'room_withheld' | 'nkda_conflict' | 'interpretation_needs_rereview';
+  | 'no_next_review'
+  /** Section 1 (M2): BMI or CrCl/eGFR has not been calculated yet. */
+  | 'no_calculation';
+export type FormNote = 'case_id_replaces_identifier' | 'room_withheld' | 'nkda_conflict' | 'interpretation_needs_rereview' | 'calc_out_of_date';
 
 export type FieldState =
   | { kind: 'value'; items: FieldItem[]; missingParts?: MissingCode[]; notes?: FormNote[] }
@@ -79,7 +85,9 @@ export type EditTarget =
   | { kind: 'draft'; key: string }
   | { kind: 'settings' }
   /** A Clinical Modules task where the data is entered (M1 revision). */
-  | { kind: 'task'; taskId: string };
+  | { kind: 'task'; taskId: string }
+  /** M2: the calculator that produces the value. */
+  | { kind: 'calc'; calcId: string };
 
 export interface FormFieldView {
   key: FieldKey;
@@ -135,6 +143,9 @@ export interface FormContext {
   items?: readonly RegisterItem[];
   /** Task worksheets from the Clinical Modules. */
   tasks?: readonly TaskRecord[];
+  /** M2: calculation results (BMI, CrCl, eGFR for Section 1), oldest first, and which are out of date. */
+  calcResults?: readonly CalcResult[];
+  calcOutOfDate?: ReadonlySet<string>;
   mode: CopyMode;
 }
 
@@ -260,10 +271,39 @@ function section1(ctx: FormContext, current: readonly TimelineEntry[]): FormSect
         { kind: 'add_entry', type: 'weight' },
       ),
       // BMI and CrCl/eGFR are CalcResult references, never typed (Section 15).
-      f('s1.bmi', notYet(FORM_DEPENDENCIES['s1.bmi']!)),
-      f('s1.crclEgfr', notYet(FORM_DEPENDENCIES['s1.crclEgfr']!)),
+      f('s1.bmi', calcField(ctx, ['bmi']), { kind: 'calc', calcId: 'bmi' }),
+      f('s1.crclEgfr', calcField(ctx, ['crcl_cg', 'egfr_ckdepi2021']), { kind: 'calc', calcId: 'crcl_cg' }),
     ],
   };
+}
+
+const CALC_LABEL: Record<string, (r: CalcResult) => string> = {
+  bmi: () => '',
+  crcl_cg: (r) => {
+    const basis = r.inputs.detail.weightBasis?.choice;
+    const w = basis === 'ibw' ? 'IBW' : basis === 'adjbw' ? 'AdjBW' : 'TBW';
+    return `CrCl (Cockcroft–Gault, ${w}): `;
+  },
+  egfr_ckdepi2021: () => 'eGFR (CKD-EPI 2021, staging): ',
+};
+
+/** The latest result of each calculator, as form items with the "calculated" provenance. */
+function calcField(ctx: FormContext, calcIds: readonly string[]): FieldState {
+  const items: FieldItem[] = [];
+  let stale = false;
+  for (const id of calcIds) {
+    const r = [...(ctx.calcResults ?? [])].filter((x) => x.calc === id).pop();
+    if (!r) continue;
+    if (ctx.calcOutOfDate?.has(r.id)) stale = true;
+    const category = r.category ? ` (${r.category.label.en})` : '';
+    items.push({
+      text: `${CALC_LABEL[id]?.(r) ?? ''}${show(r.value, r.unit, r.decimals)}${category}`,
+      provenance: 'calculated',
+      calcResultId: r.id,
+      ...(r.day !== undefined ? { day: r.day } : {}),
+    });
+  }
+  return items.length ? value(items, { notes: stale ? ['calc_out_of_date'] : [] }) : missing('no_calculation');
 }
 
 function textNoteField(
