@@ -2,7 +2,7 @@
 
 **Date:** 16 October 2026 · **Branch:** `claude/preceptor-build-prompt-v4-slhq8k` · **Build:** 0.3.0 (M3)
 
-**Status: built, tested, and run live with Google Gemini on a synthetic case — all nine acceptance criteria met; awaiting your decision.** At your request, the live run (criterion 9) was done in this environment with your free-tier key and the real RxNav service: see [M3-LIVE-RUN.md](M3-LIVE-RUN.md). It found real problems that the simulated tests could not, which are fixed and tested. One check remains for the deployment itself: open `/api/status` on the Netlify site once it is deployed. **M2 or any further milestone will not start without your explicit approval.**
+**Status: accepted by the owner on 17 October 2026**, after the live run with Google Gemini on a synthetic case ([M3-LIVE-RUN.md](M3-LIVE-RUN.md)); all nine acceptance criteria met. Deployment steps: [docs/deploy/NETLIFY.md](../deploy/NETLIFY.md). M2 will start only on the owner's explicit approval.
 
 The plan, with your decisions D1–D4, is in [M3-PLAN.md](M3-PLAN.md).
 

@@ -124,7 +124,8 @@ export function readConfig(env: Record<string, string | undefined>): ConfigResul
     accessCode: env.PRECEPTOR_ACCESS_CODE?.trim() || undefined,
     maxOutputTokens: positive(env.PRECEPTOR_MAX_OUTPUT_TOKENS, 8192, problems, 'PRECEPTOR_MAX_OUTPUT_TOKENS', true),
     imageTokenEstimate: positive(env.PRECEPTOR_IMAGE_TOKENS, 1600, problems, 'PRECEPTOR_IMAGE_TOKENS', true),
-    maxRequestBytes: positive(env.PRECEPTOR_MAX_REQUEST_BYTES, 7 * 1024 * 1024, problems, 'PRECEPTOR_MAX_REQUEST_BYTES', true),
+    // Netlify refuses a function request over about 6 MB with its own error; the relay answers clearly below that.
+    maxRequestBytes: positive(env.PRECEPTOR_MAX_REQUEST_BYTES, 5 * 1024 * 1024, problems, 'PRECEPTOR_MAX_REQUEST_BYTES', true),
     thinking,
     // Netlify stops a synchronous function after 30 seconds; the relay answers clearly before that.
     providerTimeoutMs: positive(env.PRECEPTOR_PROVIDER_TIMEOUT_MS, 25_000, problems, 'PRECEPTOR_PROVIDER_TIMEOUT_MS', true),

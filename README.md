@@ -25,7 +25,7 @@ PRECEPTOR does not replace a clinical pharmacist. It never makes a clinical deci
 | Milestone | State |
 |---|---|
 | M1 — Case and timeline core, with Revision 1 (patient-file intake and the Clinical Modules) | Accepted by the owner on 16 October 2026 ([report](docs/m1/M1-REPORT.md)) |
-| M3 — The patient file read by the model, and AI drafts for the 30 tasks (moved before M2 by the owner's decision of 16 October 2026) | Built, tested, and run live with Google Gemini on a synthetic case; awaiting the owner's acceptance ([plan](docs/m3/M3-PLAN.md), [report](docs/m3/M3-REPORT.md), [live run](docs/m3/M3-LIVE-RUN.md)) |
+| M3 — The patient file read by the model, and AI drafts for the 30 tasks (moved before M2 by the owner's decision of 16 October 2026) | Accepted by the owner on 17 October 2026, after a live run with Google Gemini on a synthetic case ([plan](docs/m3/M3-PLAN.md), [report](docs/m3/M3-REPORT.md), [live run](docs/m3/M3-LIVE-RUN.md)) |
 | M2 — Calculation and rules | Plan prepared ([plan](docs/m2/M2-PLAN.md)); not started |
 | M4–M9 | Not started (each begins only after the previous one is accepted) |
 
@@ -54,7 +54,7 @@ The Clinical Modules stay one tap away throughout, so every task can still be do
 
 ## AI service (M3): setting up the relay on Netlify
 
-The AI features need the relay deployed with the site and an API key. Without it, the app says so and everything else keeps working.
+The AI features need the relay deployed with the site and an API key. Without it, the app says so and everything else keeps working. A step-by-step guide with a ready-to-paste settings block is in [docs/deploy/NETLIFY.md](docs/deploy/NETLIFY.md).
 
 1. **Get a Gemini API key** in Google AI Studio (the "Get API key" page). A key on a project without billing is a **free-tier** key: use it with synthetic Teaching Cases only. A key on a project with billing enabled is a **paid** key.
 2. **In Netlify**, open the site's environment variables and add:
@@ -71,7 +71,7 @@ The AI features need the relay deployed with the site and an API key. Without it
    | `PRECEPTOR_THINKING` | recommended: how much the model reasons before answering, per task, e.g. `extract=low,analyse=low` (levels `minimal`, `low`, `medium`, `high`; unset = the model's default). In the live run, the default made one reading take 26 s and two drafts nearly 30 s; at `low` the same reading took under 4 s. |
    | `PRECEPTOR_PROVIDER_TIMEOUT_MS` | how long the relay waits for the model (default `25000`). Netlify stops a function after 30 s; the relay answers clearly before that, and counts the call's full estimate against the budget. |
    | `PRECEPTOR_MODEL_PATTERN`, `PRECEPTOR_DEFAULT_PRICE` | optional: also allow model ids matching a pattern, at a default price `input:output` |
-   | `PRECEPTOR_MAX_OUTPUT_TOKENS`, `PRECEPTOR_IMAGE_TOKENS`, `PRECEPTOR_MAX_REQUEST_BYTES` | optional limits (defaults `8192`, `1600`, 7 MB) |
+   | `PRECEPTOR_MAX_OUTPUT_TOKENS`, `PRECEPTOR_IMAGE_TOKENS`, `PRECEPTOR_MAX_REQUEST_BYTES` | optional limits (defaults `8192`, `1600`, 5 MB — Netlify refuses requests over about 6 MB) |
 
 3. **Deploy** (Netlify applies environment-variable changes on the next deploy; no code change is needed). Open `https://<your-site>/api/status`: it should answer JSON with `"configured": true` and your models.
 4. **In the app**, open Settings → AI service: check the status, the key class and the budget, enter the access code if you set one, choose a model for reading and one for analysis, and save.
