@@ -1,0 +1,1787 @@
+{
+  "date": "2026-10-16T22:27:55.478Z",
+  "models": {
+    "read": "gemini-3.5-flash",
+    "draft": "gemini-3.6-flash"
+  },
+  "priceUsdPerMillion": "1.50:9.00",
+  "readFailures": [
+    "attempt 1: Admission note The model service is not available right now. Try again later.",
+    "attempt 1: Laboratory report The model service is not available right now. Try again later."
+  ],
+  "readingCalls": 6,
+  "insulinAsReturnedByModel": [
+    {
+      "pass": 1,
+      "dose": null,
+      "doseUnit": "units",
+      "legibility": "illegible",
+      "handwritten": false,
+      "rawText": "Insulin glargine ~~ units (handwritten)"
+    }
+  ],
+  "extraction": {
+    "note": [
+      {
+        "id": "f1",
+        "target": "EVENT",
+        "value": "Admitted — with fever, productive cough and confusion for 3 days",
+        "raw": "Admitted Day 0 with fever, productive cough and confusion for 3 days.",
+        "day": "Day 0",
+        "flags": [
+          "single_pass"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f2",
+        "target": "HISTORY OR NOTE",
+        "value": "type 2 diabetes, hypertension, chronic kidney disease",
+        "raw": "Past history: type 2 diabetes, hypertension, chronic kidney disease.",
+        "day": "Hospital day not known",
+        "flags": [
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f3",
+        "target": "PRE-ADMISSION MEDICINES",
+        "value": "metformin — 1000 mg PO twice daily",
+        "raw": "metformin 1000 mg PO BID",
+        "day": "",
+        "flags": [
+          "single_pass"
+        ],
+        "rxnorm": "RxNorm: metformin (RxCUI 6809)",
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f4",
+        "target": "PRE-ADMISSION MEDICINES",
+        "value": "amlodipine — 10 mg PO once daily",
+        "raw": "amlodipine 10 mg PO daily",
+        "day": "",
+        "flags": [
+          "single_pass"
+        ],
+        "rxnorm": "RxNorm: amlodipine (RxCUI 17767)",
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f5",
+        "target": "PRE-ADMISSION MEDICINES",
+        "value": "ibuprofen — 400 mg PO TID PRN",
+        "raw": "ibuprofen 400 mg PO TID PRN",
+        "day": "",
+        "flags": [
+          "frequency_unmatched",
+          "single_pass"
+        ],
+        "rxnorm": "RxNorm: Ibuprofen (RxCUI 5640)",
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f6",
+        "target": "HISTORY OR NOTE",
+        "value": "penicillin — rash",
+        "raw": "Allergy: penicillin (rash).",
+        "day": "Hospital day not known",
+        "flags": [
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f7",
+        "target": "VITAL SIGN",
+        "value": "Heart rate: 112 beats/min",
+        "raw": "HR 112 bpm",
+        "day": "Hospital day not known",
+        "flags": [
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f8",
+        "target": "VITAL SIGN",
+        "value": "Blood pressure: 98/60 mmHg",
+        "raw": "BP 98/60 mmHg",
+        "day": "Hospital day not known",
+        "flags": [
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f9",
+        "target": "VITAL SIGN",
+        "value": "Temperature: 38.9 °C",
+        "raw": "temperature 38.9 C",
+        "day": "Hospital day not known",
+        "flags": [
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f10",
+        "target": "VITAL SIGN",
+        "value": "SpO₂: 91 %",
+        "raw": "SpO2 91 %",
+        "day": "Hospital day not known",
+        "flags": [
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f11",
+        "target": "WEIGHT",
+        "value": "72 kg",
+        "raw": "Weight 72 kg (measured).",
+        "day": "Hospital day not known",
+        "flags": [
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f12",
+        "target": "LAB RESULT",
+        "value": "Serum creatinine: 2.1 mg/dL",
+        "raw": "creatinine 2.1 mg/dL",
+        "day": "Hospital day not known",
+        "flags": [
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f13",
+        "target": "LAB RESULT",
+        "value": "Potassium: 5.4 mmol/L",
+        "raw": "potassium 5.4 mmol/L",
+        "day": "Hospital day not known",
+        "flags": [
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f14",
+        "target": "LAB RESULT",
+        "value": "White blood cells (WBC): 14.2 ×10⁹/L",
+        "raw": "WBC 14.2 x10^9/L",
+        "day": "Hospital day not known",
+        "flags": [
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f15",
+        "target": "INPATIENT MEDICATION",
+        "value": "ceftriaxone — 1 g IV every 24 hours",
+        "raw": "ceftriaxone 1 g IV q24h",
+        "day": "Hospital day not known",
+        "flags": [
+          "no_day",
+          "single_pass"
+        ],
+        "rxnorm": "RxNorm: ceftriaxone (RxCUI 2193)",
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f16",
+        "target": "INPATIENT MEDICATION",
+        "value": "enoxaparin — 40 mg subcut once daily",
+        "raw": "enoxaparin 40 mg SC daily",
+        "day": "Hospital day not known",
+        "flags": [
+          "abbreviation",
+          "no_day",
+          "single_pass"
+        ],
+        "rxnorm": "RxNorm: enoxaparin (RxCUI 67108)",
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (day 0)"
+      },
+      {
+        "id": "f17",
+        "target": "HISTORY OR NOTE",
+        "value": "community-acquired pneumonia · no",
+        "raw": "community-acquired pneumonia",
+        "day": "Hospital day not known",
+        "flags": [
+          "needs_choice",
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "rejected — Live run: cannot be confirmed as read"
+      },
+      {
+        "id": "f18",
+        "target": "HISTORY OR NOTE",
+        "value": "acute kidney injury · no · acute",
+        "raw": "acute kidney injury",
+        "day": "Hospital day not known",
+        "flags": [
+          "needs_choice",
+          "no_day",
+          "single_pass"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "rejected — Live run: cannot be confirmed as read"
+      }
+    ],
+    "page": [
+      {
+        "id": "f1",
+        "target": "LAB RESULT",
+        "value": "Serum creatinine: 2.6 mg/dL",
+        "raw": "Serum creatinine 2.6 mg/dL",
+        "day": "Day 1",
+        "flags": [
+          "single_pass"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f2",
+        "target": "LAB RESULT",
+        "value": "Potassium: 5.1 mmol/L",
+        "raw": "Potassium 5.1 mmol/L",
+        "day": "Day 1",
+        "flags": [
+          "single_pass"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f3",
+        "target": "LAB RESULT",
+        "value": "C-reactive protein (CRP): 96 mg/L",
+        "raw": "CRP 96 mg/L",
+        "day": "Day 1",
+        "flags": [
+          "single_pass"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f4",
+        "target": "INPATIENT MEDICATION",
+        "value": "Insulin glargine",
+        "raw": "Insulin glargine ~~ units (handwritten)",
+        "day": "Day 1",
+        "flags": [
+          "illegible",
+          "single_pass"
+        ],
+        "rxnorm": "RxNorm: Insulin Glargine (RxCUI 274783)",
+        "confirmable": false,
+        "matches": true,
+        "decision": "rejected — Live run: cannot be confirmed as read"
+      }
+    ],
+    "noteFound": [
+      {
+        "item": "Chief complaint (fever, cough, confusion)",
+        "found": true,
+        "field": "Admitted — with fever, productive cough and confusion for 3 days — confirmed"
+      },
+      {
+        "item": "Past history (diabetes, hypertension, CKD)",
+        "found": true,
+        "field": "type 2 diabetes, hypertension, chronic kidney disease — corrected (day 0)"
+      },
+      {
+        "item": "Home: metformin 1000 mg BID",
+        "found": true,
+        "field": "metformin — 1000 mg PO twice daily — confirmed"
+      },
+      {
+        "item": "Home: amlodipine 10 mg daily",
+        "found": true,
+        "field": "amlodipine — 10 mg PO once daily — confirmed"
+      },
+      {
+        "item": "Home: ibuprofen 400 mg TID PRN",
+        "found": true,
+        "field": "ibuprofen — 400 mg PO TID PRN — confirmed"
+      },
+      {
+        "item": "Allergy: penicillin (rash)",
+        "found": true,
+        "field": "penicillin — rash — corrected (day 0)"
+      },
+      {
+        "item": "HR 112",
+        "found": true,
+        "field": "Heart rate: 112 beats/min — corrected (day 0)"
+      },
+      {
+        "item": "BP 98/60",
+        "found": true,
+        "field": "Blood pressure: 98/60 mmHg — corrected (day 0)"
+      },
+      {
+        "item": "Temperature 38.9 °C",
+        "found": true,
+        "field": "Temperature: 38.9 °C — corrected (day 0)"
+      },
+      {
+        "item": "SpO2 91 %",
+        "found": true,
+        "field": "SpO₂: 91 % — corrected (day 0)"
+      },
+      {
+        "item": "Weight 72 kg (measured)",
+        "found": true,
+        "field": "72 kg — corrected (day 0)"
+      },
+      {
+        "item": "Creatinine 2.1 mg/dL",
+        "found": true,
+        "field": "Serum creatinine: 2.1 mg/dL — corrected (day 0)"
+      },
+      {
+        "item": "Potassium 5.4 mmol/L",
+        "found": true,
+        "field": "Potassium: 5.4 mmol/L — corrected (day 0)"
+      },
+      {
+        "item": "WBC 14.2",
+        "found": true,
+        "field": "White blood cells (WBC): 14.2 ×10⁹/L — corrected (day 0)"
+      },
+      {
+        "item": "Ceftriaxone 1 g IV q24h",
+        "found": true,
+        "field": "ceftriaxone — 1 g IV every 24 hours — corrected (day 0)"
+      },
+      {
+        "item": "Enoxaparin 40 mg SC daily",
+        "found": true,
+        "field": "enoxaparin — 40 mg subcut once daily — corrected (day 0)"
+      },
+      {
+        "item": "Problem: community-acquired pneumonia",
+        "found": true,
+        "field": "community-acquired pneumonia · no — rejected — Live run: cannot be confirmed as read"
+      },
+      {
+        "item": "Problem: acute kidney injury",
+        "found": true,
+        "field": "acute kidney injury · no · acute — rejected — Live run: cannot be confirmed as read"
+      }
+    ],
+    "pageFound": [
+      {
+        "item": "Creatinine 2.6 mg/dL (Day 1)",
+        "found": true,
+        "field": "Serum creatinine: 2.6 mg/dL — confirmed"
+      },
+      {
+        "item": "Potassium 5.1 mmol/L (Day 1)",
+        "found": true,
+        "field": "Potassium: 5.1 mmol/L — confirmed"
+      },
+      {
+        "item": "CRP 96 mg/L (Day 1)",
+        "found": true,
+        "field": "C-reactive protein (CRP): 96 mg/L — confirmed"
+      },
+      {
+        "item": "Insulin glargine — dose not legible",
+        "found": true,
+        "field": "Insulin glargine — rejected — Live run: cannot be confirmed as read"
+      }
+    ]
+  },
+  "draftFailures": [
+    "attempt 1: The model service is not available right now. Try again later.",
+    "attempt 1: The model service is not available right now. Try again later.",
+    "attempt 1: The model service is not available right now. Try again later.",
+    "attempt 1: The model service is not available right now. Try again later.",
+    "attempt 2: The provider is limiting requests. Try again in a minute.",
+    "attempt 2: The model service is not available right now. Try again later.",
+    "attempt 2: The model service is not available right now. Try again later.",
+    "attempt 3: The provider is limiting requests. Try again in a minute.",
+    "attempt 3: The provider is limiting requests. Try again in a minute.",
+    "attempt 3: The provider is limiting requests. Try again in a minute.",
+    "attempt 4: The provider is limiting requests. Try again in a minute.",
+    "attempt 4: The provider is limiting requests. Try again in a minute.",
+    "attempt 4: The provider is limiting requests. Try again in a minute."
+  ],
+  "modules": {
+    "collect": {
+      "state": "drafted"
+    },
+    "review": {
+      "state": "drafted"
+    },
+    "dosing": {
+      "state": "drafted"
+    },
+    "safety": {
+      "state": "drafted"
+    },
+    "plan": {
+      "state": "none",
+      "error": "The provider is limiting requests. Try again in a minute."
+    },
+    "followup": {
+      "state": "none",
+      "error": "The provider is limiting requests. Try again in a minute."
+    },
+    "discharge": {
+      "state": "none",
+      "error": "The provider is limiting requests. Try again in a minute."
+    },
+    "document": {
+      "state": "drafted"
+    }
+  },
+  "rejectedValuesCheckedForLeaks": [],
+  "drafts": {
+    "t01": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [
+          "number_removed"
+        ],
+        "text": "AI suggestion — no decision yet From the case data Summary: A [number removed]-year-old female was admitted on Day 0 with fever, productive cough, and confusion lasting 3 days. She has a history of type 2 diabetes, hypertension, chronic kidney disease, and penicillin allergy. Laboratory results demonstrate acute kidney injury and elevated inflammatory markers. A number not in the case data was rem"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Baseline serum creatinine prior to admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Details and severity of penicillin reaction Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Community pharmacy and prescription history details Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: What specific allergic reaction occurred with penicillin? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Can a family member or community pharmacy confirm the pre-admission medication regimen? Add to my notes Edit Reject"
+      }
+    ],
+    "t02": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Home medications metformin, amlodipine, and ibuprofen are recorded from medical records only and remain unreviewed upon admission. Inpatient medication orders include ceftriaxone and enoxaparin without explicitly linked problem indications. Reconciliation is incomplete. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: At least two sources used for the history → Problem Only one source, medical records, was used to construct the pre-admission medication list. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: Every home medication compared with the admission orders → Problem Home medications are listed as not reviewed regarding admission decisions. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; enoxaparin Checklist: Every new inpatient order has an indication → Problem Active inpatient orders for ceftriaxone and enoxaparin do not have documented indications. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: A second source to verify pre-admission medications Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Admission decisions on whether to continue, hold, or stop home medications Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has ibuprofen been taken recently prior to admission given the renal impairment? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Is metformin being held during this acute illness and renal dysfunction? Add to my notes Edit Reject"
+      }
+    ],
+    "t03": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Review of active inpatient orders ceftriaxone (M1) and enoxaparin (M2). Ceftriaxone requires caution due to penicillin rash history. Enoxaparin dose needs renal adjustment given worsening creatinine. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: penicillin — rash; ceftriaxone Checklist: Checked against allergies and previous ADRs — ceftriaxone → Problem Patient has a reported penicillin allergy causing rash, requiring evaluation of beta-lactam cross-reactivity with ceftriaxone. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone Checklist: Duration or stop date defined — ceftriaxone → Problem No treatment duration or stop date is specified for ceftriaxone. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Admitted — with fever, productive cough and confusion for 3 days; Temperature: 38.9 °C; White blood cells (WBC): 14.2 ×10⁹/L; C-reactive protein (CRP): 96 mg/L; ceftriaxone Checklist: Indication documented — ceftriaxone → OK Ceftriaxone is indicated for suspected infection given fever, cough, elevated WBC and CRP. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.6 mg/dL; enoxaparin Checklist: Dose appropriate for age, weight and organ function — enoxaparin → Problem Enoxaparin dose requires adjustment due to impaired renal function with serum creatinine 2.6 mg/dL; dose to be calculated. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: enoxaparin Checklist: Duration or stop date defined — enoxaparin → Problem No duration or stop date is specified for enoxaparin. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Admitted — with fever, productive cough and confusion for 3 days; enoxaparin Checklist: Indication documented — enoxaparin → OK Enoxaparin is indicated for venous thromboembolism prophylaxis during acute hospitalization. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Baseline eGFR or renal function prior to admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Severity and nature of penicillin allergy details Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the patient tolerated cephalosporins in the past despite penicillin allergy? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: What is the intended duration of antibiotic therapy? Add to my notes Edit Reject"
+      }
+    ],
+    "t04": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Assessment of drug therapy appropriateness for active clinical conditions and home medications. Home therapies for diabetes and hypertension remain unreviewed, while ibuprofen poses safety risks in acute renal impairment. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Current blood glucose levels Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Blood pressure monitoring trends Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Baseline serum creatinine before admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Should metformin and amlodipine be restarted or held during acute illness? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Was ibuprofen taken recently prior to admission? Add to my notes Edit Reject"
+      }
+    ],
+    "t05": [],
+    "t06": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Potential drug-drug and drug-disease interactions identified regarding home medications ibuprofen and metformin in the setting of enoxaparin therapy and acute renal impairment. Ibuprofen increases bleeding risk with enoxaparin and risks worsening kidney function in CKD. Metformin requires review given elevated serum creatinine levels. Add"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: All active drug pairs reviewed → Problem Concomitant use of enoxaparin and home ibuprofen increases bleeding risk. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: Home, OTC and herbal products included → Problem Home medications including ibuprofen, metformin, and amlodipine remain unreviewed. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Drug–disease interactions considered → Problem Ibuprofen and metformin require careful consideration in chronic kidney disease and worsening renal function. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Drug–food and khat interactions considered → OK No significant food or khat interactions identified for active regimens. Accept Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Interactions you checked: Type Drug–drug Drug A enoxaparin Drug B, disease, food or test ibuprofen Mechanism Additive pharmacodynamic anticoagulant and antiplatelet effects Clinical effect Increased risk of bleeding Management plan Discontinue ibuprofen and evaluate alternative analgesics Relevance for this patient Cl"
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Interactions you checked: Type Drug–disease Drug A ibuprofen Drug B, disease, food or test chronic kidney disease Mechanism Inhibition of renal prostaglandins reducing renal perfusion Clinical effect Worsening renal function Management plan Avoid NSAIDs in renal impairment Relevance for this patient Clinically relevan"
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Interactions you checked: Type Drug–disease Drug A metformin Drug B, disease, food or test chronic kidney disease Mechanism Reduced renal clearance of metformin Clinical effect Risk of metformin accumulation and lactic acidosis Management plan Hold metformin during acute renal function decline and reassess dose Releva"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Patient's baseline renal function prior to admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Confirmation if ibuprofen was taken prior to admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the patient been taking ibuprofen at home regularly? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Should metformin and amlodipine be restarted or held during admission? Add to my notes Edit Reject"
+      }
+    ],
+    "t07": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Patient shows a rise in serum creatinine from day 0 to day 1. Home ibuprofen use is a suspected contributor alongside acute infection and sepsis. Ongoing monitoring of renal parameters is recommended. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: New symptoms and laboratory changes reviewed for a drug cause → Problem Serum creatinine increased from day 0 to day 1, indicating worsening renal function. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: Timing relative to drug start assessed → OK Serum creatinine rise occurred on day 1 following admission. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Other causes considered → OK Acute infection, dehydration, sepsis, and CKD are alternative potential causes for creatinine elevation. Accept Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Suspected adverse drug reactions: Suspected drug ibuprofen Reaction: signs, symptoms, laboratory changes Worsening renal function / serum creatinine rise Onset (hospital day) 1 Severity Moderate Serious (hospitalisation, disability, life-threatening or death) No Use of NSAIDs can contribute to acute elevation of serum"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Baseline serum creatinine prior to acute illness Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Was ibuprofen taken recently before admission? Add to my notes Edit Reject"
+      }
+    ],
+    "t08": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Renal function is unstable with serum creatinine rising from day 0 to day 1. Dosing of renally cleared medications such as enoxaparin requires re-evaluation based on updated renal function. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: 72 kg; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: Inputs confirmed, including which weight and the creatinine day → OK Measured weight is documented on day 0 and serum creatinine values are available for day 0 and day 1. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: Stability of renal function assessed → Problem Serum creatinine increased from 2.1 mg/dL on day 0 to 2.6 mg/dL on day 1, indicating unstable acute worsening of renal function. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Day 3 serum creatinine Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Urine output volume Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: What is the latest serum creatinine level for today? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has urine output been recorded over the last 24 hours? Add to my notes Edit Reject"
+      }
+    ],
+    "t09": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Ceftriaxone is administered intravenously and enoxaparin is administered subcutaneously. Diluent, concentration, and line compatibility details are not specified in the case data. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: 72 kg; enoxaparin Checklist: The weight used is documented and appropriate — enoxaparin → OK Measured body weight of 72 kg is documented on day 0. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone Checklist: Concentration and diluent appropriate — ceftriaxone → Problem Infusion diluent and final concentration for ceftriaxone are not specified in the administration record. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone Checklist: Compatible with co-infused drugs and the line — ceftriaxone → Problem Y-site and line compatibility with concurrent intravenous solutions or drugs is not documented. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Infusion diluent and fluid volume for ceftriaxone Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Infusion duration for ceftriaxone Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Intravenous line access route and concurrent infusions Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Which diluent and volume are being used to prepare ceftriaxone? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are any other medications or fluids co-infused through the same intravenous line? Add to my notes Edit Reject"
+      }
+    ],
+    "t10": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: No narrow therapeutic index medications requiring routine drug level monitoring are currently ordered. Enoxaparin clinical monitoring is required, and anti-Xa levels can be considered if renal function remains impaired. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Drug levels and their interpretation: Drug enoxaparin Is a measured level available? No — levels cannot be measured here No-level path: the clinical monitoring used instead Perform clinical monitoring for signs of bleeding, bruising, and hemoglobin or platelet changes alongside renal function monitoring. Plan Continue"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Anti-Xa peak level if performed Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Current hemoglobin and platelet counts Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are there any signs of bleeding or hematoma at injection sites? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Is anti-Xa level testing indicated or requested by the medical team? Add to my notes Edit Reject"
+      }
+    ],
+    "t11": [],
+    "t12": [],
+    "t13": [],
+    "t14": [],
+    "t15": [],
+    "t16": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Evaluation of therapy continuation, initiation, or discontinuation. Home medications metformin and amlodipine need review, while ibuprofen should be discontinued due to renal impairment. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: type 2 diabetes, hypertension, chronic kidney disease; Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine Checklist: Checked for untreated indications → Problem Home medications for diabetes and hypertension remain unreviewed upon admission. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; Pre-admission medications (BPMH): ibuprofen Checklist: Checked for drugs that are no longer needed → Problem Ibuprofen PRN should be discontinued given worsening renal function and elevated creatinine. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Blood glucose control during admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Outpatient baseline renal function Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Can home metformin and amlodipine be safely re-evaluated for inpatient management? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has ibuprofen been permanently stopped? Add to my notes Edit Reject"
+      }
+    ],
+    "t17": [],
+    "t18": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: No pharmacist interventions have been recorded yet. Documentation of interventions, responses, and clinical outcomes will be updated as care plans are implemented. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [
+          "no_valid_ref"
+        ],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Every intervention has a recorded response → N/A There are no documented pharmacist interventions requiring response tracking. No valid reference: treated as no source Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [
+          "no_valid_ref"
+        ],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Outcomes recorded or marked 'not yet measured' → N/A Outcome measurement is not applicable because no interventions have been conducted yet. No valid reference: treated as no source Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Documentation of pharmacist interventions Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Have any verbal recommendations been made to the medical team regarding current therapy? Add to my notes Edit Reject"
+      }
+    ],
+    "t19": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Suspected adverse drug reaction (renal function worsening potentially associated with ibuprofen) and medication error (unreviewed home medications at admission) are documented for reporting through official pharmacovigilance channels. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Suspected adverse drug reactions: Suspected drug ibuprofen Reaction: signs, symptoms, laboratory changes Acute kidney injury / elevation of serum creatinine Onset (hospital day) 1 Severity Moderate Serious (hospitalisation, disability, life-threatening or death) No Possible NSAID-induced renal dysfunction in a patient"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [
+          "number_removed",
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Add to Medication errors and near misses: What happened Unreviewed home medication reconciliation upon hospital admission Stage of the medication process Prescribing Type Omission Prevention: what would stop it ha"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Local institutional adverse event reporting guidelines Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the unreviewed home medication status been reported to the clinical team? Add to my notes Edit Reject"
+      }
+    ],
+    "t20": [],
+    "t21": [],
+    "t22": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Medication adherence prior to admission has not yet been verified. Patient confusion and acute presentation require collateral information to establish pre-admission compliance. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Adherence history for home metformin and amlodipine Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Frequency of PRN ibuprofen administration Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: How regularly were pre-admission medications taken prior to hospital entry? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are there any known barriers to adherence such as adverse effects or cost? Add to my notes Edit Reject"
+      }
+    ],
+    "t23": [],
+    "t24": [],
+    "t25": [],
+    "t26": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Medication reconciliation for home drugs has not been completed upon admission. Potential omissions or unintended holds of essential chronic treatments need clarification. Active inpatient medication orders currently show no trailing zeros or forbidden abbreviations. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Look-alike and sound-alike names checked → OK No look-alike sound-alike drug confusion identified in current orders. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; enoxaparin Checklist: No error-prone abbreviations or trailing zeros → OK Active orders use standard notation without prohibited abbreviations. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Administration times fit meals, khat hours and other drugs → OK Administration schedules for prescribed drugs are appropriately spaced. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: Transfer and discharge orders checked → Problem Home medication reconciliation has not been reviewed at admission. Accept Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [
+          "number_removed",
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Add to Medication errors and near misses: What happened Home medications (metformin, amlodipine, ibuprofen) admission status remains unreviewed on day [number removed]. Stage of the medication process Prescribing "
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Clarification on whether home medications were intended to be held or continued Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Were home medications intentionally held upon admission? Add to my notes Edit Reject"
+      }
+    ],
+    "t27": [],
+    "t28": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Assessment of high-alert medication enoxaparin. High-alert status requires careful monitoring of renal function and bleeding risk. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.6 mg/dL; enoxaparin Checklist: Monitoring defined (e.g. glucose, INR or aPTT, sedation and breathing, potassium) — enoxaparin → Problem Renal function is deteriorating with serum creatinine 2.6 mg/dL, requiring close monitoring and potential anti-Xa monitoring. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: enoxaparin Checklist: Standard concentration and clear labelling — enoxaparin → OK Enoxaparin is ordered in standard dosage form. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Antidote or reversal agent availability considered — enoxaparin → OK Protamine sulfate is the available reversal agent if major bleeding occurs. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Signs or symptoms of bleeding Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Platelet count monitoring Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Is anti-Xa level monitoring available if enoxaparin is continued in renal impairment? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are daily renal function tests ordered? Add to my notes Edit Reject"
+      }
+    ],
+    "t29": [],
+    "t30": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: The patient was admitted with fever, productive cough, confusion, and acute kidney injury on chronic kidney disease. Home medications remain unreviewed and drug therapy plans are pending. A comprehensive monitoring plan is required. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Admitted — with fever, productive cough and confusion for 3 days; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: Every active problem has an assessed therapy → Problem Active medical conditions such as acute kidney injury and infection lack documented assessment in the care plan. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: penicillin — rash; ceftriaxone; Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: Every DRP has a plan and a status → Problem Drug-related problems including unreviewed home medications and penicillin allergy assessment have no documented plans. Accept"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Blood pressure: 98/60 mmHg; Serum creatinine: 2.6 mg/dL; C-reactive protein (CRP): 96 mg/L Checklist: Monitoring plan defined → Problem A structured monitoring plan for renal function, inflammatory markers, and vitals has not been defined. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Admitted — with fever, productive cough and confusion for 3 days; Serum creatinine: 2.6 mg/dL Checklist: Discharge plan prepared, or not yet applicable → N/A Discharge planning is not yet applicable as the patient is acutely ill on day 3 of admission. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Sputum and blood culture results Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Baseline renal function prior to admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: What was the nature of the penicillin allergy rash? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are home metformin and ibuprofen currently held due to acute kidney injury? Add to my notes Edit Reject"
+      }
+    ]
+  },
+  "draftProblems": [],
+  "decisions": [
+    "t08 accepted: AI suggestion — no decision yet From the case data: 72 kg; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL  Checklist: Inputs confirmed, including which weight and the creatinine day → OK",
+    "t08 rejected with reason: AI suggestion — no decision yet From the case data  Summary: Renal function is unstable with serum creatinine rising from day 0 to day 1. Dosing of renally cleared medications such as enoxaparin requires re-evaluation based on updated renal function."
+  ],
+  "relayStatus": {
+    "configured": true,
+    "provider": "gemini",
+    "keyClass": "free",
+    "models": [
+      {
+        "id": "gemini-3.5-flash",
+        "inputPerM": 1.5,
+        "outputPerM": 9
+      },
+      {
+        "id": "gemini-3.6-flash",
+        "inputPerM": 1.5,
+        "outputPerM": 9
+      }
+    ],
+    "suggested": {
+      "extract": "gemini-3.5-flash",
+      "analyse": "gemini-3.6-flash"
+    },
+    "budget": {
+      "month": "2026-10",
+      "budgetUsd": 2,
+      "spentUsd": 0.310596,
+      "byTask": {
+        "extract": 0.09101,
+        "analyse": 0.219581
+      },
+      "calls": 7
+    },
+    "limits": {
+      "perMinute": 10,
+      "perDay": 100
+    },
+    "accessCodeRequired": false
+  },
+  "browserExternalRequests": [
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=metformin&maxEntries=3",
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=amlodipine&maxEntries=3",
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=ibuprofen&maxEntries=3",
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=ceftriaxone&maxEntries=3",
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=enoxaparin&maxEntries=3",
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=Insulin%20glargine&maxEntries=3"
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+    "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+    "Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+    "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+  ],
+  "relayAnswers": [
+    {
+      "status": 502,
+      "error": "provider_unavailable"
+    },
+    {
+      "status": 502,
+      "error": "provider_unavailable"
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 502,
+      "error": "provider_unavailable"
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 502,
+      "error": "provider_unavailable"
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 502,
+      "error": "provider_unavailable"
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 502,
+      "error": "provider_unavailable"
+    },
+    {
+      "status": 502,
+      "error": "provider_unavailable"
+    },
+    {
+      "status": 502,
+      "error": "provider_unavailable"
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 429,
+      "error": "provider_rate_limited"
+    },
+    {
+      "status": 502,
+      "error": "provider_unavailable"
+    },
+    {
+      "status": 502,
+      "error": "provider_unavailable"
+    },
+    {
+      "status": 429,
+      "error": "provider_rate_limited"
+    },
+    {
+      "status": 429,
+      "error": "provider_rate_limited"
+    },
+    {
+      "status": 429,
+      "error": "provider_rate_limited"
+    },
+    {
+      "status": 429,
+      "error": "provider_rate_limited"
+    },
+    {
+      "status": 429,
+      "error": "provider_rate_limited"
+    },
+    {
+      "status": 429,
+      "error": "provider_rate_limited"
+    }
+  ],
+  "calls": [
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+      "model": "gemini-3.5-flash",
+      "apiKey": null,
+      "task": "extract",
+      "pass": 1,
+      "status": 503,
+      "ms": 2054,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "images": 0,
+      "sentChars": 773,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+      "model": "gemini-3.5-flash",
+      "apiKey": null,
+      "task": "extract",
+      "pass": 1,
+      "status": 503,
+      "ms": 6699,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "images": 1,
+      "sentChars": 124,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+      "model": "gemini-3.5-flash",
+      "apiKey": null,
+      "task": "extract",
+      "pass": 1,
+      "status": 200,
+      "ms": 26026,
+      "usage": {
+        "prompt": 944,
+        "output": 2303,
+        "thoughts": 4665
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 773,
+      "outputChars": 7735
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+      "model": "gemini-3.5-flash",
+      "apiKey": null,
+      "task": "extract",
+      "pass": 2,
+      "status": 503,
+      "ms": 4140,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "images": 0,
+      "sentChars": 852,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+      "model": "gemini-3.5-flash",
+      "apiKey": null,
+      "task": "extract",
+      "pass": 1,
+      "status": 200,
+      "ms": 12797,
+      "usage": {
+        "prompt": 1786,
+        "output": 950,
+        "thoughts": 1739
+      },
+      "finishReason": "STOP",
+      "images": 1,
+      "sentChars": 124,
+      "outputChars": 2641
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+      "model": "gemini-3.5-flash",
+      "apiKey": null,
+      "task": "extract",
+      "pass": 2,
+      "status": 503,
+      "ms": 2047,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "images": 1,
+      "sentChars": 203,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "collect",
+      "status": 200,
+      "ms": 14938,
+      "usage": {
+        "prompt": 1853,
+        "output": 497,
+        "thoughts": 2263
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 5231,
+      "outputChars": 2427
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "review",
+      "status": 200,
+      "ms": 28718,
+      "usage": {
+        "prompt": 1716,
+        "output": 942,
+        "thoughts": 5071
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 4760,
+      "outputChars": 4129
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "dosing",
+      "status": 503,
+      "ms": 9320,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "images": 0,
+      "sentChars": 4075,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "safety",
+      "status": 200,
+      "ms": 29564,
+      "usage": {
+        "prompt": 2250,
+        "output": 2609,
+        "thoughts": 4328
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 6934,
+      "outputChars": 10298
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "plan",
+      "status": 503,
+      "ms": 22367,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "images": 0,
+      "sentChars": 6802,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "followup",
+      "status": 503,
+      "ms": 1347,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "images": 0,
+      "sentChars": 5770,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "discharge",
+      "status": 503,
+      "ms": 17226,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "images": 0,
+      "sentChars": 5114,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "document",
+      "status": 200,
+      "ms": 18411,
+      "usage": {
+        "prompt": 1311,
+        "output": 471,
+        "thoughts": 3405
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 2954,
+      "outputChars": 2169
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "dosing",
+      "status": 200,
+      "ms": 17232,
+      "usage": {
+        "prompt": 1590,
+        "output": 711,
+        "thoughts": 2647
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 4075,
+      "outputChars": 3134
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "plan",
+      "status": 429,
+      "ms": 267,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\nPlease retry in 1h26m33.423987447s.",
+      "images": 0,
+      "sentChars": 6802,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "followup",
+      "status": 503,
+      "ms": 5061,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "images": 0,
+      "sentChars": 5770,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "discharge",
+      "status": 503,
+      "ms": 16173,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "images": 0,
+      "sentChars": 5114,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "plan",
+      "status": 429,
+      "ms": 726,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\nPlease retry in 1h25m11.184576972s.",
+      "images": 0,
+      "sentChars": 6802,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "followup",
+      "status": 429,
+      "ms": 240,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\nPlease retry in 1h25m10.927673256s.",
+      "images": 0,
+      "sentChars": 5770,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "discharge",
+      "status": 429,
+      "ms": 253,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\nPlease retry in 1h25m10.660155733s.",
+      "images": 0,
+      "sentChars": 5114,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "plan",
+      "status": 429,
+      "ms": 590,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\nPlease retry in 1h24m9.423906686s.",
+      "images": 0,
+      "sentChars": 6802,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "followup",
+      "status": 429,
+      "ms": 251,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\nPlease retry in 1h24m9.150331664s.",
+      "images": 0,
+      "sentChars": 5770,
+      "outputChars": 0
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "model": "gemini-3.6-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "discharge",
+      "status": 429,
+      "ms": 204,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash\nPlease retry in 1h24m8.917049248s.",
+      "images": 0,
+      "sentChars": 5114,
+      "outputChars": 0
+    }
+  ]
+}

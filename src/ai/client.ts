@@ -63,7 +63,13 @@ export interface CallModelResult<T> {
 export interface CallDeps {
   fetch?: typeof fetch;
   online?: () => boolean;
+  /** Waits before the one automatic retry (replaced in tests). */
+  sleep?: (ms: number) => Promise<void>;
 }
+
+/** Google's "high demand" refusals were frequent in the live run and usually clear within seconds: retried once. */
+const RETRY_ONCE: ReadonlySet<AiErrorCode> = new Set(['provider_unavailable']);
+const RETRY_AFTER_MS = 4000;
 
 const isOnline = () => (typeof navigator === 'undefined' ? true : navigator.onLine);
 
@@ -119,16 +125,21 @@ export async function callModel<T>(store: Store, input: CallModelInput, deps: Ca
       },
     });
 
-  let res: Response;
-  try {
-    res = await (deps.fetch ?? fetch)(MODEL_PATH, { method: 'POST', headers, body: JSON.stringify(request) });
-  } catch {
-    await audit('network');
-    throw new AiError('network', 'The AI service could not be reached. Check the connection and try again.');
-  }
-  if (!res.ok) {
+  let res: Response | undefined;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      res = await (deps.fetch ?? fetch)(MODEL_PATH, { method: 'POST', headers, body: JSON.stringify(request) });
+    } catch {
+      await audit('network');
+      throw new AiError('network', 'The AI service could not be reached. Check the connection and try again.');
+    }
+    if (res.ok) break;
     const err = await relayError(res);
-    await audit(err.code);
+    await audit(err.code); // every attempt is in the audit log
+    if (attempt === 1 && RETRY_ONCE.has(err.code)) {
+      await (deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))))(RETRY_AFTER_MS);
+      continue;
+    }
     throw err;
   }
   const body = (await res.json()) as ModelResponse;

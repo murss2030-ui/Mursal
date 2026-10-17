@@ -1,0 +1,2326 @@
+{
+  "date": "2026-10-16T22:49:47.890Z",
+  "models": {
+    "read": "gemini-3.8-flash",
+    "draft": "gemini-3.8-flash"
+  },
+  "thinking": "extract=low,analyse=low",
+  "priceUsdPerMillion": "1.50:9.00",
+  "readFailures": [],
+  "readingCalls": 4,
+  "insulinAsReturnedByModel": [
+    {
+      "pass": 1,
+      "dose": null,
+      "doseUnit": "units",
+      "legibility": "illegible",
+      "handwritten": true,
+      "rawText": "Insulin glargine ~~ units (handwritten)"
+    },
+    {
+      "pass": 2,
+      "dose": null,
+      "doseUnit": "units",
+      "legibility": "illegible",
+      "handwritten": false,
+      "rawText": "Insulin glargine ~~ units (handwritten)"
+    }
+  ],
+  "extraction": {
+    "note": [
+      {
+        "id": "f1",
+        "target": "EVENT",
+        "value": "Admitted — with fever, productive cough and confusion for 3 days",
+        "raw": "Admitted Day 0 with fever, productive cough and confusion for 3 days.",
+        "day": "Day 0",
+        "flags": [],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f2",
+        "target": "HISTORY OR NOTE",
+        "value": "fever, productive cough and confusion for 3 days",
+        "raw": "fever, productive cough and confusion for 3 days",
+        "day": "Day 0",
+        "flags": [],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f3",
+        "target": "HISTORY OR NOTE",
+        "value": "type 2 diabetes · no · chronic",
+        "raw": "type 2 diabetes",
+        "day": "Day 0",
+        "flags": [
+          "needs_choice",
+          "day_from_document"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (active)"
+      },
+      {
+        "id": "f4",
+        "target": "HISTORY OR NOTE",
+        "value": "hypertension · no · chronic",
+        "raw": "hypertension",
+        "day": "Day 0",
+        "flags": [
+          "needs_choice",
+          "day_from_document"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (active)"
+      },
+      {
+        "id": "f5",
+        "target": "HISTORY OR NOTE",
+        "value": "chronic kidney disease · no · chronic",
+        "raw": "chronic kidney disease",
+        "day": "Day 0",
+        "flags": [
+          "needs_choice",
+          "day_from_document"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (active)"
+      },
+      {
+        "id": "f6",
+        "target": "PRE-ADMISSION MEDICINES",
+        "value": "metformin — 1000 mg PO twice daily",
+        "raw": "metformin 1000 mg PO BID",
+        "day": "",
+        "flags": [
+          "day_from_document"
+        ],
+        "rxnorm": "RxNorm: metformin (RxCUI 6809)",
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f7",
+        "target": "PRE-ADMISSION MEDICINES",
+        "value": "amlodipine — 10 mg PO once daily",
+        "raw": "amlodipine 10 mg PO daily",
+        "day": "",
+        "flags": [
+          "day_from_document"
+        ],
+        "rxnorm": "RxNorm: amlodipine (RxCUI 17767)",
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f8",
+        "target": "PRE-ADMISSION MEDICINES",
+        "value": "ibuprofen — 400 mg PO TID PRN",
+        "raw": "ibuprofen 400 mg PO TID PRN",
+        "day": "",
+        "flags": [
+          "frequency_unmatched",
+          "day_from_document"
+        ],
+        "rxnorm": "RxNorm: Ibuprofen (RxCUI 5640)",
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f9",
+        "target": "HISTORY OR NOTE",
+        "value": "penicillin — rash",
+        "raw": "Allergy: penicillin (rash)",
+        "day": "Day 0",
+        "flags": [
+          "day_from_document"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f10",
+        "target": "VITAL SIGN",
+        "value": "Heart rate: 112 beats/min",
+        "raw": "HR 112 bpm",
+        "day": "Day 0",
+        "flags": [
+          "day_from_document"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f11",
+        "target": "VITAL SIGN",
+        "value": "Blood pressure: 98/60 mmHg",
+        "raw": "BP 98/60 mmHg",
+        "day": "Day 0",
+        "flags": [
+          "day_from_document"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f12",
+        "target": "VITAL SIGN",
+        "value": "Temperature: 38.9 °C",
+        "raw": "temperature 38.9 C",
+        "day": "Day 0",
+        "flags": [
+          "day_from_document"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f13",
+        "target": "VITAL SIGN",
+        "value": "SpO₂: 91 %",
+        "raw": "SpO2 91 %",
+        "day": "Day 0",
+        "flags": [
+          "day_from_document"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f14",
+        "target": "WEIGHT",
+        "value": "72 kg",
+        "raw": "Weight 72 kg (measured)",
+        "day": "Day 0",
+        "flags": [
+          "day_from_document"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f15",
+        "target": "LAB RESULT",
+        "value": "Serum creatinine: 2.1 mg/dL",
+        "raw": "creatinine 2.1 mg/dL",
+        "day": "Day 0",
+        "flags": [
+          "day_from_document"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f16",
+        "target": "LAB RESULT",
+        "value": "Potassium: 5.4 mmol/L",
+        "raw": "potassium 5.4 mmol/L",
+        "day": "Day 0",
+        "flags": [
+          "day_from_document"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f17",
+        "target": "LAB RESULT",
+        "value": "White blood cells (WBC): 14.2 ×10⁹/L",
+        "raw": "WBC 14.2 x10^9/L",
+        "day": "Day 0",
+        "flags": [
+          "day_from_document"
+        ],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f18",
+        "target": "INPATIENT MEDICATION",
+        "value": "ceftriaxone — 1 g IV every 24 hours",
+        "raw": "ceftriaxone 1 g IV q24h",
+        "day": "Day 0",
+        "flags": [
+          "day_from_document"
+        ],
+        "rxnorm": "RxNorm: ceftriaxone (RxCUI 2193)",
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f19",
+        "target": "INPATIENT MEDICATION",
+        "value": "enoxaparin — 40 mg subcut once daily",
+        "raw": "enoxaparin 40 mg SC daily",
+        "day": "Day 0",
+        "flags": [
+          "abbreviation",
+          "day_from_document"
+        ],
+        "rxnorm": "RxNorm: enoxaparin (RxCUI 67108)",
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f20",
+        "target": "HISTORY OR NOTE",
+        "value": "community-acquired pneumonia · no · acute",
+        "raw": "community-acquired pneumonia",
+        "day": "Day 0",
+        "flags": [
+          "needs_choice",
+          "day_from_document"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (active)"
+      },
+      {
+        "id": "f21",
+        "target": "HISTORY OR NOTE",
+        "value": "acute kidney injury · no · acute",
+        "raw": "acute kidney injury",
+        "day": "Day 0",
+        "flags": [
+          "needs_choice",
+          "day_from_document"
+        ],
+        "confirmable": false,
+        "matches": true,
+        "decision": "corrected (active)"
+      }
+    ],
+    "page": [
+      {
+        "id": "f1",
+        "target": "LAB RESULT",
+        "value": "Serum creatinine: 2.6 mg/dL",
+        "raw": "Serum creatinine 2.6 mg/dL",
+        "day": "Day 1",
+        "flags": [],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f2",
+        "target": "LAB RESULT",
+        "value": "Potassium: 5.1 mmol/L",
+        "raw": "Potassium 5.1 mmol/L",
+        "day": "Day 1",
+        "flags": [],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f3",
+        "target": "LAB RESULT",
+        "value": "C-reactive protein (CRP): 96 mg/L",
+        "raw": "CRP 96 mg/L",
+        "day": "Day 1",
+        "flags": [],
+        "confirmable": true,
+        "matches": true,
+        "decision": "confirmed"
+      },
+      {
+        "id": "f4",
+        "target": "INPATIENT MEDICATION",
+        "value": "Insulin glargine",
+        "raw": "Insulin glargine ~~ units (handwritten)",
+        "day": "Day 1",
+        "flags": [
+          "illegible",
+          "handwritten",
+          "handwritten_dose"
+        ],
+        "rxnorm": "RxNorm: Insulin Glargine (RxCUI 274783)",
+        "confirmable": false,
+        "matches": true,
+        "decision": "rejected — Live run: cannot be confirmed as read"
+      }
+    ],
+    "noteFound": [
+      {
+        "item": "Chief complaint (fever, cough, confusion)",
+        "found": true,
+        "field": "Admitted — with fever, productive cough and confusion for 3 days — confirmed"
+      },
+      {
+        "item": "Past history (diabetes, hypertension, CKD)",
+        "found": true,
+        "field": "type 2 diabetes · no · chronic — corrected (active)"
+      },
+      {
+        "item": "Home: metformin 1000 mg BID",
+        "found": true,
+        "field": "metformin — 1000 mg PO twice daily — confirmed"
+      },
+      {
+        "item": "Home: amlodipine 10 mg daily",
+        "found": true,
+        "field": "amlodipine — 10 mg PO once daily — confirmed"
+      },
+      {
+        "item": "Home: ibuprofen 400 mg TID PRN",
+        "found": true,
+        "field": "ibuprofen — 400 mg PO TID PRN — confirmed"
+      },
+      {
+        "item": "Allergy: penicillin (rash)",
+        "found": true,
+        "field": "penicillin — rash — confirmed"
+      },
+      {
+        "item": "HR 112",
+        "found": true,
+        "field": "Heart rate: 112 beats/min — confirmed"
+      },
+      {
+        "item": "BP 98/60",
+        "found": true,
+        "field": "Blood pressure: 98/60 mmHg — confirmed"
+      },
+      {
+        "item": "Temperature 38.9 °C",
+        "found": true,
+        "field": "Temperature: 38.9 °C — confirmed"
+      },
+      {
+        "item": "SpO2 91 %",
+        "found": true,
+        "field": "SpO₂: 91 % — confirmed"
+      },
+      {
+        "item": "Weight 72 kg (measured)",
+        "found": true,
+        "field": "72 kg — confirmed"
+      },
+      {
+        "item": "Creatinine 2.1 mg/dL",
+        "found": true,
+        "field": "Serum creatinine: 2.1 mg/dL — confirmed"
+      },
+      {
+        "item": "Potassium 5.4 mmol/L",
+        "found": true,
+        "field": "Potassium: 5.4 mmol/L — confirmed"
+      },
+      {
+        "item": "WBC 14.2",
+        "found": true,
+        "field": "White blood cells (WBC): 14.2 ×10⁹/L — confirmed"
+      },
+      {
+        "item": "Ceftriaxone 1 g IV q24h",
+        "found": true,
+        "field": "ceftriaxone — 1 g IV every 24 hours — confirmed"
+      },
+      {
+        "item": "Enoxaparin 40 mg SC daily",
+        "found": true,
+        "field": "enoxaparin — 40 mg subcut once daily — confirmed"
+      },
+      {
+        "item": "Problem: community-acquired pneumonia",
+        "found": true,
+        "field": "community-acquired pneumonia · no · acute — corrected (active)"
+      },
+      {
+        "item": "Problem: acute kidney injury",
+        "found": true,
+        "field": "acute kidney injury · no · acute — corrected (active)"
+      }
+    ],
+    "pageFound": [
+      {
+        "item": "Creatinine 2.6 mg/dL (Day 1)",
+        "found": true,
+        "field": "Serum creatinine: 2.6 mg/dL — confirmed"
+      },
+      {
+        "item": "Potassium 5.1 mmol/L (Day 1)",
+        "found": true,
+        "field": "Potassium: 5.1 mmol/L — confirmed"
+      },
+      {
+        "item": "CRP 96 mg/L (Day 1)",
+        "found": true,
+        "field": "C-reactive protein (CRP): 96 mg/L — confirmed"
+      },
+      {
+        "item": "Insulin glargine — dose not legible",
+        "found": true,
+        "field": "Insulin glargine — rejected — Live run: cannot be confirmed as read"
+      }
+    ]
+  },
+  "draftFailures": [],
+  "modules": {
+    "collect": {
+      "state": "drafted"
+    },
+    "review": {
+      "state": "drafted"
+    },
+    "dosing": {
+      "state": "drafted"
+    },
+    "safety": {
+      "state": "drafted"
+    },
+    "plan": {
+      "state": "drafted"
+    },
+    "followup": {
+      "state": "drafted"
+    },
+    "discharge": {
+      "state": "drafted"
+    },
+    "document": {
+      "state": "drafted"
+    }
+  },
+  "rejectedValuesCheckedForLeaks": [],
+  "drafts": {
+    "t01": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [
+          "number_removed"
+        ],
+        "text": "AI suggestion — no decision yet From the case data Summary: A [number removed]-year-old female was admitted with fever, productive cough, and confusion, meeting criteria for community-acquired pneumonia. Baseline vitals demonstrated tachycardia, borderline hypotension, fever, and hypoxemia. Laboratory results show acute kidney injury superimposed on chronic kidney disease with worsening serum crea"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Baseline serum creatinine or estimated glomerular filtration rate prior to admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Urine output measurements Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Blood and sputum culture results Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Recent blood glucose or HbA1c values Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the patient experienced any recent decrease in urine output or signs of volume depletion? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: What specific manifestations occurred with the documented penicillin rash? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are there previous laboratory values available to determine baseline renal function? Add to my notes Edit Reject"
+      }
+    ],
+    "t02": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Home medications recorded from an existing record include metformin, amlodipine, and PRN ibuprofen. Only one source was used for the medication history, and reconciliation decisions for these home therapies remain unreviewed on admission. Inpatient orders include ceftriaxone and enoxaparin. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: At least two sources used for the history → Problem Only one source (record) was utilized to ascertain the pre-admission medication list. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: Every home medication compared with the admission orders → Problem All documented home medications are currently listed as not reviewed regarding admission status. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Every new inpatient order has an indication → OK Ceftriaxone corresponds to community-acquired pneumonia and enoxaparin corresponds to venous thromboembolism prophylaxis in acute illness. Accept Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Pre-admission medications (BPMH): Medication (generic name) metformin Dose, route and frequency as actually taken 1000 mg PO twice daily Indication type 2 diabetes Sources used for this medication Medical record On admission it was… Not ordered Discrepancy Intentional — not documented Metformin is not ordered inpatien"
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Pre-admission medications (BPMH): Medication (generic name) amlodipine Dose, route and frequency as actually taken 10 mg PO once daily Indication hypertension Sources used for this medication Medical record On admission it was… Not ordered Discrepancy Intentional — not documented Amlodipine was omitted from inpatient "
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Pre-admission medications (BPMH): Medication (generic name) ibuprofen Dose, route and frequency as actually taken 400 mg PO TID PRN Sources used for this medication Medical record On admission it was… Not ordered Discrepancy Intentional — not documented PRN ibuprofen is not prescribed inpatient, which is indicated due"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: A second independent source to confirm the best possible medication history Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Documentation explaining the intentional withholding of home therapies Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Can a family member, community pharmacy, or medication vial inspection corroborate the home medication regimen? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Was the omission of amlodipine an intentional decision related to low blood pressure? Add to my notes Edit Reject"
+      }
+    ],
+    "t03": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Active inpatient medications ceftriaxone and enoxaparin were reviewed. Ceftriaxone covers community-acquired pneumonia, but atypical coverage is not ordered. Enoxaparin dose requires adjustment due to acute kidney injury on chronic kidney disease. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; community-acquired pneumonia Checklist: Indication documented — ceftriaxone → OK Ceftriaxone is indicated for community-acquired pneumonia. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: penicillin — rash; ceftriaxone; community-acquired pneumonia Checklist: Drug choice appropriate for the indication and the patient — ceftriaxone → Problem Patient has a documented penicillin rash; third-generation cephalosporins carry cross-reactivity risk that requires assessment, and atypical coverage is missing. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Dose appropriate for age, weight and organ function — ceftriaxone → OK Ceftriaxone does not typically require dosage adjustment in renal impairment. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: penicillin — rash; ceftriaxone Checklist: Checked against allergies and previous ADRs — ceftriaxone → Problem Patient has a history of penicillin allergy presenting as a rash. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone Checklist: Duration or stop date defined — ceftriaxone → Problem No duration or stop date is defined in the prescription. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Admitted — with fever, productive cough and confusion for 3 days; enoxaparin Checklist: Indication documented — enoxaparin → OK Enoxaparin is indicated for venous thromboembolism prophylaxis in an acute medical admission. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; enoxaparin; chronic kidney disease; acute kidney injury Checklist: Dose appropriate for age, weight and organ function — enoxaparin → Problem Serum creatinine increased from 2.1 mg/dL to 2.6 mg/dL; enoxaparin accumulates in renal impairment and dose reduction is required. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: enoxaparin Checklist: Duration or stop date defined — enoxaparin → Problem No planned duration or stop date is specified. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Details of the penicillin allergy (timing, onset, nature of rash) Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Culture and sensitivity results for sputum or blood Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the penicillin allergy reaction been characterized further? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Should atypical coverage (e.g., macrolide) be initiated for community-acquired pneumonia? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Should enoxaparin dose be reduced or switched to unfractionated heparin due to renal impairment? Add to my notes Edit Reject"
+      }
+    ],
+    "t04": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Assessment of five medical conditions shows unmanaged chronic conditions and severe acute kidney injury. Inpatient therapy is currently missing for type 2 diabetes and hypertension, while home medications remain unreviewed. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: type 2 diabetes; Pre-admission medications (BPMH): metformin Checklist: Indication: the problem has the therapy it needs, and no drug lacks a reason — type 2 diabetes → Problem Home metformin is not reviewed, and no active diabetes regimen is charted while admitted. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; acute kidney injury; Pre-admission medications (BPMH): metformin Checklist: Safety: no adverse effect, contraindication or toxicity — type 2 diabetes → Problem Metformin is contraindicated in acute kidney injury and renal impairment. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Blood pressure: 98/60 mmHg; hypertension; Pre-admission medications (BPMH): amlodipine Checklist: Indication: the problem has the therapy it needs, and no drug lacks a reason — hypertension → Problem Home amlodipine has not been reviewed; blood pressure is 98/60 mmHg. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Blood pressure: 98/60 mmHg; hypertension; Pre-admission medications (BPMH): amlodipine Checklist: Safety: no adverse effect, contraindication or toxicity — hypertension → Problem Blood pressure is low at 98/60 mmHg, making antihypertensive administration potentially unsafe. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Effectiveness: goal defined and progress towards it — community-acquired pneumonia → Problem Monotherapy with ceftriaxone lacks coverage for atypical pathogens. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; enoxaparin; acute kidney injury Checklist: Safety: no adverse effect, contraindication or toxicity — acute kidney injury → Problem Worsening renal function places patient at risk of drug accumulation (e.g., enoxaparin). Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Blood glucose measurements during admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Current blood pressure and fluid status trends Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: How will blood glucose be managed during the acute illness? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has home ibuprofen been discontinued given the acute kidney injury? Add to my notes Edit Reject"
+      }
+    ],
+    "t05": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Identified drug-related problems include dosing and safety concerns in acute kidney injury. Enoxaparin dosing requires review given deteriorating renal function. Home medications also require formal admission reconciliation. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; ceftriaxone; enoxaparin; Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: Problems found in the other tasks are on this list → OK Identified pharmacotherapy issues regarding renal impairment, a"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; enoxaparin Checklist: Every problem has a priority and a reason → OK DRP entries are assigned priority levels reflecting acute clinical risks. Accept Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; enoxaparin; acute kidney injury Add to Drug-related problems and interventions: Clinical problem, in one sentence Enoxaparin dose may need adjustment or specific monitoring due to worsening acute kidney injury. Medication(s) involved enoxaparin Related diagnosis acute kidney injury Categor"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Baseline serum creatinine before admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Urine output data Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Microbiology cultures and sensitivities Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the patient had any bleeding events or changes in complete blood count? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are blood or sputum cultures pending from admission? Add to my notes Edit Reject"
+      }
+    ],
+    "t06": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Active medications and home regimens were evaluated for potential interactions. Critical drug-disease interactions include enoxaparin in worsening renal function and home ibuprofen with renal impairment. Home medications remain unreviewed since admission. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; enoxaparin Checklist: All active drug pairs reviewed → OK Active inpatient medications ceftriaxone and enoxaparin were evaluated for interactions. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: Home, OTC and herbal products included → Problem Home medications including metformin, amlodipine, and ibuprofen are marked as not reviewed upon admission. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: enoxaparin; chronic kidney disease; acute kidney injury; Pre-admission medications (BPMH): ibuprofen; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: Drug–disease interactions considered → Problem Enoxaparin and home ibuprofen present drug-disease concerns in the setting of acute kidney injury and chronic kidney disease. Accep"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; enoxaparin Checklist: Drug–food and khat interactions considered → OK No drug-food or khat interactions are identified with the current parenteral inpatient regimen. Accept Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: enoxaparin; acute kidney injury; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Add to Interactions you checked: Type Drug–disease Drug A enoxaparin Drug B, disease, food or test acute kidney injury Mechanism Renal elimination of low-molecular-weight heparin is reduced Clinical effect Increased risk of accumulation and bleeding Manageme"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): ibuprofen; acute kidney injury; Serum creatinine: 2.6 mg/dL Add to Interactions you checked: Type Drug–disease Drug A ibuprofen Drug B, disease, food or test acute kidney injury Mechanism Inhibition of renal prostaglandin synthesis impairing renal blood flow Clinical effect Exacerbation of acute renal failure Man"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Current urine output to evaluate acute kidney injury stage Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Anti-Xa level if therapeutic monitoring of enoxaparin is considered Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the patient received any doses of home medications since admission? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are there any plans to adjust or hold enoxaparin given the rise in serum creatinine? Add to my notes Edit Reject"
+      }
+    ],
+    "t07": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: The patient has a known penicillin allergy presenting as a rash. Serum creatinine increased after admission while receiving enoxaparin and ceftriaxone. No active signs of adverse allergic reaction to ceftriaxone are reported. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: New symptoms and laboratory changes reviewed for a drug cause → Problem Serum creatinine increased from admission to the following day. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; acute kidney injury; Serum creatinine: 2.1 mg/dL Checklist: Timing relative to drug start assessed → OK Ceftriaxone was started on admission, while acute kidney injury was already present prior to drug initiation. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: chronic kidney disease; community-acquired pneumonia; acute kidney injury; Admitted — with fever, productive cough and confusion for 3 days; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: Other causes considered → OK Underlying infection, sepsis, and pre-existing chronic kidney disease are potential alternative causes for wor"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: penicillin — rash Add to Suspected adverse drug reactions: Suspected drug penicillin Reaction: signs, symptoms, laboratory changes rash Onset (hospital day) 0 Severity Mild Serious (hospitalisation, disability, life-threatening or death) No History of penicillin allergy manifesting as rash documented on admission. Accept Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Details of past penicillin reaction timing and cross-reactivity assessment Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Follow-up physical examination for any new cutaneous rash since ceftriaxone initiation Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the patient shown any rash, pruritus, or respiratory distress since receiving ceftriaxone? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: When in the patient's history did the penicillin rash occur? Add to my notes Edit Reject"
+      }
+    ],
+    "t08": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: The patient has baseline chronic kidney disease and has developed acute kidney injury, with serum creatinine rising from day 0 to day 1. Renal function is actively deteriorating and unstable. Dosing of renally cleared medications must be evaluated against this impaired function. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: 72 kg; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: Inputs confirmed, including which weight and the creatinine day → OK Height, weight, and serial serum creatinine values are documented on day 0 and day 1. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; acute kidney injury Checklist: Stability of renal function assessed → Problem Renal function is unstable, as serum creatinine rose from 2.1 mg/dL on day 0 to 2.6 mg/dL on day 1 in the setting of acute kidney injury. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Baseline serum creatinine before hospital admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Urine output or fluid balance records Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Repeat serum creatinine on hospital day 3 Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: What is the patient's current urine output? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has enoxaparin dosing been reassessed or adjusted for acute kidney injury and reduced renal clearance? Add to my notes Edit Reject"
+      }
+    ],
+    "t09": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: The patient is prescribed ceftriaxone intravenous infusion and subcutaneous enoxaparin. Ceftriaxone requires checking of diluent and infusion concentration, while enoxaparin requires assessment against patient weight and renal function. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone Checklist: The weight used is documented and appropriate — ceftriaxone → N/A Ceftriaxone is prescribed as a fixed standard dose rather than a weight-based dose. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone Checklist: Concentration and diluent appropriate — ceftriaxone → Problem The infusion diluent and volume for ceftriaxone administration are not specified in the active orders. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; enoxaparin Checklist: Compatible with co-infused drugs and the line — ceftriaxone → OK There are no continuous IV infusions or co-administered IV drugs documented that present compatibility conflicts. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: 72 kg; enoxaparin Checklist: The weight used is documented and appropriate — enoxaparin → OK Weight is measured as 72 kg, providing an appropriate basis for evaluating enoxaparin therapy. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: enoxaparin Checklist: Concentration and diluent appropriate — enoxaparin → N/A Enoxaparin is administered subcutaneously and is not given as an intravenous infusion. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: enoxaparin Checklist: Compatible with co-infused drugs and the line — enoxaparin → N/A Enoxaparin is administered subcutaneously and does not involve IV line compatibility. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Infusion volume, diluent type, and infusion rate for ceftriaxone Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Intravenous access details (peripheral vs central) Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: In which diluent and volume is ceftriaxone being reconstituted and infused? Add to my notes Edit Reject"
+      }
+    ],
+    "t10": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Neither ceftriaxone nor enoxaparin routinely requires serum drug level monitoring for standard non-complex cases, though anti-factor Xa monitoring may be considered for enoxaparin in severe renal failure. No drug levels are recorded. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; enoxaparin; chronic kidney disease; acute kidney injury Add to Drug levels and their interpretation: Drug enoxaparin Is a measured level available? No — levels cannot be measured here Interpretation No anti-factor Xa level measured; low-molecular-weight heparin accumulation may occur in wo"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Baseline anti-factor Xa level, if any was ordered Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Recent hemoglobin or hematocrit to assess for occult bleeding Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Is clinical monitoring or anti-factor Xa monitoring planned for enoxaparin given the patient's acute kidney injury? Add to my notes Edit Reject"
+      }
+    ],
+    "t11": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Serum creatinine increased from 2.1 mg/dL on day 0 to 2.6 mg/dL on day 1, while potassium remained elevated at 5.1-5.4 mmol/L. Inflammatory markers show leukocytosis and an elevated CRP of 96 mg/L on day 1. Close laboratory monitoring is required for acute kidney injury and resolving infection. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: enoxaparin; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: A monitoring plan exists for each high-risk drug → Problem Enoxaparin requires careful renal monitoring due to declining renal function, but no formal monitoring plan is documented. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: Trends reviewed for the key laboratory values → Problem Serum creatinine demonstrates a worsening trend from 2.1 to 2.6 mg/dL, and no repeat labs are available after day 1. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Potassium: 5.4 mmol/L; White blood cells (WBC): 14.2 ×10⁹/L; Serum creatinine: 2.6 mg/dL; Potassium: 5.1 mmol/L; C-reactive protein (CRP): 96 mg/L Checklist: Every abnormal result interpreted → Problem Abnormal creatinine, potassium, CRP, and white blood cell count require ongoing interpretation and action. Accept Rej"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [
+          "number_removed",
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; acute kidney injury Add to Monitoring plan: Parameter Serum creatinine and electrolytes Monitors Efficacy and safety For which drug or problem Acute kidney injury and enoxaparin safety Frequency Daily Latest result and trend Creatinine 2.6 mg/dL on day 1 (worsening from 2.1 mg/dL) Status A"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [
+          "number_removed",
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: White blood cells (WBC): 14.2 ×10⁹/L; C-reactive protein (CRP): 96 mg/L; community-acquired pneumonia; ceftriaxone Add to Monitoring plan: Parameter WBC and CRP Monitors Efficacy For which drug or problem Community-acquired pneumonia response to ceftriaxone Frequency Every [number removed] hours Latest result and trend WBC 14.2 on day 0, CRP 96 m"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Day 2 and Day 3 renal panels and complete blood counts Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Urine output measurements Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Were blood tests drawn on hospital day 2 or day 3? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Is there evidence of hyperkalemia on recent electrocardiograms? Add to my notes Edit Reject"
+      }
+    ],
+    "t12": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Patient is admitted with community-acquired pneumonia, acute kidney injury, and confusion, with active ceftriaxone and enoxaparin. Serum creatinine has worsened from admission to day 1, while home medications remain unreviewed. Key discussion points for medical rounds include renal adjustment or withholding of nephrotoxic/accumulating dru"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Current fluid intake, urine output, and fluid balance Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Day 2 and Day 3 repeat laboratory values (serum creatinine, electrolytes, complete blood count) Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Microbiology results (blood cultures, sputum cultures, urinary antigens) Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Review status of pre-admission medications (metformin, amlodipine, ibuprofen) Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: What is the patient's current volume status and 24-hour urine output? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has home ibuprofen been formally discontinued and metformin held in the setting of acute kidney injury? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are repeat renal function tests available for hospital day 3? Add to my notes Edit Reject"
+      }
+    ],
+    "t13": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Draft recommendations address renal dose adjustments and review of pre-admission medications. Proposed interventions focus on patient safety during acute illness. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; acute kidney injury; Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): ibuprofen Add to Drug-related problems and interventions: Clinical problem, in one sentence Review status of home metformin and ibuprofen during acute kidney injury. Medication(s) involved m"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Current inpatient medication administration record verifying hold status of pre-admission drugs Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Blood gas or lactate measurement Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Have home metformin and ibuprofen been explicitly paused in the inpatient chart? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: How is glycemic control currently managed in the ward? Add to my notes Edit Reject"
+      }
+    ],
+    "t14": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Ceftriaxone is prescribed for community-acquired pneumonia. The patient is on hospital day 3, which is the window for empiric regimen review and de-escalation. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; community-acquired pneumonia Checklist: Infection and site documented — ceftriaxone → OK Ceftriaxone is indicated for community-acquired pneumonia. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [
+          "number_removed"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone Checklist: 48–72 hour review documented — ceftriaxone → Problem Patient is on hospital day [number removed] and no formal [number removed] to [number removed] hour antimicrobial timeout or review is documented. A number not in the case data was removed Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: penicillin — rash; ceftriaxone; community-acquired pneumonia Checklist: Spectrum fits the likely organisms, local resistance and allergies — ceftriaxone → Problem Documented penicillin allergy is rash, requiring assessment of cephalosporin cross-reactivity and coverage for atypical pathogens. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Sputum and blood culture results Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Atypical pathogen coverage considerations or diagnostic tests Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Were blood and sputum cultures obtained prior to starting ceftriaxone? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the patient shown clinical improvement to allow iv-to-oral switch? Add to my notes Edit Reject"
+      }
+    ],
+    "t15": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Ceftriaxone efficacy is monitored via vitals, mental status, and inflammatory markers, while enoxaparin safety requires vigilance for bleeding and accumulation. Acute kidney injury complicates both therapy and home medication reconciliation. Active monitoring parameters must be clearly established for efficacy and toxicity. Add to my note"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [
+          "number_removed",
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: Heart rate: 112 beats/min; Blood pressure: 98/60 mmHg; Temperature: 38.9 °C; SpO₂: 91 %; community-acquired pneumonia; ceftriaxone Add to Monitoring plan: Parameter Vital signs and SpO2 Monitors Efficacy For which drug or problem Community-acquired pneumonia and ceftriaxone therapy Frequency Every [number removed] to [number removed] hours Latest"
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [
+          "number_removed",
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Monitoring plan: Parameter Signs of bleeding and platelet count Monitors Safety For which drug or problem Enoxaparin thromboprophylaxis Frequency Daily clinical checks Latest result and trend No bleeding reported on admission Status Active Enoxaparin increases bleeding risk, particularly with declining renal function."
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Vital signs on day 1, day 2, and day 3 Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Platelet count and hemoglobin levels Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Clinical assessment of cough and sputum production Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the patient's fever and oxygen saturation improved since admission? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are there any signs of bleeding or hematoma formation? Add to my notes Edit Reject"
+      }
+    ],
+    "t16": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Review indicates need to withhold nephrotoxic or contraindicated home agents and adjust enoxaparin. Adding atypical coverage for pneumonia and blood glucose monitoring is warranted. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; type 2 diabetes; community-acquired pneumonia; Pre-admission medications (BPMH): metformin Checklist: Checked for untreated indications → Problem Type 2 diabetes has no inpatient management order, and atypical coverage for pneumonia is missing. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; acute kidney injury; Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): ibuprofen Checklist: Checked for drugs that are no longer needed → Problem Metformin and ibuprofen must be withheld given acute kidney injury. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Current blood glucose log Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Follow-up renal function panel Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Can we formalize withholding metformin and ibuprofen on the medication chart? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Should enoxaparin be adjusted or changed to unfractionated heparin? Add to my notes Edit Reject"
+      }
+    ],
+    "t17": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Patient counseling needs to address medication changes, avoidance of nephrotoxic agents, and antibiotic completion. Confusion noted on admission must be assessed to confirm if a caregiver is needed for education. Clear warning signs for pneumonia and kidney complications should be communicated. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Cognitive and mental status of the patient on hospital day 3 Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Availability of a family member or caregiver for discharge education Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the patient's confusion fully resolved to allow direct counseling? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are the patient and family aware that over-the-counter NSAIDs like ibuprofen should be avoided? Add to my notes Edit Reject"
+      }
+    ],
+    "t18": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: The patient is admitted with community-acquired pneumonia, acute kidney injury, and chronic conditions. No pharmacist interventions, team responses, or clinical outcomes have been documented in the record yet. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [
+          "no_valid_ref"
+        ],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Every intervention has a recorded response → Problem There are no recorded pharmacist interventions or team responses available in the case data. No valid reference: treated as no source Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [
+          "no_valid_ref"
+        ],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Outcomes recorded or marked 'not yet measured' → Problem Outcomes of pharmaceutical care interventions have not yet been recorded or documented as pending. No valid reference: treated as no source Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Documentation of pharmaceutical interventions, team acceptance/rejection, and outcome evaluations. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Have any preliminary interventions been communicated to the treating team regarding the patient's acute kidney injury and medication regimen? Add to my notes Edit Reject"
+      }
+    ],
+    "t19": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Pharmacovigilance considerations include documenting the known penicillin allergy and tracking the enoxaparin prescribing concern in renal impairment. Formal external reporting depends on further assessment of causality. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: penicillin — rash Add to Suspected adverse drug reactions: Suspected drug penicillin Reaction: signs, symptoms, laboratory changes rash Onset (hospital day) 0 Severity Mild Serious (hospitalisation, disability, life-threatening or death) No Historical adverse reaction recorded on admission. Accept Edit Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: enoxaparin; acute kidney injury; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Add to Medication errors and near misses: What happened Unadjusted enoxaparin prescription in patient with acute kidney injury Hospital day 0 Stage of the medication process Prescribing Type Wrong dose Prevention: what would stop it happening again Clinical "
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Local pharmacovigilance and incident reporting institutional guidelines Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the penicillin allergy been formally logged into the hospital adverse reaction registry? Add to my notes Edit Reject"
+      }
+    ],
+    "t20": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Pre-admission medications include metformin, amlodipine, and PRN ibuprofen, all marked as not reviewed. Inpatient therapy consists of ceftriaxone and enoxaparin. No formal discharge orders or updated renal function past hospital day 1 are documented. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: Every pre-admission medication accounted for → Problem Pre-admission medications have not been formally reconciled or assigned a discharge status in the record. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; enoxaparin Checklist: Every inpatient drug stopped or continued deliberately → Problem No discharge decisions or transition plans have been documented for inpatient ceftriaxone or enoxaparin. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Checklist: Doses checked against organ function at discharge → Problem Serum creatinine worsened to 2.6 mg/dL on day 1 and no current organ function panel is recorded to verify doses before discharge. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone Checklist: Durations set for short courses → Problem No total duration or stop date is documented for the antimicrobial course of ceftriaxone. Accept Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Pre-admission medications (BPMH): Medication (generic name) metformin Dose, route and frequency as actually taken 1000 mg PO twice daily Sources used for this medication Medical record On admission it was… Held Discrepancy Intentional — not documented Metformin should be held given the concurrent acute kidney injury. "
+      },
+      {
+        "kind": "item",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Add to Pre-admission medications (BPMH): Medication (generic name) ibuprofen Dose, route and frequency as actually taken 400 mg PO TID PRN Sources used for this medication Medical record On admission it was… Discontinued Discrepancy Intentional — not documented Non-steroidal anti-inflammatory drugs should be stopped in the s"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Current serum creatinine and potassium on hospital day 3 Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Formal discharge medication orders and planned antibiotic duration Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Clinical resolution of fever, cough, and confusion Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the patient's acute kidney injury resolved sufficiently to consider restarting chronic oral medications? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: What is the planned total duration and route of therapy for community-acquired pneumonia? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has ibuprofen been formally discontinued and discussed with the patient? Add to my notes Edit Reject"
+      }
+    ],
+    "t21": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: A discharge medication plan cannot be finalized because discharge prescriptions have not been entered. Reconciling chronic therapies against resolving acute kidney injury is needed. Follow-up plans for renal function and pneumonia resolution remain unassigned. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; enoxaparin; Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: Every discharge medicine has dose, timing, purpose and duration → Problem Discharge medications, regimens, and durations have not yet been prescribed. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: Every change explained → Problem Reasons for holding or altering pre-admission regimens have not been documented for the discharge plan. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.6 mg/dL; acute kidney injury Checklist: Follow-up tests and appointments planned → Problem No scheduled follow-up laboratory testing or clinic appointments are present in the record. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Discharge prescription list Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Follow-up appointment schedule and laboratory monitoring plan Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: What antihypertensive and antidiabetic regimen is planned for discharge if renal function remains impaired? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: When should follow-up renal panel testing occur after discharge? Add to my notes Edit Reject"
+      }
+    ],
+    "t22": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Pre-admission adherence to metformin, amlodipine, and PRN ibuprofen cannot be evaluated because the patient presented with confusion and only electronic records were reviewed. Over-the-counter NSAID consumption prior to admission may have contributed to acute kidney injury. A collateral history is required to determine actual medication u"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Patient or caregiver report on actual pre-admission adherence Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Recent frequency and timing of ibuprofen use prior to admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Community pharmacy dispensing records Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: How frequently was ibuprofen taken in the days preceding admission? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Did the patient routinely take metformin and amlodipine as prescribed prior to becoming acutely unwell? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Who typically manages or assists with the patient's daily medications at home? Add to my notes Edit Reject"
+      }
+    ],
+    "t23": [],
+    "t24": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Intravenous ceftriaxone is ongoing on day 3. Opportunities for iv-to-oral conversion and treatment duration limits should be evaluated. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; enoxaparin; community-acquired pneumonia Checklist: No unnecessary or duplicate drugs → OK Current active medications correspond to active medical conditions. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [
+          "number_removed"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone Checklist: IV-to-oral opportunities reviewed → Problem Ceftriaxone remains intravenous on day [number removed] without documented assessment for oral step-down therapy. A number not in the case data was removed Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Ability of the patient to take oral medications reliably Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Current oral intake and gastrointestinal function Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Is the patient clinically stable and tolerating oral intake to consider oral antimicrobial therapy? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: What is the intended total duration of antimicrobial treatment? Add to my notes Edit Reject"
+      }
+    ],
+    "t25": [],
+    "t26": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Medication orders were screened for potential safety issues and error-prone elements. Standard daily dosing of enoxaparin in severe renal impairment represents a potential prescribing risk. Home medications have not been formally reconciled. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; enoxaparin Checklist: Look-alike and sound-alike names checked → OK Prescribed active drugs ceftriaxone and enoxaparin have clear nomenclature without obvious confusion in current records. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; enoxaparin Checklist: No error-prone abbreviations or trailing zeros → OK No prohibited abbreviations or trailing zeros were observed in the current orders. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; enoxaparin Checklist: Administration times fit meals, khat hours and other drugs → OK Active medications have defined once-daily administration schedules. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): amlodipine; Pre-admission medications (BPMH): ibuprofen Checklist: Transfer and discharge orders checked → Problem Admission medication reconciliation is incomplete as home medications are not reviewed. Accept Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [
+          "incomplete"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: enoxaparin; chronic kidney disease; acute kidney injury; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL Add to Medication errors and near misses: What happened Enoxaparin prescribed without dose adjustment despite worsening acute kidney injury and chronic kidney disease Hospital day 0 Stage of the medication process Prescribing Type Wro"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Formal medication reconciliation notes confirming discontinuation or continuation of home therapy Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has medication reconciliation been performed with the patient or family regarding home oral medications? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Will the enoxaparin dose be reassessed based on current renal function? Add to my notes Edit Reject"
+      }
+    ],
+    "t27": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Enoxaparin is prescribed for venous thromboembolism prophylaxis in an acute medical admission. Impaired kidney function complicates safety. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Current weight change or edema assessment Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Recent hemoglobin and hematocrit Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has mechanical prophylaxis been considered if pharmacologic prophylaxis is held due to renal worsening? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Is enoxaparin dose adjustment planned for the reduced creatinine clearance? Add to my notes Edit Reject"
+      }
+    ],
+    "t28": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: Enoxaparin is an antithrombotic and qualifies as a high-alert medication. Increased bleeding risk exists due to deteriorating renal function. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.6 mg/dL; enoxaparin; acute kidney injury Checklist: Monitoring defined (e.g. glucose, INR or aPTT, sedation and breathing, potassium) — enoxaparin → Problem With serum creatinine rising to 2.6 mg/dL, renal function and signs of bleeding require close monitoring. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Antidote or reversal agent availability considered — enoxaparin → OK Protamine sulfate is the recognized agent for partial reversal of low-molecular-weight heparin. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Baseline hemoglobin/hematocrit or signs of active bleeding Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Anti-Xa monitoring availability if enoxaparin is continued Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Are anti-Xa levels available if enoxaparin dose is adjusted? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Is protamine sulfate readily available on the unit? Add to my notes Edit Reject"
+      }
+    ],
+    "t29": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: On day 3, response to ceftriaxone and the status of acute kidney injury need re-evaluation. Home medications pose safety concerns in the setting of acute kidney injury and must be addressed. Prophylactic enoxaparin dosing should be reassessed in light of renal impairment. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [
+          "no_valid_ref"
+        ],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Outcome recorded (or 'not yet measured') for every implemented recommendation → N/A No recommendations have been implemented yet, so outcomes cannot be measured. No valid reference: treated as no source Accept Reject"
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [
+          "number_removed"
+        ],
+        "text": "AI suggestion — no decision yet From the case data: enoxaparin; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; acute kidney injury Add to Drug-related problems and interventions: Clinical problem, in one sentence Potential enoxaparin accumulation due to acute kidney injury Medication(s) involved enoxaparin Related diagnosis acute kidney injury Category (department form, Section 8) Dose "
+      },
+      {
+        "kind": "item",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Pre-admission medications (BPMH): metformin; Pre-admission medications (BPMH): ibuprofen; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; acute kidney injury Add to Drug-related problems and interventions: Clinical problem, in one sentence Home metformin and ibuprofen pose toxicity risks in acute kidney injury Medication(s) involved met"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Inpatient blood glucose logs and current management for type 2 diabetes Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Clinical response assessment on day 3 Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Is the patient receiving any glycemic therapy while metformin is not administered? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has the medical team reassessed renal indications for prophylactic anticoagulation? Add to my notes Edit Reject"
+      }
+    ],
+    "t30": [
+      {
+        "kind": "note",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data Summary: A comprehensive care plan is required addressing acute pneumonia, acute kidney injury, and chronic comorbidities. Several active problems lack in-hospital assessment and management, and home medications remain unreviewed. Add to my notes Edit Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: type 2 diabetes; Pre-admission medications (BPMH): metformin Checklist: Every active problem has an assessed therapy → Problem Type 2 diabetes has no active inpatient regimen or formal assessment documented, and home metformin remains unreviewed. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: hypertension; Pre-admission medications (BPMH): amlodipine Checklist: Every active problem has an assessed therapy → Problem Hypertension therapy is not assessed in the inpatient chart, and home amlodipine status is not reviewed. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: chronic kidney disease Checklist: Every active problem has an assessed therapy → Problem Underlying chronic kidney disease is active but lacks an explicit documented ongoing management plan. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: ceftriaxone; community-acquired pneumonia Checklist: Every active problem has an assessed therapy → OK Community-acquired pneumonia is actively treated with ceftriaxone. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL; enoxaparin; acute kidney injury; Pre-admission medications (BPMH): ibuprofen Checklist: Every active problem has an assessed therapy → Problem Acute kidney injury is present with rising creatinine, but nephrotoxic exposures and enoxaparin dose appropriateness need resolution. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Every DRP has a plan and a status → Problem Identified drug-related problems, including nephrotoxic NSAID use, metformin in AKI, and enoxaparin dosing in renal impairment, lack documented plans. Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "general_knowledge",
+        "checks": [
+          "no_valid_ref"
+        ],
+        "text": "AI suggestion — no decision yet General knowledge — no source, unverified Checklist: Monitoring plan defined → Problem A complete monitoring plan covering renal function, electrolytes, infection parameters, and blood glucose has not been formally scheduled. No valid reference: treated as no source Accept Reject"
+      },
+      {
+        "kind": "check",
+        "basis": "case_data",
+        "checks": [],
+        "text": "AI suggestion — no decision yet From the case data: Admitted — with fever, productive cough and confusion for 3 days; Serum creatinine: 2.6 mg/dL; C-reactive protein (CRP): 96 mg/L Checklist: Discharge plan prepared, or not yet applicable → N/A The patient is acutely ill on day 3 with worsening creatinine and active infection, making discharge planning premature. Accept Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Recent blood glucose measurements or HbA1c Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Urine output trends Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Missing data: Recent baseline serum creatinine prior to current admission Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Has metformin been formally withheld given the acute kidney injury? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: Is enoxaparin dosage being adjusted or monitored for renal function changes? Add to my notes Edit Reject"
+      },
+      {
+        "kind": "note",
+        "basis": null,
+        "checks": [],
+        "text": "AI suggestion — no decision yet Question to ask: What is the current plan for blood pressure and glycemic management during admission? Add to my notes Edit Reject"
+      }
+    ]
+  },
+  "draftProblems": [],
+  "decisions": [
+    "t08 accepted: AI suggestion — no decision yet From the case data: 72 kg; Serum creatinine: 2.1 mg/dL; Serum creatinine: 2.6 mg/dL  Checklist: Inputs confirmed, including which weight and the creatinine day → OK",
+    "t08 rejected with reason: AI suggestion — no decision yet From the case data  Summary: The patient has baseline chronic kidney disease and has developed acute kidney injury, with serum creatinine rising from day 0 to day 1. Renal function is actively deteriorating and unstable. Dosing of renally cleared medications must be evaluated against this impaired function."
+  ],
+  "relayStatus": {
+    "configured": true,
+    "provider": "gemini",
+    "keyClass": "free",
+    "models": [
+      {
+        "id": "gemini-3.8-flash",
+        "inputPerM": 1.5,
+        "outputPerM": 9
+      }
+    ],
+    "suggested": {
+      "extract": "gemini-3.8-flash",
+      "analyse": "gemini-3.8-flash"
+    },
+    "budget": {
+      "month": "2026-10",
+      "budgetUsd": 2,
+      "spentUsd": 0.220791,
+      "byTask": {
+        "extract": 0.069181,
+        "analyse": 0.151608
+      },
+      "calls": 12
+    },
+    "limits": {
+      "perMinute": 10,
+      "perDay": 100
+    },
+    "accessCodeRequired": false
+  },
+  "browserExternalRequests": [
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=metformin&maxEntries=3",
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=amlodipine&maxEntries=3",
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=ibuprofen&maxEntries=3",
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=ceftriaxone&maxEntries=3",
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=enoxaparin&maxEntries=3",
+    "https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=Insulin%20glargine&maxEntries=3"
+  ],
+  "consoleErrors": [],
+  "relayAnswers": [
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    }
+  ],
+  "calls": [
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "extract",
+      "pass": 1,
+      "status": 200,
+      "ms": 13047,
+      "usage": {
+        "prompt": 945,
+        "output": 2657,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 767,
+      "outputChars": 8979
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "extract",
+      "pass": 2,
+      "status": 200,
+      "ms": 11822,
+      "usage": {
+        "prompt": 961,
+        "output": 2661,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 846,
+      "outputChars": 8973
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "extract",
+      "pass": 1,
+      "status": 200,
+      "ms": 5196,
+      "usage": {
+        "prompt": 1786,
+        "output": 728,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 1,
+      "sentChars": 124,
+      "outputChars": 2017
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "extract",
+      "pass": 2,
+      "status": 200,
+      "ms": 6225,
+      "usage": {
+        "prompt": 1802,
+        "output": 725,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 1,
+      "sentChars": 203,
+      "outputChars": 2009
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "collect",
+      "status": 200,
+      "ms": 12053,
+      "usage": {
+        "prompt": 1975,
+        "output": 1411,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 5697,
+      "outputChars": 5929
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "review",
+      "status": 200,
+      "ms": 9925,
+      "usage": {
+        "prompt": 1838,
+        "output": 1672,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 5226,
+      "outputChars": 6077
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "dosing",
+      "status": 200,
+      "ms": 8013,
+      "usage": {
+        "prompt": 1712,
+        "output": 1428,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 4541,
+      "outputChars": 5518
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "safety",
+      "status": 200,
+      "ms": 14861,
+      "usage": {
+        "prompt": 2372,
+        "output": 2575,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 7400,
+      "outputChars": 10163
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "plan",
+      "status": 200,
+      "ms": 13641,
+      "usage": {
+        "prompt": 2316,
+        "output": 2266,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 7268,
+      "outputChars": 9380
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "followup",
+      "status": 200,
+      "ms": 15576,
+      "usage": {
+        "prompt": 2090,
+        "output": 2737,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 6236,
+      "outputChars": 10566
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "discharge",
+      "status": 200,
+      "ms": 7065,
+      "usage": {
+        "prompt": 1944,
+        "output": 986,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 5580,
+      "outputChars": 4449
+    },
+    {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "model": "gemini-3.8-flash",
+      "apiKey": null,
+      "task": "analyse",
+      "module": "document",
+      "status": 200,
+      "ms": 9364,
+      "usage": {
+        "prompt": 1433,
+        "output": 1157,
+        "thoughts": 0
+      },
+      "finishReason": "STOP",
+      "images": 0,
+      "sentChars": 3420,
+      "outputChars": 4614
+    }
+  ]
+}

@@ -62,6 +62,8 @@ export const RELAY_ERROR_CODES = [
   'provider_rejected',
   'provider_blocked',
   'provider_unavailable',
+  'provider_timeout',
+  'provider_quota_exhausted',
   'output_truncated',
   'invalid_output',
 ] as const;

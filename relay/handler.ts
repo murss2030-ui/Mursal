@@ -180,6 +180,8 @@ export async function handleModel(httpReq: Request, deps: RelayDeps): Promise<Re
   }
 
   let usage: { inputTokens: number; outputTokens: number } | null = null;
+  const deadline = new AbortController();
+  const timer = setTimeout(() => deadline.abort(), config.providerTimeoutMs);
   try {
     const out = await deps.provider.generate({
       model: req.model,
@@ -188,6 +190,8 @@ export async function handleModel(httpReq: Request, deps: RelayDeps): Promise<Re
       schema: req.schema,
       maxOutputTokens: req.maxOutputTokens,
       temperature: req.temperature,
+      ...(config.thinking[req.task] ? { thinking: config.thinking[req.task] } : {}),
+      signal: deadline.signal,
     });
     usage = out.usage;
     let output: unknown;
@@ -207,10 +211,15 @@ export async function handleModel(httpReq: Request, deps: RelayDeps): Promise<Re
     };
     return json(200, response);
   } catch (e) {
+    if (e instanceof ProviderError && e.code === 'provider_timeout') {
+      // The provider may still charge for a call it was working on: the full estimate stays counted.
+      await reconcile(store, reservation.month, req.task, estimate.costUsd, { inputTokens: estimate.inputTokens, outputTokens: req.maxOutputTokens, costUsd: estimate.costUsd });
+      return fail(504, 'provider_timeout', `The model took longer than ${Math.round(config.providerTimeoutMs / 1000)} seconds, the most this server can wait. Try again; if it keeps happening, choose a faster model or a lower thinking level.`);
+    }
     const charged = e instanceof ProviderError ? (e.usage ?? null) : usage;
     await reconcile(store, reservation.month, req.task, estimate.costUsd, charged ? { ...charged, costUsd: costOf(charged, price) } : null);
     if (e instanceof ProviderError) {
-      const status = e.code === 'provider_rate_limited' ? 429 : e.code === 'model_unavailable' ? 404 : 502;
+      const status = e.code === 'provider_rate_limited' || e.code === 'provider_quota_exhausted' ? 429 : e.code === 'model_unavailable' ? 404 : 502;
       const message =
         e.code === 'model_unavailable'
           ? `The model "${req.model}" is not available (it may have been retired). Choose another in Settings → AI service. (${e.message})`
@@ -218,6 +227,8 @@ export async function handleModel(httpReq: Request, deps: RelayDeps): Promise<Re
       return fail(status, e.code, message);
     }
     return fail(502, 'provider_unavailable', 'The model service failed. Try again later.');
+  } finally {
+    clearTimeout(timer);
   }
 }
 

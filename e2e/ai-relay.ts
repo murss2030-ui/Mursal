@@ -9,13 +9,17 @@
  *
  * RxNav (RxNorm) is answered here too, in its recorded format: this test
  * environment has no route to the internet.
+ *
+ * Live mode (the opt-in live run, e2e/m3-live.spec.ts) uses the same relay
+ * code with Google's real service and the real RxNav, recording each call
+ * the relay makes (never the key).
  */
 import type { Page, Route } from '@playwright/test';
 import { readConfig } from '../relay/config';
 import { handleModel, handleStatus } from '../relay/handler';
 import { geminiProvider } from '../relay/providers/gemini';
 import { memoryStore, update, type MonthUsage } from '../relay/usage';
-import { fakeGemini, rxnavAnswer, type ProviderCall } from './ai-fixtures';
+import { describeGeminiRequest, fakeGemini, rxnavAnswer, type ProviderCall } from './ai-fixtures';
 
 export const TEST_KEY = 'test-key-not-a-real-key';
 
@@ -42,9 +46,46 @@ export interface TestRelay {
   spend(usd: number): Promise<void>;
 }
 
+/** One real call to the provider, as recorded in live mode (synthetic data only). */
+export interface LiveCall extends ProviderCall {
+  status: number;
+  ms: number;
+  usage?: { prompt: number; output: number; thoughts: number };
+  finishReason?: string;
+  /** The model's answer, unparsed. */
+  output?: string;
+  error?: string;
+}
+
+/** The real fetch, recording what left the relay and what came back. The key is never recorded. */
+export function recordingFetch(calls: LiveCall[], real: typeof fetch = fetch): typeof fetch {
+  return (async (input: string | URL | Request, init?: RequestInit) => {
+    const { call } = describeGeminiRequest(input, init);
+    const t0 = Date.now();
+    const res = await real(input, init);
+    const entry: LiveCall = { ...call, apiKey: null, status: res.status, ms: Date.now() - t0 };
+    try {
+      const body = (await res.clone().json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
+        error?: { message?: string; status?: string };
+      };
+      const u = body.usageMetadata;
+      if (u) entry.usage = { prompt: u.promptTokenCount ?? 0, output: u.candidatesTokenCount ?? 0, thoughts: u.thoughtsTokenCount ?? 0 };
+      entry.finishReason = body.candidates?.[0]?.finishReason;
+      entry.output = (body.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('');
+      if (body.error) entry.error = `${body.error.status ?? ''} ${body.error.message ?? ''}`.trim();
+    } catch {
+      entry.error = `HTTP ${res.status} (no JSON body)`;
+    }
+    calls.push(entry);
+    return res;
+  }) as typeof fetch;
+}
+
 const pick = (h: Record<string, string>, names: string[]) => Object.fromEntries(names.filter((n) => h[n] !== undefined).map((n) => [n, h[n]!]));
 
-export async function installTestRelay(page: Page, env: Record<string, string> = {}): Promise<TestRelay> {
+export async function installTestRelay(page: Page, env: Record<string, string> = {}, live?: { calls: LiveCall[] }): Promise<TestRelay> {
   const store = memoryStore();
   const t: TestRelay = {
     env: { ...RELAY_ENV, ...env },
@@ -72,7 +113,8 @@ export async function installTestRelay(page: Page, env: Record<string, string> =
       return;
     }
     const config = read.config;
-    const deps = { config, store, provider: config.apiKey ? geminiProvider(config.apiKey, fakeGemini(t.provider, TEST_KEY)) : undefined };
+    const send = live ? recordingFetch(live.calls) : fakeGemini(t.provider, TEST_KEY);
+    const deps = { config, store, provider: config.apiKey ? geminiProvider(config.apiKey, send) : undefined };
     const body = req.postDataBuffer();
     const web = new Request(url.toString(), {
       method: req.method(),
@@ -87,6 +129,7 @@ export async function installTestRelay(page: Page, env: Record<string, string> =
   };
   await page.route('**/api/model', forward);
   await page.route('**/api/status', forward);
+  if (live) return t; // the browser reaches the real RxNav
   await page.route('https://rxnav.nlm.nih.gov/**', async (route) => {
     const u = new URL(route.request().url());
     t.rxnav.push(u.toString());

@@ -23,7 +23,10 @@ export function toGeminiSchema(s: OutputSchema): GeminiSchema {
         ...common,
       };
     case 'array':
-      return { type: 'ARRAY', items: toGeminiSchema(s.items), ...(s.maxItems ? { maxItems: s.maxItems } : {}), ...common };
+      // maxItems is not sent: in the live run of 16 October 2026 Gemini refused the reading schema with it
+      // ("Request contains an invalid argument") and accepted it without. The app still enforces every
+      // maximum itself when it checks the answer (validateOutput).
+      return { type: 'ARRAY', items: toGeminiSchema(s.items), ...common };
     case 'string':
       return s.enum ? { type: 'STRING', format: 'enum', enum: [...s.enum], ...common } : { type: 'STRING', ...common };
     case 'number':
@@ -49,8 +52,21 @@ export function buildGeminiBody(input: GenerateInput): unknown {
       responseSchema: toGeminiSchema(input.schema),
       maxOutputTokens: input.maxOutputTokens,
       temperature: input.temperature,
+      // In the live run, thinking made up most of the tokens and the time: reading a short note took 26 s by default
+      // and under 4 s at "low", with the same values read.
+      ...(input.thinking ? { thinkingConfig: { thinkingLevel: input.thinking } } : {}),
     },
   };
+}
+
+interface GeminiError {
+  error?: { message?: string; status?: string; details?: { '@type'?: string; violations?: { quotaId?: string }[]; retryDelay?: string }[] };
+}
+
+/** A 429 that is the day's quota (it will not clear in a minute), from the provider's quota details. */
+function dailyQuota(body: unknown): boolean {
+  const details = (body as GeminiError)?.error?.details ?? [];
+  return details.some((d) => (d.violations ?? []).some((v) => /PerDay/i.test(v.quotaId ?? '')));
 }
 
 interface GeminiResponse {
@@ -71,7 +87,7 @@ export function readGeminiResponse(status: number, body: unknown): GenerateOutpu
     const message = shortMessage(body, status);
     if (status === 404) throw new ProviderError('model_unavailable', message);
     if (status === 401 || status === 403) throw new ProviderError('provider_auth', message);
-    if (status === 429) throw new ProviderError('provider_rate_limited', message);
+    if (status === 429) throw new ProviderError(dailyQuota(body) ? 'provider_quota_exhausted' : 'provider_rate_limited', message);
     if (status >= 500) throw new ProviderError('provider_unavailable', message);
     throw new ProviderError('provider_rejected', message);
   }
@@ -103,14 +119,17 @@ export function geminiProvider(apiKey: string, fetchImpl: typeof fetch = fetch):
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
           body: JSON.stringify(buildGeminiBody(input)),
+          ...(input.signal ? { signal: input.signal } : {}),
         });
       } catch {
+        if (input.signal?.aborted) throw new ProviderError('provider_timeout', 'The model took too long to answer.');
         throw new ProviderError('provider_unavailable', 'The model service could not be reached.');
       }
       let body: unknown = null;
       try {
         body = await res.json();
       } catch {
+        if (input.signal?.aborted) throw new ProviderError('provider_timeout', 'The model took too long to answer.');
         body = null;
       }
       return readGeminiResponse(res.status, body);

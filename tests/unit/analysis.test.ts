@@ -150,6 +150,36 @@ describe('checks in code — the hostile fixtures (Section 21, adapted)', () => 
     expect(item.checks).toEqual(expect.arrayContaining(['invalid_value_removed', 'incomplete']));
   });
 
+  it('keeps numbers from the case header and from the checklist item being answered (live run)', async () => {
+    const ctx = await caseWithData('clinical', 64);
+    const p = await payloadFor(ctx, 'plan');
+    const t14 = p.tasks.find((t) => t.id === 't14')!;
+    const timeout = t14.perMedication!.checks.find((c) => c.id === 'timeout')!;
+    const raw: RawAnalysis = {
+      tasks: [
+        {
+          taskId: 't14',
+          summary: 'A 64-year-old on hospital day 3 with pneumonia.',
+          checks: [{ checkId: timeout.id, scopeRef: 'M1', answer: 'issue', reason: 'On hospital day 3, no 48 to 72 hour review is documented; repeat it every 12 hours.', basis: 'case_data', refs: ['M1'] }],
+          items: [],
+          missingData: [],
+          questions: [],
+        },
+      ],
+    };
+    const { suggestions } = verifyAnalysis(raw, p);
+    expect(suggestions.find((x) => x.noteKind === 'summary')!.text).toBe('A 64-year-old on hospital day 3 with pneumonia.');
+    const ck = suggestions.find((x) => x.kind === 'check')!;
+    // 12 is in the referenced order ("every 12 hours"); 3 is today's hospital day; 48 and 72 are the checklist item's.
+    expect(ck.reason).toBe('On hospital day 3, no 48 to 72 hour review is documented; repeat it every 12 hours.');
+    expect(ck.checks).toEqual([]);
+    // A number found nowhere is still removed.
+    expect(verifyAnalysis({ tasks: [{ ...raw.tasks[0]!, summary: 'Give it for 10 days.', checks: [] }] }, p).suggestions[0]!.text).toBe('Give it for [number removed] days.');
+    // A dose may use only the cited data — never a number that merely matches the header (day 3) or the item's wording (48).
+    const dose = verifyAnalysis({ tasks: [{ ...raw.tasks[0]!, summary: '', checks: [{ ...raw.tasks[0]!.checks[0]!, reason: 'Give 3 mg now, then 48 mg; keep 1000 mg every 12 hours.' }] }] }, p);
+    expect(dose.suggestions[0]!.reason).toBe('Give [dose withheld — to be calculated] now, then [dose withheld — to be calculated]; keep 1000 mg every 12 hours.');
+  });
+
   it('the schema given to the model lists only this module’s tasks', async () => {
     const p = await payloadFor(await caseWithData(), 'dosing');
     const schema = analysisSchema(p.tasks);

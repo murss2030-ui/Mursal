@@ -40,7 +40,7 @@ function errorText(e: unknown, t: (k: MsgKey, v?: Record<string, string | number
 }
 
 /** Errors after which no further call this session can succeed. */
-const STOPPING = new Set(['budget_exhausted', 'access_denied', 'not_configured', 'relay_missing', 'free_key_clinical', 'no_model', 'offline', 'rate_limited']);
+const STOPPING = new Set(['budget_exhausted', 'access_denied', 'not_configured', 'relay_missing', 'free_key_clinical', 'no_model', 'offline', 'rate_limited', 'provider_quota_exhausted']);
 
 function StepCard({ n, title, done, children, testId }: { n: number; title: string; done: boolean; children: React.ReactNode; testId: string }) {
   return (
@@ -125,11 +125,11 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
     refresh();
   };
 
-  const draftAll = async () => {
+  const draftAll = async (list: readonly (typeof MODULES)[number][]) => {
     setStopped(undefined);
-    for (let i = 0; i < MODULES.length; i++) {
-      const m = MODULES[i]!;
-      setDrafting({ i: i + 1, n: MODULES.length, label: tl(m.title) });
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i]!;
+      setDrafting({ i: i + 1, n: list.length, label: tl(m.title) });
       try {
         const a = await analyseModule(store, caseId, m.id);
         setSpent((s) => s + a.usage.costUsd);
@@ -150,6 +150,11 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
   };
 
   const drafted = MODULES.filter((m) => latestAnalysis.has(m.id)).length;
+  // Once drafted, only what is missing (never drafted, or failed) or out of date is drafted again: no call is spent twice.
+  const toDraft = MODULES.filter((m) => {
+    const a = latestAnalysis.get(m.id);
+    return !a || analysisStale(a, entries.data, items.data);
+  });
   const suggestionCount = [...latestAnalysis.values()].reduce((n, a) => n + a.suggestions.length, 0);
   const undecided = [...latestAnalysis.values()].reduce((n, a) => n + a.suggestions.filter((s) => !s.decision).length, 0);
 
@@ -311,9 +316,11 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
             <ProgressBar value={drafting.i - 1} total={drafting.n} label={t('analyse.step3')} />
           </div>
         )}
-        <Button variant={drafted === MODULES.length ? 'secondary' : 'primary'} icon="sparkle" disabled={!ready || busy} onClick={() => void draftAll()}>
-          {drafted ? t('analyse.redraft') : t('analyse.draft')}
-        </Button>
+        {(drafted === 0 || toDraft.length > 0) && (
+          <Button variant="primary" icon="sparkle" disabled={!ready || busy} onClick={() => void draftAll(drafted === 0 ? MODULES : toDraft)}>
+            {drafted === 0 ? t('analyse.draft') : t('analyse.redraftN', { n: toDraft.length })}
+          </Button>
+        )}
         {suggestionCount > 0 && <p className="text-sm text-slate-700">{t('analyse.toDecide', { n: undecided, total: suggestionCount })}</p>}
       </StepCard>
 

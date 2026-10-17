@@ -27,6 +27,8 @@ export interface RefTarget {
 export interface CasePayload {
   /** The JSON text sent to the model. */
   text: string;
+  /** The case's own header as sent (age, sex, height, today's hospital day): its numbers are data any statement may use. */
+  context: string;
   refs: Map<string, RefTarget>;
   basedOn: { entryIds: string[]; items: string[] };
   tasks: TaskDef[];
@@ -157,6 +159,7 @@ export function buildCasePayload(input: {
   };
   return {
     text: JSON.stringify(payload),
+    context: JSON.stringify(payload.case),
     refs,
     basedOn: { entryIds: current.map((e) => e.id).sort(), items: input.items.filter((r) => r.status === 'active').map((r) => `${r.id}@${r.version}`).sort() },
     tasks,

@@ -297,6 +297,7 @@ export function ExtractionReview({ caseId, runId }: { caseId: string; runId: str
       </p>
       <Banner tone="info">{t('review.lead')}</Banner>
       {run.sent.identifiersMasked > 0 && <Banner tone="warning">{t('review.masked', { n: run.sent.identifiersMasked })}</Banner>}
+      {pending.filter((f) => f.flags.includes('no_day')).length >= 3 && <Banner tone="info">{t('review.noDayHint')}</Banner>}
       {!run.readable && <Banner tone="warning">{t('review.unreadable')}</Banner>}
       <div ref={sourceRef} className="lg:sticky lg:top-2">
         <SourcePane a={a} run={run} selected={selected} />

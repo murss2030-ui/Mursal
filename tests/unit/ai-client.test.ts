@@ -123,6 +123,28 @@ describe('callModel — the single entry point', () => {
     expect((ev!.diff as { outcome: string }).outcome).toBe('budget_exhausted');
   });
 
+  it('retries once, after a pause, when the provider is briefly unavailable — and audits both attempts', async () => {
+    const { store, c } = await setup();
+    await store.updateAiSettings({ models: { extract: 'model-a' } });
+    const busy = () => new Response(JSON.stringify({ error: { code: 'provider_unavailable', message: 'This model is currently experiencing high demand.' } }), { status: 502, headers: { 'content-type': 'application/json' } });
+    const waits: number[] = [];
+    const sleep = async (ms: number) => void waits.push(ms);
+    let n = 0;
+    const { f, calls } = fakeFetch(() => (++n === 1 ? busy() : okResponse({ answer: 'fine' })));
+    await expect(callModel(store, input(c.id), { fetch: f, online: () => true, sleep })).resolves.toMatchObject({ output: { answer: 'fine' } });
+    expect(calls).toHaveLength(2);
+    expect(waits).toEqual([4000]);
+    const outcomes = (await store.listAudit(c.id)).filter((e) => e.entity === 'model_call').map((e) => (e.diff as { outcome: string }).outcome);
+    expect(outcomes.sort()).toEqual(['ok', 'provider_unavailable']);
+    // A second failure is reported, not retried again; other refusals are never retried.
+    const always = fakeFetch(() => busy());
+    await expect(callModel(store, input(c.id), { fetch: always.f, online: () => true, sleep })).rejects.toMatchObject({ code: 'provider_unavailable' });
+    expect(always.calls).toHaveLength(2);
+    const quota = fakeFetch(() => new Response(JSON.stringify({ error: { code: 'provider_quota_exhausted', message: 'Daily quota.' } }), { status: 429, headers: { 'content-type': 'application/json' } }));
+    await expect(callModel(store, input(c.id), { fetch: quota.f, online: () => true, sleep })).rejects.toMatchObject({ code: 'provider_quota_exhausted' });
+    expect(quota.calls).toHaveLength(1);
+  });
+
   it('refuses an answer that does not match the schema', async () => {
     const { store, c } = await setup();
     await store.updateAiSettings({ models: { extract: 'model-a' } });

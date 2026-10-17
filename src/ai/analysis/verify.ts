@@ -7,9 +7,10 @@
  *    and flagged. A "case data" statement left with no valid reference is
  *    shown as having no source.
  * 2. Every number must appear in the data the statement references (or, for
- *    notes without references, in the case data sent); otherwise it is
- *    removed, and a number next to a dose unit is withheld as a dose
- *    (Decision 12: never an unsupported numerical dose).
+ *    notes without references, in the case data sent), in the case's header
+ *    (age, height, today's hospital day) or in the checklist item it answers;
+ *    otherwise it is removed, and a number next to a dose unit is withheld as
+ *    a dose (Decision 12: never an unsupported numerical dose).
  * 3. Citations — URLs, DOIs, PMIDs, "et al.", bracketed references, grades —
  *    are removed; commercial references are never named; a named source the
  *    app did not retrieve is labelled.
@@ -56,8 +57,12 @@ export interface CleanResult {
   checks: Set<SuggestionCheck>;
 }
 
-/** Removes citations, unsupported numbers and doses from a statement. */
-export function cleanStatement(text: string, allowed: ReadonlySet<string>): CleanResult {
+/**
+ * Removes citations, unsupported numbers and doses from a statement. A number
+ * next to a dose unit must come from `doseAllowed` — the data the statement
+ * cites — never merely from the case header or the checklist wording.
+ */
+export function cleanStatement(text: string, allowed: ReadonlySet<string>, doseAllowed: ReadonlySet<string> = allowed): CleanResult {
   const checks = new Set<SuggestionCheck>();
   let s = text;
   for (const re of CITATIONS) {
@@ -77,10 +82,11 @@ export function cleanStatement(text: string, allowed: ReadonlySet<string>): Clea
   let pos = 0;
   for (const m of s.matchAll(NUMBER)) {
     const n = String(Number(m[0]));
-    if (allowed.has(n)) continue;
-    out += s.slice(pos, m.index!);
     const after = s.slice(m.index! + m[0].length);
-    if (DOSE_UNIT.test(after)) {
+    const dose = DOSE_UNIT.test(after);
+    if (dose ? doseAllowed.has(n) : allowed.has(n)) continue;
+    out += s.slice(pos, m.index!);
+    if (dose) {
       checks.add('dose_withheld');
       out += '[dose withheld — to be calculated]';
       pos = m.index! + m[0].length + (DOSE_UNIT.exec(after)?.[0].length ?? 0);
@@ -103,14 +109,17 @@ export function cleanStatement(text: string, allowed: ReadonlySet<string>): Clea
 interface Refs {
   basis: ClaimBasis;
   refs: Suggestion['refs'];
+  /** Numbers a statement may use: the cited data, the case header (and, for a checklist answer, its wording). */
   allowed: Set<string>;
+  /** Numbers a dose may use: the cited data only. */
+  cited: Set<string>;
   checks: Set<SuggestionCheck>;
 }
 
 function resolveRefs(raw: RawSuggestionBase, payload: CasePayload, everything: ReadonlySet<string>, fallbackToAll: boolean): Refs {
   const checks = new Set<SuggestionCheck>();
   const refs: Suggestion['refs'] = [];
-  const allowed = new Set<string>();
+  const cited = new Set<string>();
   for (const r of raw.refs ?? []) {
     const t = payload.refs.get(r.trim());
     if (!t) {
@@ -118,7 +127,7 @@ function resolveRefs(raw: RawSuggestionBase, payload: CasePayload, everything: R
       continue;
     }
     if (!refs.some((x) => x.id === t.id)) refs.push({ kind: t.kind, id: t.id, label: t.label });
-    for (const n of numbersIn(t.text)) allowed.add(n);
+    for (const n of numbersIn(t.text)) cited.add(n);
   }
   let basis: ClaimBasis = raw.basis === 'case_data' ? 'case_data' : 'general_knowledge';
   if (basis === 'case_data' && refs.length === 0) {
@@ -127,8 +136,10 @@ function resolveRefs(raw: RawSuggestionBase, payload: CasePayload, everything: R
       basis = 'general_knowledge';
     }
   }
-  if (fallbackToAll && refs.length === 0) for (const n of everything) allowed.add(n);
-  return { basis, refs, allowed, checks };
+  if (fallbackToAll && refs.length === 0) for (const n of everything) cited.add(n);
+  // The case header is data every statement may use (live run: "a 67-year-old", "on hospital day 3" were removed).
+  const allowed = new Set([...cited, ...numbersIn(payload.context)]);
+  return { basis, refs, allowed, cited, checks };
 }
 
 function scopeOf(def: TaskDef, checkId: string): 'case' | 'medication' | 'problem' | undefined {
@@ -138,7 +149,14 @@ function scopeOf(def: TaskDef, checkId: string): 'case' | 'medication' | 'proble
   return undefined;
 }
 
-function itemFields(register: string, raw: { field: string; value: string }[], allowed: ReadonlySet<string>, payload: CasePayload, checks: Set<SuggestionCheck>): Record<string, string> {
+function itemFields(
+  register: string,
+  raw: { field: string; value: string }[],
+  allowed: ReadonlySet<string>,
+  cited: ReadonlySet<string>,
+  payload: CasePayload,
+  checks: Set<SuggestionCheck>,
+): Record<string, string> {
   const def = REGISTERS[register as keyof typeof REGISTERS];
   const byId = new Map<string, FieldDef>(def.fields.map((f) => [f.id, f]));
   const out: Record<string, string> = {};
@@ -171,7 +189,7 @@ function itemFields(register: string, raw: { field: string; value: string }[], a
       if (Number.isInteger(n) && allowed.has(String(n))) out[f.id] = String(n);
       else checks.add('number_removed');
     } else {
-      const c = cleanStatement(v, allowed);
+      const c = cleanStatement(v, allowed, cited);
       for (const x of c.checks) checks.add(x);
       if (c.text) out[f.id] = c.text;
     }
@@ -184,8 +202,10 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
   const suggestions: Suggestion[] = [];
   let dropped = 0;
   let n = 0;
+  // Every number of the cited data sent; notes without references are checked against it (plus the case header).
   const everything = new Set<string>();
   for (const t of payload.refs.values()) for (const x of numbersIn(t.text)) everything.add(x);
+  const noteAllowed = new Set([...everything, ...numbersIn(payload.context)]);
   const next = () => `s${++n}`;
 
   for (const draft of raw.tasks ?? []) {
@@ -195,7 +215,7 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
       continue;
     }
     const note = (noteKind: 'summary' | 'missing' | 'question', text: string) => {
-      const c = cleanStatement(text, everything);
+      const c = cleanStatement(text, noteAllowed, everything);
       if (!c.text) return;
       suggestions.push({ id: next(), taskId: def.id, kind: 'note', noteKind, text: c.text, reason: '', basis: 'case_data', refs: [], checks: [...c.checks] });
     };
@@ -217,7 +237,10 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
         scopeId = t.id;
       }
       const r = resolveRefs(ck, payload, everything, false);
-      const c = cleanStatement(ck.reason ?? '', r.allowed);
+      // The checklist item's own wording may carry numbers ("48–72 hour review documented").
+      const label = [...(def.case?.checks ?? []), ...(def.perMedication?.checks ?? []), ...(def.perProblem?.checks ?? [])].find((x) => x.id === ck.checkId)?.label.en ?? '';
+      for (const n of numbersIn(label)) r.allowed.add(n);
+      const c = cleanStatement(ck.reason ?? '', r.allowed, r.cited);
       suggestions.push({
         id: next(),
         taskId: def.id,
@@ -239,8 +262,8 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
       }
       const r = resolveRefs(it, payload, everything, false);
       const checks = new Set<SuggestionCheck>(r.checks);
-      const fields = itemFields(it.register, it.fields ?? [], r.allowed, payload, checks);
-      const c = cleanStatement(it.reason ?? '', r.allowed);
+      const fields = itemFields(it.register, it.fields ?? [], r.allowed, r.cited, payload, checks);
+      const c = cleanStatement(it.reason ?? '', r.allowed, r.cited);
       for (const x of c.checks) checks.add(x);
       if (!normalizeItemFields(it.register as never, fields).ok) checks.add('incomplete');
       suggestions.push({ id: next(), taskId: def.id, kind: 'item', register: it.register as never, fields, reason: c.text, basis: r.basis, refs: r.refs, checks: [...checks] });

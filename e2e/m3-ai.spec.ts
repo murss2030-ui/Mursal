@@ -4,121 +4,16 @@
  * code → the Gemini adapter, with only Google's servers replaced by the
  * stand-in of ai-fixtures.ts (see ai-relay.ts). Everything is synthetic.
  */
-import { expect, test, type Page } from '@playwright/test';
-import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { expect, test } from '@playwright/test';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { admissionNote, LAB_PAGE_LINES } from './ai-fixtures';
+import { admissionNote } from './ai-fixtures';
 import { installTestRelay, TEST_KEY, type TestRelay } from './ai-relay';
+import { addLabPage, addTypedNote, dmy, expectRedactedImage, field, saveModels, shot, suggestion } from './ai-steps';
 import { createCase, createRotation, isoDate, onboard, watchPage } from './helpers';
-
-const SHOTS = process.env.PRECEPTOR_SHOTS_DIR ?? 'test-results/screenshots';
-const TMP = 'test-results/fixtures';
 
 // page.route must see every call to /api; a service worker would answer from outside it.
 test.use({ serviceWorkers: 'block' });
-
-async function shot(page: Page, name: string, full = false) {
-  await page.waitForTimeout(150);
-  await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: full });
-}
-
-const dmy = (iso: string) => iso.split('-').reverse().join('/');
-
-/** The photographed laboratory page: identifiers on the top line, results below, one handwritten line. */
-async function labPagePng(page: Page): Promise<string> {
-  const dataUrl = await page.evaluate((lines) => {
-    const c = document.createElement('canvas');
-    c.width = 1200;
-    c.height = 900;
-    const g = c.getContext('2d')!;
-    g.fillStyle = '#ffffff';
-    g.fillRect(0, 0, c.width, c.height);
-    g.fillStyle = '#1e293b';
-    g.font = 'bold 44px sans-serif';
-    g.fillText(lines.identifiers, 60, 110);
-    g.font = '36px sans-serif';
-    g.fillText(lines.title, 60, 260);
-    g.fillText(lines.creatinine, 60, 365);
-    g.fillText(lines.potassium, 60, 445);
-    g.fillText(lines.crp, 60, 526);
-    g.font = 'italic 38px serif';
-    g.fillText(lines.insulin, 60, 605);
-    return c.toDataURL('image/png');
-  }, LAB_PAGE_LINES);
-  mkdirSync(TMP, { recursive: true });
-  const path = `${TMP}/synthetic-lab-page.png`;
-  writeFileSync(path, Buffer.from(dataUrl.split(',')[1]!, 'base64'));
-  return path;
-}
-
-async function addTypedNote(page: Page, text: string, removeIdentifiers: boolean) {
-  await page.getByTestId('add-text').click();
-  await expect(page.getByTestId('text-source-editor')).toBeVisible();
-  await page.getByLabel('Document type').selectOption('admission_note');
-  await page.getByLabel('Text', { exact: true }).fill(text);
-  if (removeIdentifiers) {
-    await expect(page.getByTestId('identifier-check')).toContainText('Possible identifiers found');
-    await page.getByRole('button', { name: 'Remove all' }).click();
-  }
-  await page.getByLabel(/I have removed every identifier/).check();
-  await page.getByRole('button', { name: 'Save to the patient file' }).click();
-  await expect(page.getByTestId('intake')).toBeVisible();
-}
-
-async function addLabPage(page: Page) {
-  await page.getByTestId('camera-input').setInputFiles(await labPagePng(page));
-  const editor = page.getByTestId('redaction-editor');
-  await expect(editor).toBeVisible();
-  const box = (await page.getByTestId('redaction-canvas').boundingBox())!;
-  await page.mouse.move(box.x + box.width * 0.02, box.y + box.height * 0.05);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.12, { steps: 5 });
-  await page.mouse.move(box.x + box.width * 0.98, box.y + box.height * 0.18, { steps: 5 });
-  await page.mouse.up();
-  await expect(editor.getByText('Covers drawn: 1')).toBeVisible();
-  await editor.getByLabel('Document type').selectOption('lab_report');
-  await editor.getByLabel(/Hospital day of the document/).fill('1');
-  await editor.getByLabel(/I have redacted all identifiers/).check();
-  await editor.getByRole('button', { name: 'Save this page' }).click();
-  await expect(editor).toBeHidden();
-}
-
-/** Settings → AI service: the relay's suggested models are offered; nothing is used until saved. */
-async function saveModels(page: Page, models: { extract?: string; analyse?: string } = {}, firstTime = true) {
-  await page.goto('/#/settings/ai');
-  await expect(page.getByTestId('ai-status')).toHaveAttribute('data-state', 'ready');
-  const extract = page.getByLabel('Model for reading documents');
-  const analyse = page.getByLabel('Model for case analysis');
-  if (firstTime) {
-    await expect(extract).toHaveValue('reader-test-1');
-    await expect(analyse).toHaveValue('drafter-test-1');
-  }
-  if (models.extract) await extract.selectOption(models.extract);
-  if (models.analyse) await analyse.selectOption(models.analyse);
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByText('Saved.')).toBeVisible();
-}
-
-const field = (page: Page, id: string) => page.locator(`[data-testid="review-field"][data-field="${id}"]`);
-const suggestion = (page: Page, text: string | RegExp) => page.locator('[data-testid="suggestion"][data-decision="pending"]').filter({ hasText: text });
-
-/** Asserts the page image the model received is the redacted one: black over the identifiers, untouched below. */
-async function expectRedactedImage(page: Page, base64: string) {
-  const px = await page.evaluate(async (b64) => {
-    const img = new Image();
-    img.src = `data:image/jpeg;base64,${b64}`;
-    await img.decode();
-    const c = document.createElement('canvas');
-    c.width = img.naturalWidth;
-    c.height = img.naturalHeight;
-    const g = c.getContext('2d')!;
-    g.drawImage(img, 0, 0);
-    const at = (fx: number, fy: number) => Array.from(g.getImageData(Math.round(c.width * fx), Math.round(c.height * fy), 1, 1).data.slice(0, 3));
-    return { covered: [at(0.1, 0.08), at(0.3, 0.12), at(0.5, 0.1)], clear: at(0.9, 0.95) };
-  }, base64);
-  for (const p of px.covered) expect(Math.max(...p)).toBeLessThan(40);
-  expect(Math.min(...px.clear)).toBeGreaterThan(215);
-}
 
 test('Teaching Case: Next → the model reads the file → each value checked → the 30 tasks drafted → each suggestion decided', async ({ page }) => {
   test.setTimeout(300_000);
@@ -455,7 +350,7 @@ test('a retired model is replaced in Settings without rebuilding; offline, the a
   expect(relay.provider.map((c) => c.model)).toEqual(['reader-test-0']);
 
   // The operator's allow-list offers another; choosing it is enough.
-  await saveModels(page, { extract: 'reader-test-1' }, false);
+  await saveModels(page, { extract: 'reader-test-1' }, null);
   await page.goto(`/#/cases/${caseId}/analyse`);
   await page.getByRole('button', { name: 'Read 1 document(s)' }).click();
   await expect(page.locator('[data-testid="analyse-doc"][data-read="yes"]')).toHaveCount(1, { timeout: 30_000 });

@@ -333,7 +333,7 @@ export function RedactionEditor({
             />
             <div className="flex items-end gap-2">
               <div className="flex-1">
-                <TextField label={t('source.hospitalDay')} optional inputMode="numeric" value={day} onChange={setDay} name="sourceDay" />
+                <TextField label={t('source.hospitalDay')} hint={t('source.hospitalDayHint')} optional inputMode="numeric" value={day} onChange={setDay} name="sourceDay" />
               </div>
               {todayDay !== null && day === '' && (
                 <Button className="mb-[2px]" onClick={() => setDay(String(todayDay))}>

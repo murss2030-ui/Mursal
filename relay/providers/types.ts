@@ -2,6 +2,10 @@
 import type { RequestPart } from '../../src/ai/protocol';
 import type { OutputSchema } from '../../src/ai/schema';
 
+/** How much the model may reason before answering, where the provider supports it; unset means the model's default. */
+export const THINKING_LEVELS = ['minimal', 'low', 'medium', 'high'] as const;
+export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
+
 export interface GenerateInput {
   model: string;
   system: string;
@@ -9,6 +13,9 @@ export interface GenerateInput {
   schema: OutputSchema;
   maxOutputTokens: number;
   temperature: number;
+  thinking?: ThinkingLevel;
+  /** Aborts the call (the relay's deadline, below the hosting platform's limit). */
+  signal?: AbortSignal;
 }
 
 export interface GenerateOutput {
@@ -24,6 +31,8 @@ export type ProviderErrorCode =
   | 'provider_rejected'
   | 'provider_blocked'
   | 'provider_unavailable'
+  | 'provider_timeout'
+  | 'provider_quota_exhausted'
   | 'output_truncated';
 
 export class ProviderError extends Error {

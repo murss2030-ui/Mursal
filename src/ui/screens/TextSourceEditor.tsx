@@ -115,7 +115,7 @@ export function TextSourceEditor({ caseId, back }: { caseId: string; back: strin
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex items-end gap-2">
               <div className="flex-1">
-                <TextField label={t('source.hospitalDay')} optional inputMode="numeric" name="day" value={v.day ?? ''} onChange={(x) => set('day', x)} error={errText(errors.day)} />
+                <TextField label={t('source.hospitalDay')} hint={t('source.hospitalDayHint')} optional inputMode="numeric" name="day" value={v.day ?? ''} onChange={(x) => set('day', x)} error={errText(errors.day)} />
               </div>
               {todayDay !== null && !v.day && (
                 <Button className="mb-[2px]" onClick={() => set('day', String(todayDay))}>

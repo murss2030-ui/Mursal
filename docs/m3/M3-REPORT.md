@@ -2,7 +2,7 @@
 
 **Date:** 16 October 2026 · **Branch:** `claude/preceptor-build-prompt-v4-slhq8k` · **Build:** 0.3.0 (M3)
 
-**Status: built and tested with a simulated provider — not complete.** Acceptance criterion 9, a live run on the deployed relay with a real Gemini key, has not been done: there is no key yet (owner decision D4), and this build environment cannot reach Google's API or RxNav. Everything else below was run and verified. **I am stopping here for your decision; M2 or any further milestone will not start without your explicit approval.**
+**Status: built, tested, and run live with Google Gemini on a synthetic case — all nine acceptance criteria met; awaiting your decision.** At your request, the live run (criterion 9) was done in this environment with your free-tier key and the real RxNav service: see [M3-LIVE-RUN.md](M3-LIVE-RUN.md). It found real problems that the simulated tests could not, which are fixed and tested. One check remains for the deployment itself: open `/api/status` on the Netlify site once it is deployed. **M2 or any further milestone will not start without your explicit approval.**
 
 The plan, with your decisions D1–D4, is in [M3-PLAN.md](M3-PLAN.md).
 
@@ -34,13 +34,14 @@ D1 (M1 approved), D2 (AI before M2, doses wait for M2), D3 (general knowledge al
 | Check | Result |
 |---|---|
 | TypeScript, strict (`npm run typecheck`) | No errors |
-| Unit tests (`npm test`) | **220 passed** of 220, in 17 files — 68 of them for M3 (relay 22, Netlify Function 4, client 8, reading 20, drafting 14) |
+| Unit tests (`npm test`) | **226 passed** of 226, in 17 files — 74 of them for M3 (relay 26, Netlify Function 4, client 9, reading 20, drafting 15) |
 | Production build (`npm run build`) | Built; service worker precaches 28 files |
 | End-to-end tests (`npm run test:e2e`, Chromium, phone size) | **19 passed** of 19 — 6 new for M3, and all 13 earlier M1 tests still pass |
+| Live run (`e2e/m3-live.spec.ts`, real Gemini and RxNav) | **Passed**: 12 of 12 calls succeeded, 22 of 22 values read correctly, all 8 modules drafted (237 suggestions), every safety check held — [details](M3-LIVE-RUN.md) |
 
 The M3 end-to-end tests run the real relay code and the real Gemini adapter; only the final HTTPS call to Google is answered by a stand-in in Gemini's response format (`e2e/ai-relay.ts`, `e2e/ai-fixtures.ts`). The stand-in's answers deliberately include what the app must catch.
 
-Mutation checks (a safeguard switched off on purpose, to see that a test notices): disabling the free-key refusal, the spending cap, the limit on trainee-only fields, or the limit on trainee-only checklist items each made a test fail; each was restored.
+Mutation checks (a safeguard switched off on purpose, to see that a test notices): disabling the free-key refusal, the spending cap, the limit on trainee-only fields, the limit on trainee-only checklist items, or the rule that a dose may use only cited data each made a test fail; each was restored.
 
 ## 4. What the model never drafts (new in code, from Section 24)
 
@@ -65,7 +66,7 @@ While preparing the tests I found that the drafts could pre-fill fields that rec
 | 6 | A Clinical Case is refused on a free-tier key, Teaching Cases offered | The app shows the refusal and disables reading and drafting; a request sent directly to the relay gets 403 `free_key_clinical`; nothing reaches the model (E2E, unit). With the key declared paid, the same case is analysed and its patient name, MRN and consultant never appear in anything sent — including a name typed into a note (E2E). | **Met** |
 | 7 | The four hostile fixtures (Section 21, adapted) | A reference to data not sent (E99) → removed, shown as "no source"; a number not in the data → removed; a dose ("30 mg") → withheld; a citation ("Smith et al., 2019") → removed — each flagged on the suggestion (unit and E2E). | **Met** |
 | 8 | No bulk approve; accept never pre-selected; a rejection records its reason | No "all" button on the checking or drafting screens; the focused element is never Confirm/Accept; Reject stays disabled until a reason is typed; the reason is in the audit log (E2E, unit). | **Met** |
-| 9 | Live extraction and analysis of a synthetic case on the deployed relay | Needs your Gemini key and the Netlify deploy; this environment cannot reach Google's API. | **Not done** |
+| 9 | Live extraction and analysis of a synthetic case | Done here at your request, with your key and Google's real service, through the relay code and the app in a browser: 22 of 22 values read correctly, the illegible dose not guessed, all 8 modules drafted, no identifier, date, citation or unsupported number anywhere ([M3-LIVE-RUN.md](M3-LIVE-RUN.md)). The Netlify site itself is checked after deployment (`/api/status`). | **Met** |
 
 ## 6. Demonstration
 
@@ -101,7 +102,9 @@ Screenshots from the end-to-end tests (synthetic data, phone size) are in [scree
 
 ## 8. Incomplete, known limitations, and honest caveats
 
-- **No live run yet (criterion 9).** The Gemini adapter and the RxNorm connector are tested only against responses in the published formats. Real model quality — reading handwriting, layout, Arabic text, how often its readings disagree — is unknown until the live run and, later, the fixture library of the release gate.
+- **The live run covered one synthetic case.** Real handwriting, poor photographs and Arabic text were not covered; the fixture library of the release gate measures that.
+- **The free tier is not enough for regular use**: 20 requests per model per day, and frequent "high demand" refusals (10 of 24 calls in the first live run). Clinical Cases need a paid key in any case.
+- **On Netlify, set `PRECEPTOR_THINKING=extract=low,analyse=low`.** With the model's default thinking, two drafts took nearly 30 seconds, Netlify's limit; at "low" the slowest call took 15.6 s. The relay now stops at 25 s with a clear message.
 - **The key class is declared, not detected.** The provider offers no way to ask whether a key is free or paid; the relay trusts `PRECEPTOR_KEY_CLASS` and assumes *free* when it is not set.
 - **Doses are withheld** in every draft until the M2 calculators exist; dosing tasks show "[dose withheld — to be calculated]".
 - **No evidence library yet**: general-knowledge statements carry no source by design (D3); the evidence that would back them comes in a later milestone. The spec's M5 criterion ("the app says so rather than answering from model knowledge") conflicts with D3 and must be re-decided then.
@@ -109,20 +112,19 @@ Screenshots from the end-to-end tests (synthetic data, phone size) are in [scree
 - **Cost estimates are deliberately high** (2.5 characters per token and the full output allowance are reserved), so the cap can refuse slightly before the true limit.
 - **Changing the model list** in Netlify takes effect on the next deploy (no code change). Switching between models already on the list is immediate, in Settings.
 - **Highlighting in typed documents** matches what was read; where a date was sent as a hospital day, the longest matching part is highlighted.
-- **Main script size** is 556 kB (180 kB compressed); the build warns above 500 kB. It loads once and is cached for offline use.
+- **Main script size** is about 556 kB (180 kB compressed); the build warns above 500 kB. It loads once and is cached for offline use.
 - **Release gate unchanged:** no real patient data until the department head's written authorisation, a paid key, M1–M6 accepted and the fixture library passed.
 
-## 9. What I need from you to finish M3
+## 9. What remains outside this environment
 
-1. A Gemini API key from Google AI Studio (free tier is enough for the synthetic check).
-2. The site deployed on Netlify from this branch, with the environment variables in the README ("AI service"). `PRECEPTOR_MODELS` takes the current model ids and prices from Google's pages.
-3. Then either you run the synthetic walkthrough on the deployed site, or you let me run it here: in this session's cloud environment menu (title bar → Edit → Network access), add `generativelanguage.googleapis.com` and `rxnav.nlm.nih.gov` under Allowed domains, leaving "Allow package managers" ticked (steps: https://code.claude.com/docs/en/cloud-environments#network-access), and add the key in the same Edit screen under Network secrets (or as an environment variable named `GEMINI_API_KEY`); a new session picks it up. Never paste the key into the chat or the repository.
+1. Deploy this branch on Netlify with the environment variables in the README ("AI service"), including `PRECEPTOR_THINKING=extract=low,analyse=low`. `PRECEPTOR_MODELS` takes current model ids and prices from Google's pages (the live run used gemini-3.8-flash).
+2. Open `https://<your-site>/api/status`: it should answer `"configured": true` with your models. Then run one synthetic case on the site.
 
 ## 10. Your decision
 
 Please choose one:
 
-- **Accept M3 after the live run** — you deploy and run the check (or enable it here), then confirm.
+- **Accept M3** — the live run is done; the Netlify check above can follow the deployment.
 - **Request changes** to M3 — tell me what to change; I will fix it and report again.
 - **Approve the next milestone (M2, calculators)** — only once you are satisfied with M3.
 
@@ -132,6 +134,7 @@ Please choose one:
 
 - **ما بُني:** بعد إدخال ملف المريض يظهر زر **التالي: تحليل الملف**. يقرأ النموذج كل مستند (بعد إخفاء المعرّفات وتحويل التواريخ إلى أيام الإقامة، والصور بعد التغطية فقط)، ثم تتحقق أنت من كل قيمة على حدة بجانب المصدر (تأكيد أو تصحيح أو رفض)، ثم يكتب النموذج مسودة للمهام الثلاثين وحدةً وحدة من السجل المؤكَّد فقط، وتقرر أنت كل اقتراح منفرداً (قبول أو تعديل أو رفض مع سبب). لا يوجد «قبول الكل».
 - **الضوابط في الكود:** حذف أي إحالة لبيانات لم تُرسل، وأي رقم غير موجود في بيانات الحالة، وحجب الجرعات حتى حاسبات M2، وحذف الاستشهادات وأسماء المراجع التجارية، ووسم المعرفة العامة بـ«بلا مصدر وغير متحقق منها»، ومنع النموذج من تعبئة ما لا يسجّله إلا المتدرب (ما تم فعله، والنتائج، والمصادر).
-- **الاختبارات:** 220 اختبار وحدة و19 اختبار متصفح، كلها ناجحة.
+- **التشغيل الحي (16 أكتوبر 2026، بمفتاحك وبيانات مصطنعة):** نجحت 12 من 12 استدعاء، وقُرئت 22 من 22 قيمة بشكل صحيح، ولم تُخمَّن الجرعة غير المقروءة، وكُتبت مسودات الوحدات الثماني (237 اقتراحاً)، ولم يُرسل أي معرّف أو تاريخ، ولم يظهر أي استشهاد أو رقم من خارج بيانات الحالة.
+- **الاختبارات:** 226 اختبار وحدة و19 اختبار متصفح، كلها ناجحة.
 - **تصحيح:** ذكرتُ سابقاً أن المواصفات تمنع المفتاح المجاني، وهذا خطأ؛ المفتاح المجاني مسموح مع **الحالات التعليمية (بيانات مصطنعة)**، والممنوع هو إرسال **الحالة السريرية** بمفتاح مجاني.
-- **لم يكتمل بعد:** التشغيل الحي على Netlify بمفتاحك (المعيار 9)، لأن هذه البيئة لا تصل إلى خوادم Google وRxNav.
+- **بقي خارج هذه البيئة:** نشر الموقع على Netlify والتحقق من `/api/status`، مع ضبط `PRECEPTOR_THINKING=extract=low,analyse=low`.

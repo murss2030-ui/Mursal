@@ -299,14 +299,69 @@ describe('usage counters', () => {
   });
 });
 
+describe('limits learned from the live run (16 October 2026)', () => {
+  it('reads a thinking level per task, and refuses anything else', () => {
+    expect(config({ PRECEPTOR_THINKING: 'extract=low, analyse=medium' }).thinking).toEqual({ extract: 'low', analyse: 'medium' });
+    expect(config().thinking).toEqual({});
+    const bad = readConfig({ GEMINI_API_KEY: 'k', PRECEPTOR_MODELS: 'model-a:1:4', PRECEPTOR_THINKING: 'extract=deep,polish=low' });
+    expect(bad.ok && bad.problems.filter((p) => p.startsWith('PRECEPTOR_THINKING'))).toHaveLength(2);
+    expect(config().providerTimeoutMs).toBe(25_000);
+  });
+
+  it('passes the task’s thinking level to the provider, and only when one is set', async () => {
+    const p = ok();
+    await handleModel(post(body({ task: 'extract' })), { config: config({ PRECEPTOR_THINKING: 'extract=low' }), store: memoryStore(), provider: p, now: () => NOW });
+    await handleModel(post(body({ task: 'analyse' })), { config: config({ PRECEPTOR_THINKING: 'extract=low' }), store: memoryStore(), provider: p, now: () => NOW });
+    expect(p.calls.map((c) => c.thinking)).toEqual(['low', undefined]);
+    const gemini = buildGeminiBody({ ...p.calls[0]!, thinking: 'low' }) as { generationConfig: Record<string, unknown> };
+    expect(gemini.generationConfig.thinkingConfig).toEqual({ thinkingLevel: 'low' });
+    expect((buildGeminiBody({ ...p.calls[1]! }) as { generationConfig: Record<string, unknown> }).generationConfig).not.toHaveProperty('thinkingConfig');
+  });
+
+  it('gives up before the hosting limit with a clear answer, and keeps the estimate counted', async () => {
+    const store = memoryStore();
+    const slow = provider(
+      (input) =>
+        new Promise((_, reject) => {
+          input.signal?.addEventListener('abort', () => reject(new ProviderError('provider_timeout', 'The model took too long to answer.')));
+        }),
+    );
+    const c = config({ PRECEPTOR_PROVIDER_TIMEOUT_MS: '30' });
+    const res = await handleModel(post(body()), { config: c, store, provider: slow, now: () => NOW });
+    expect(res.status).toBe(504);
+    const err = await errorOf(res);
+    expect(err.code).toBe('provider_timeout');
+    expect(err.message).toContain('the most this server can wait');
+    const month = store.dump()['budget-2026-10'] as { spentUsd: number; calls: number };
+    expect(month.calls).toBe(1);
+    expect(month.spentUsd).toBeCloseTo(estimateCost({ ...body(), maxOutputTokens: 1000 }, { inputPerM: 1, outputPerM: 4 }, 1600).costUsd, 6);
+  });
+
+  it('tells a daily quota apart from a per-minute limit', () => {
+    const quota = (quotaId: string) => ({
+      error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'You exceeded your current quota.', details: [{ '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId }] }] },
+    });
+    const code = (b: unknown) => {
+      try {
+        readGeminiResponse(429, b);
+      } catch (e) {
+        return (e as ProviderError).code;
+      }
+      return 'no error';
+    };
+    expect(code(quota('GenerateRequestsPerDayPerProjectPerModel-FreeTier'))).toBe('provider_quota_exhausted');
+    expect(code(quota('GenerateRequestsPerMinutePerProjectPerModel-FreeTier'))).toBe('provider_rate_limited');
+  });
+});
+
 describe('Gemini adapter', () => {
-  it('translates the schema dialect to Gemini types', () => {
+  it('translates the schema dialect to Gemini types, leaving out the array limits Gemini refused live', () => {
     expect(toGeminiSchema(S.obj({ a: S.enumOf(['x', 'y']), b: S.numOrNull(), c: S.arr(S.str(), 5) }))).toEqual({
       type: 'OBJECT',
       properties: {
         a: { type: 'STRING', format: 'enum', enum: ['x', 'y'] },
         b: { type: 'NUMBER', nullable: true },
-        c: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 5 },
+        c: { type: 'ARRAY', items: { type: 'STRING' } },
       },
       required: ['a', 'b', 'c'],
       propertyOrdering: ['a', 'b', 'c'],

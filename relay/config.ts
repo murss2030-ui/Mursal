@@ -5,6 +5,7 @@
  * retired model is replaced without rebuilding anything.
  */
 import { MODEL_TASKS, type ModelTask } from '../src/ai/protocol';
+import { THINKING_LEVELS, type ThinkingLevel } from './providers/types';
 
 export interface Price {
   inputPerM: number;
@@ -27,6 +28,10 @@ export interface RelayConfig {
   maxOutputTokens: number;
   imageTokenEstimate: number;
   maxRequestBytes: number;
+  /** Thinking level per task (PRECEPTOR_THINKING); unset tasks use the model's default. */
+  thinking: Partial<Record<ModelTask, ThinkingLevel>>;
+  /** The relay gives up on the provider after this long, so the hosting platform's own limit is never reached. */
+  providerTimeoutMs: number;
 }
 
 export type ConfigResult = { ok: true; config: RelayConfig; problems: string[] } | { ok: false; problems: string[] };
@@ -55,6 +60,7 @@ function positive(raw: string | undefined, fallback: number, problems: string[],
 /**
  * PRECEPTOR_MODELS is a comma-separated list of `model-id:inputUsdPerMillion:outputUsdPerMillion`.
  * PRECEPTOR_SUGGESTED is a comma-separated list of `task=model-id` (task: extract, analyse, verify).
+ * PRECEPTOR_THINKING is a comma-separated list of `task=level` (minimal, low, medium, high).
  */
 export function readConfig(env: Record<string, string | undefined>): ConfigResult {
   const problems: string[] = [];
@@ -93,6 +99,14 @@ export function readConfig(env: Record<string, string | undefined>): ConfigResul
     else suggested[task as ModelTask] = id;
   }
 
+  const thinking: Partial<Record<ModelTask, ThinkingLevel>> = {};
+  for (const item of (env.PRECEPTOR_THINKING ?? '').split(',').map((x) => x.trim()).filter(Boolean)) {
+    const [task, level] = item.split('=').map((x) => x.trim().toLowerCase());
+    if (!task || !level || !(MODEL_TASKS as readonly string[]).includes(task) || !(THINKING_LEVELS as readonly string[]).includes(level)) {
+      problems.push(`PRECEPTOR_THINKING: "${item}" is not task=level (levels: ${THINKING_LEVELS.join(', ')}).`);
+    } else thinking[task as ModelTask] = level as ThinkingLevel;
+  }
+
   const keyClassRaw = (env.PRECEPTOR_KEY_CLASS ?? 'free').trim().toLowerCase();
   if (keyClassRaw !== 'free' && keyClassRaw !== 'paid') problems.push('PRECEPTOR_KEY_CLASS must be "free" or "paid"; "free" is assumed.');
 
@@ -111,6 +125,9 @@ export function readConfig(env: Record<string, string | undefined>): ConfigResul
     maxOutputTokens: positive(env.PRECEPTOR_MAX_OUTPUT_TOKENS, 8192, problems, 'PRECEPTOR_MAX_OUTPUT_TOKENS', true),
     imageTokenEstimate: positive(env.PRECEPTOR_IMAGE_TOKENS, 1600, problems, 'PRECEPTOR_IMAGE_TOKENS', true),
     maxRequestBytes: positive(env.PRECEPTOR_MAX_REQUEST_BYTES, 7 * 1024 * 1024, problems, 'PRECEPTOR_MAX_REQUEST_BYTES', true),
+    thinking,
+    // Netlify stops a synchronous function after 30 seconds; the relay answers clearly before that.
+    providerTimeoutMs: positive(env.PRECEPTOR_PROVIDER_TIMEOUT_MS, 25_000, problems, 'PRECEPTOR_PROVIDER_TIMEOUT_MS', true),
   };
   return { ok: true, config, problems };
 }

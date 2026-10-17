@@ -238,22 +238,24 @@ function geminiError(status: number, code: string, message: string): Response {
   return new Response(JSON.stringify({ error: { code: status, status: code, message } }), { status, headers: { 'content-type': 'application/json' } });
 }
 
-/** A fetch that answers Gemini's generateContent like the service does (format of recorded responses). */
-export function fakeGemini(calls: ProviderCall[], expectedKey: string): typeof fetch {
-  return (async (input: string | URL | Request, init?: RequestInit) => {
-    const url = String(input);
-    const m = /^https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\/([^/:]+):generateContent$/.exec(url);
-    const headers = new Headers(init?.headers);
-    const body = JSON.parse(String(init?.body ?? '{}')) as {
-      systemInstruction?: { parts?: { text?: string }[] };
-      contents?: { parts?: ({ text?: string } | { inlineData?: { mimeType: string; data: string } })[] }[];
-      generationConfig?: { responseMimeType?: string; responseSchema?: { type?: string } };
-    };
-    const parts = body.contents?.[0]?.parts ?? [];
-    const texts = parts.map((p) => ('text' in p ? (p.text ?? '') : '')).filter(Boolean);
-    const images = parts.flatMap((p) => ('inlineData' in p && p.inlineData ? [p.inlineData.data] : []));
-    const header = texts[0] ?? '';
-    const call: ProviderCall = {
+type GeminiBody = {
+  systemInstruction?: { parts?: { text?: string }[] };
+  contents?: { parts?: ({ text?: string } | { inlineData?: { mimeType: string; data: string } })[] }[];
+  generationConfig?: { responseMimeType?: string; responseSchema?: { type?: string } };
+};
+
+/** What a generateContent request carries, as the tests inspect it (shared by the stand-in and the live recorder). */
+export function describeGeminiRequest(input: string | URL | Request, init?: RequestInit): { call: ProviderCall; body: GeminiBody; texts: string[]; endpoint: boolean } {
+  const url = String(input);
+  const m = /^https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\/([^/:]+):generateContent$/.exec(url);
+  const headers = new Headers(init?.headers);
+  const body = JSON.parse(String(init?.body ?? '{}')) as GeminiBody;
+  const parts = body.contents?.[0]?.parts ?? [];
+  const texts = parts.map((p) => ('text' in p ? (p.text ?? '') : '')).filter(Boolean);
+  const images = parts.flatMap((p) => ('inlineData' in p && p.inlineData ? [p.inlineData.data] : []));
+  const header = texts[0] ?? '';
+  return {
+    call: {
       url,
       model: m ? decodeURIComponent(m[1]!) : '',
       apiKey: headers.get('x-goog-api-key'),
@@ -262,12 +264,27 @@ export function fakeGemini(calls: ProviderCall[], expectedKey: string): typeof f
       module: /^MODULE: (\w+)/m.exec(header)?.[1],
       text: texts.join('\n'),
       images,
-    };
+    },
+    body,
+    texts,
+    endpoint: Boolean(m) && init?.method === 'POST',
+  };
+}
+
+const hasKey = (node: unknown, key: string): boolean =>
+  Array.isArray(node) ? node.some((x) => hasKey(x, key)) : typeof node === 'object' && node !== null && Object.entries(node).some(([k, v]) => k === key || hasKey(v, key));
+
+/** A fetch that answers Gemini's generateContent like the service does (format of recorded responses). */
+export function fakeGemini(calls: ProviderCall[], expectedKey: string): typeof fetch {
+  return (async (input: string | URL | Request, init?: RequestInit) => {
+    const { call, body, texts, endpoint } = describeGeminiRequest(input, init);
+    const images = call.images;
     calls.push(call);
-    if (!m || init?.method !== 'POST') return geminiError(404, 'NOT_FOUND', 'Unknown endpoint.');
+    if (!endpoint) return geminiError(404, 'NOT_FOUND', 'Unknown endpoint.');
     if (call.apiKey !== expectedKey) return geminiError(403, 'PERMISSION_DENIED', 'API key not valid.');
-    if (!body.systemInstruction?.parts?.[0]?.text || body.generationConfig?.responseMimeType !== 'application/json' || body.generationConfig.responseSchema?.type !== 'OBJECT') {
-      return geminiError(400, 'INVALID_ARGUMENT', 'Invalid request.');
+    // As in the live run of 16 October 2026: Gemini refused the reading schema while it carried maxItems.
+    if (!body.systemInstruction?.parts?.[0]?.text || body.generationConfig?.responseMimeType !== 'application/json' || body.generationConfig.responseSchema?.type !== 'OBJECT' || hasKey(body.generationConfig.responseSchema, 'maxItems')) {
+      return geminiError(400, 'INVALID_ARGUMENT', 'Request contains an invalid argument.');
     }
     if (!PROVIDER_MODELS.includes(call.model)) return geminiError(404, 'NOT_FOUND', `models/${call.model} is not found for API version v1beta, or is not supported for generateContent.`);
 
@@ -279,7 +296,7 @@ export function fakeGemini(calls: ProviderCall[], expectedKey: string): typeof f
       output = draftModule(JSON.parse(texts[1] ?? '{}') as CaseData);
     }
     const out = JSON.stringify(output);
-    const prompt = Math.ceil((texts.join('').length + (body.systemInstruction.parts[0].text ?? '').length) / 4) + images.length * 1290;
+    const prompt = Math.ceil((texts.join('').length + (body.systemInstruction?.parts?.[0]?.text ?? '').length) / 4) + images.length * 1290;
     const candidates = Math.ceil(out.length / 4);
     return new Response(
       JSON.stringify({

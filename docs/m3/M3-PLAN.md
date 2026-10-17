@@ -1,6 +1,6 @@
 # PRECEPTOR — M3 plan: the patient file read by the model, and case analysis for the 30 tasks
 
-**Status:** built and tested with a simulated provider on 16 October 2026; acceptance criteria 1–8 met, criterion 9 (live run) pending — see the [M3 report](M3-REPORT.md). M1 (with Revision 1) was approved by the owner on 16 October 2026.
+**Status:** built, tested, and run live with Google Gemini on a synthetic case on 16 October 2026; all nine acceptance criteria met — see the [M3 report](M3-REPORT.md) and the [live run](M3-LIVE-RUN.md). M1 (with Revision 1) was approved by the owner on 16 October 2026.
 
 ## 1. Owner decisions that change the specification (16 October 2026)
 

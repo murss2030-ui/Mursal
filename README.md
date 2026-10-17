@@ -25,7 +25,7 @@ PRECEPTOR does not replace a clinical pharmacist. It never makes a clinical deci
 | Milestone | State |
 |---|---|
 | M1 — Case and timeline core, with Revision 1 (patient-file intake and the Clinical Modules) | Accepted by the owner on 16 October 2026 ([report](docs/m1/M1-REPORT.md)) |
-| M3 — The patient file read by the model, and AI drafts for the 30 tasks (moved before M2 by the owner's decision of 16 October 2026) | Built and tested with a simulated provider; **not yet accepted**: the live run on the deployed relay with the owner's key is still to do ([plan](docs/m3/M3-PLAN.md), [report](docs/m3/M3-REPORT.md)) |
+| M3 — The patient file read by the model, and AI drafts for the 30 tasks (moved before M2 by the owner's decision of 16 October 2026) | Built, tested, and run live with Google Gemini on a synthetic case; awaiting the owner's acceptance ([plan](docs/m3/M3-PLAN.md), [report](docs/m3/M3-REPORT.md), [live run](docs/m3/M3-LIVE-RUN.md)) |
 | M2 — Calculation and rules | Plan prepared ([plan](docs/m2/M2-PLAN.md)); not started |
 | M4–M9 | Not started (each begins only after the previous one is accepted) |
 
@@ -68,12 +68,15 @@ The AI features need the relay deployed with the site and an API key. Without it
    | `PRECEPTOR_MONTHLY_BUDGET_USD` | the hard monthly cap (default `5`). Each call's cost is estimated generously and reserved before the call, then corrected to the tokens actually used; a call that could exceed the cap is refused. |
    | `PRECEPTOR_ACCESS_CODE` | optional but recommended: a code the trainee enters in Settings → AI service, so that only they can use the relay |
    | `PRECEPTOR_RATE_PER_MINUTE`, `PRECEPTOR_RATE_PER_DAY` | per-installation limits (defaults `10` and `200`) |
+   | `PRECEPTOR_THINKING` | recommended: how much the model reasons before answering, per task, e.g. `extract=low,analyse=low` (levels `minimal`, `low`, `medium`, `high`; unset = the model's default). In the live run, the default made one reading take 26 s and two drafts nearly 30 s; at `low` the same reading took under 4 s. |
+   | `PRECEPTOR_PROVIDER_TIMEOUT_MS` | how long the relay waits for the model (default `25000`). Netlify stops a function after 30 s; the relay answers clearly before that, and counts the call's full estimate against the budget. |
    | `PRECEPTOR_MODEL_PATTERN`, `PRECEPTOR_DEFAULT_PRICE` | optional: also allow model ids matching a pattern, at a default price `input:output` |
    | `PRECEPTOR_MAX_OUTPUT_TOKENS`, `PRECEPTOR_IMAGE_TOKENS`, `PRECEPTOR_MAX_REQUEST_BYTES` | optional limits (defaults `8192`, `1600`, 7 MB) |
 
 3. **Deploy** (Netlify applies environment-variable changes on the next deploy; no code change is needed). Open `https://<your-site>/api/status`: it should answer JSON with `"configured": true` and your models.
 4. **In the app**, open Settings → AI service: check the status, the key class and the budget, enter the access code if you set one, choose a model for reading and one for analysis, and save.
 5. **When Google retires a model**, choose another model from the list in Settings straight away, then update `PRECEPTOR_MODELS` at leisure. Keeping two or three models on the list avoids any interruption.
+6. **Free-tier limits.** In the live run, Google's free tier allowed **20 requests per model per day**, and often answered "high demand" (the app retries such a refusal once, after 4 seconds). Reading a document takes two requests (it is read twice) and drafting takes eight (one per module), so a free key covers about one synthetic case per model per day. Listing two models and choosing one for reading and another for drafting doubles that. A paid key has far higher limits.
 
 The relay's code is in `relay/` (provider-independent; one module per provider, `relay/providers/gemini.ts` today) and `netlify/functions/model.mts`.
 
@@ -99,6 +102,16 @@ npm run test:e2e   # end-to-end tests (Playwright, Chromium) against the product
 The end-to-end tests run against `vite preview` of the production build, because the service worker and the Content-Security-Policy exist only there. Run `npm run build` first.
 
 The AI tests (`e2e/m3-ai.spec.ts`) need no key and no network: the app's calls to `/api` run the real relay code and Gemini adapter inside the test, and only the final call to Google is answered by a stand-in that replies in Gemini's response format (`e2e/ai-relay.ts`, `e2e/ai-fixtures.ts`). The same suite scans the built app for API keys, the provider's address and model names.
+
+The live run (`e2e/m3-live.spec.ts`) uses Google's real service and RxNav on a synthetic case, and runs only when asked for (it needs network access and uses the provider's quota):
+
+```bash
+PRECEPTOR_LIVE=1 PRECEPTOR_LIVE_READ=<model-id> PRECEPTOR_LIVE_DRAFT=<model-id> \
+PRECEPTOR_LIVE_THINKING=extract=low,analyse=low PRECEPTOR_LIVE_PRICE=<input>:<output> \
+NODE_USE_ENV_PROXY=1 npx playwright test e2e/m3-live.spec.ts
+```
+
+The key is read from `GEMINI_API_KEY`, or added by the environment's proxy. Results go to `test-results/live/`.
 
 ### Layout
 
