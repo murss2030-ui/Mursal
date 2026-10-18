@@ -32,6 +32,9 @@ import { ModulePage } from './screens/ModulePage';
 import { SourceViewer } from './screens/SourceViewer';
 import { TaskPage } from './screens/TaskPage';
 import { CalculatorScreen, CalculatorsScreen } from './calc/CalculatorsScreen';
+import { CaseAlertsGate } from './rules/SafetyViews';
+import { CausalityScreen, isCausalityMethod } from './rules/Causality';
+import { isReferenceKind, ReferenceEditor, ReferenceHub, ReferenceList } from './screens/Reference';
 import { TextSourceEditor } from './screens/TextSourceEditor';
 import { Workflow } from './screens/Workflow';
 
@@ -72,6 +75,7 @@ function Route({ path, query }: { path: string; query: URLSearchParams }): React
   if ((m = match('/cases/:id/item/new/:register', path))) {
     return <ItemEditor caseId={m.id!} mode={{ kind: 'new', register: m.register! }} query={query} />;
   }
+  if ((m = match('/cases/:id/item/:itemId/causality/:method', path)) && isCausalityMethod(m.method!)) return <CausalityScreen caseId={m.id!} itemId={m.itemId!} method={m.method} />;
   if ((m = match('/cases/:id/item/:itemId', path))) return <ItemEditor caseId={m.id!} mode={{ kind: 'edit', itemId: m.itemId! }} query={query} />;
   if ((m = match('/cases/:id', path))) return <CaseView caseId={m.id!} tab="modules" />;
   if ((m = match('/cases/:id/:tab', path))) return <CaseView caseId={m.id!} tab={m.tab!} />;
@@ -86,7 +90,26 @@ function Route({ path, query }: { path: string; query: URLSearchParams }): React
   if (path === '/settings') return <Settings />;
   if (path === '/settings/ai') return <AiSettingsScreen />;
   if (path === '/about') return <About />;
+  if (path === '/reference') return <ReferenceHub />;
+  if ((m = match('/reference/:kind', path)) && isReferenceKind(m.kind!)) return <ReferenceList kind={m.kind} />;
+  if ((m = match('/reference/:kind/new', path)) && isReferenceKind(m.kind!)) return <ReferenceEditor kind={m.kind} query={query} />;
+  if ((m = match('/reference/:kind/:id', path)) && isReferenceKind(m.kind!)) return <ReferenceEditor kind={m.kind} id={m.id!} />;
   return <Home />;
+}
+
+/**
+ * The case screens where an unacknowledged critical alert interrupts. Not the
+ * editors: there the trainee is entering or correcting the record, and the
+ * alert is shown again (or not, if the correction resolved it) on return.
+ */
+const INTERRUPTING = ['/cases/:id', '/cases/:id/:tab', '/cases/:id/modules/:moduleId', '/cases/:id/task/:taskId', '/cases/:id/calc/:calcId'];
+
+function interruptingCaseId(path: string): string | undefined {
+  for (const p of INTERRUPTING) {
+    const m = match(p, path);
+    if (m && m.id !== 'new' && m.tab !== 'intake') return m.id;
+  }
+  return undefined;
 }
 
 function OfflineIndicator() {
@@ -132,6 +155,7 @@ export function Shell() {
   useIdleLock(session, prefs.idleLockMinutes);
 
   const active = (prefix: string) => (prefix === '/' ? path === '/' : path === prefix || path.startsWith(`${prefix}/`));
+  const alertCase = interruptingCaseId(path);
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
@@ -171,6 +195,7 @@ export function Shell() {
       <main className="mx-auto w-full max-w-screen-md flex-1 px-4 pb-44 pt-4">
         <Route path={path} query={query} />
       </main>
+      {alertCase && <CaseAlertsGate key={alertCase} caseId={alertCase} />}
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <p

@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { calcValidationPlugin } from './scripts/calc-validation';
+import { datasetsPlugin } from './scripts/datasets-plugin';
 
 /**
  * Content-Security-Policy for the production build.
@@ -47,6 +48,7 @@ export default defineConfig({
     react(),
     cspMeta(),
     calcValidationPlugin(),
+    datasetsPlugin(),
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
@@ -71,7 +73,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,mjs,css,html,png,svg,webmanifest,woff2}'],
+        // json: the offline datasets (public/data), each checked against its SHA-256 before use.
+        globPatterns: ['**/*.{js,mjs,css,html,png,svg,webmanifest,woff2,json}'],
         // The PDF renderer's worker (used only when a PDF is added) is about 1.4 MB.
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         navigateFallback: 'index.html',

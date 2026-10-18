@@ -20,6 +20,7 @@ import { useSession } from '../session-context';
 import { ChoicePills, MultiPills } from './choice-controls';
 import { SourcePeek } from './SourceViewer';
 import { itemTitle } from './RegisterList';
+import { CausalityPanel } from '../rules/Causality';
 
 type Mode =
   | { kind: 'new'; register: string }
@@ -314,6 +315,7 @@ function EditorBody({
           )}
         </div>
       )}
+      {item?.register === 'adr' && item.status === 'active' && <CausalityPanel b={b} item={item} readOnly={readOnly} />}
       {item && <History itemId={item.id} />}
       {item && (
         <p className="text-xs text-slate-600">

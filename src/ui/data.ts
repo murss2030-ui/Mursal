@@ -1,9 +1,11 @@
 import type {
+  AlertAck,
   Attachment,
   AuditEvent,
   Case,
   CaseAnalysis,
   CaseIdentifiers,
+  CausalityAssessment,
   ExtractionRun,
   FormDraft,
   RegisterItem,
@@ -11,8 +13,10 @@ import type {
   TaskRecord,
   TimelineEntry,
   TraineeSettings,
+  Versioned,
 } from '../domain/types';
 import type { CalcResult } from '../calc/types';
+import type { ReferenceKind } from '../domain/reference';
 import { useLiveDecoded } from './hooks';
 
 export const useRotations = () =>
@@ -133,6 +137,28 @@ export const useExtractions = (caseId: string) =>
   useLiveDecoded(
     (s) => s.rawExtractions(caseId),
     (s, rows): Promise<ExtractionRun[]> => s.decodeExtractions(rows),
+    [caseId],
+  );
+
+/** M2: the trainee's reference tables (latest version of every record). */
+export const useReference = <T extends Versioned>(kind: ReferenceKind) =>
+  useLiveDecoded(
+    (s) => s.rawReference(kind),
+    (s, rows): Promise<T[]> => s.decodeReference<T>(kind, rows),
+    [kind],
+  );
+
+export const useAlertAcks = (caseId: string) =>
+  useLiveDecoded(
+    (s) => s.rawAlertAcks(caseId),
+    (s, rows): Promise<AlertAck[]> => s.decodeAlertAcks(rows),
+    [caseId],
+  );
+
+export const useCausality = (caseId: string) =>
+  useLiveDecoded(
+    (s) => s.rawCausality(caseId),
+    (s, rows): Promise<CausalityAssessment[]> => s.decodeCausality(rows),
     [caseId],
   );
 

@@ -23,11 +23,11 @@ export function Resources() {
         <span className="flex-1">{t('res.guidelines')}</span>
         <Chip>{t('nav.notYet', { m: 'M5' })}</Chip>
       </div>
-      <div className={`${row} text-slate-500`} aria-disabled="true">
-        <Icon name="pill" className="h-5 w-5" />
+      <a href="#/reference" className={`${row} hover:border-teal-600`}>
+        <Icon name="pill" className="h-5 w-5 text-teal-800" />
         <span className="flex-1">{t('res.formulary')}</span>
-        <Chip>{t('nav.notYet', { m: 'M2' })}</Chip>
-      </div>
+        <Icon name="chevron-forward" className="h-5 w-5 text-slate-500" />
+      </a>
     </div>
   );
 }

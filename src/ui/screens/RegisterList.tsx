@@ -6,6 +6,7 @@ import type { CaseBundle } from '../case-bundle';
 import { Icon } from '../components/Icon';
 import { ProvenanceBadge } from '../components/ProvenanceBadge';
 import { DayLabel, LinkButton } from '../components/ui';
+import { CausalityChips } from '../rules/Causality';
 
 const CHIP_TONE: Record<string, string> = {
   critical: 'bg-rose-100 text-rose-900 border-rose-300',
@@ -102,6 +103,7 @@ export function ItemCard({ i, b, taskId }: { i: RegisterItem; b: CaseBundle; tas
           );
         })}
         {i.register === 'monitoring' && <MonitoringDue i={i} today={b.today} />}
+        {i.register === 'adr' && <CausalityChips b={b} item={i} />}
         {i.register === 'home_med' && i.fields.sources && i.fields.sources.split('|').length < 2 && (
           <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">
             <Icon name="alert-triangle" className="h-3.5 w-3.5" />

@@ -106,6 +106,34 @@ describe('Sections 7–10 and the references, from the Clinical Modules', () => 
     expect(cell(view, 7, ix.id, 's7.mechanism')).toEqual({ kind: 'empty' });
   });
 
+  it('Section 7 keeps the automatic check apart from the trainee rows, and says when it could not be made', () => {
+    const ix = item('interaction', { kind: 'drug_drug', drugA: 'clarithromycin', drugB: 'simvastatin', severity: 'contraindicated', management: 'Hold simvastatin', source: 'Product label' });
+    const notInstalled = section(deriveForm(ctx({ items: [ix], automaticInteractions: { checked: false, reason: 'Drug–drug interactions were not checked: no dataset.' } })), 7);
+    expect(notInstalled.automatic).toEqual({ checked: false, reason: 'Drug–drug interactions were not checked: no dataset.' });
+    expect(notInstalled.table!.rows.map((r) => r.key)).toEqual([ix.id]);
+
+    const checked = section(
+      deriveForm(
+        ctx({
+          items: [ix],
+          automaticInteractions: { checked: true, source: 'Dataset X v1', rows: [{ key: 'interaction:m1+m2:1+2', drugA: 'ibuprofen', drugB: 'enoxaparin', severity: 'major', mechanism: 'additive bleeding risk' }] },
+        }),
+      ),
+      7,
+    );
+    expect(checked.automatic?.checked).toBe(true);
+    const row = checked.automatic!.checked ? checked.automatic!.rows[0]! : undefined;
+    const at = (k: string) => texts(row!.cells.find((c) => c.key === k)!.state);
+    expect(at('s7.drugA')).toEqual(['ibuprofen']);
+    expect(at('s7.severity')).toEqual(['major']);
+    expect(at('s7.management')).toEqual(['Not given by the dataset — Source: Dataset X v1']);
+    // The automatic rows never carry the trainee's provenance and never enter the trainee's table.
+    expect(row!.cells.every((c) => c.state.kind !== 'value' || c.state.items.every((i) => i.provenance === undefined))).toBe(true);
+    expect(checked.table!.rows.map((r) => r.key)).toEqual([ix.id]);
+    // Without the rules engine (M1 callers), nothing automatic is claimed.
+    expect(section(deriveForm(ctx({ items: [ix] })), 7).automatic).toBeUndefined();
+  });
+
   it('Section 7 says only "none recorded" when Task 6 is done with no interaction — otherwise it is missing', () => {
     expect(section(deriveForm(ctx()), 7).table!.emptyState).toEqual({ kind: 'missing' });
     const done = section(deriveForm(ctx({ tasks: [task('t06', 'done')] })), 7).table!.emptyState;

@@ -37,6 +37,13 @@ describe('alert acknowledgements and firings', () => {
     const { firings } = await store.allAlertRecords();
     expect(firings.map((f) => f.dataHash).sort()).toEqual(['abc123', 'changed']);
   });
+
+  it('two screens recording the same alert at the same moment count it once', async () => {
+    const { store, c } = await setup();
+    const counts = await Promise.all([store.recordAlertFirings(c.id, [alert]), store.recordAlertFirings(c.id, [alert]), store.recordAlertFirings(c.id, [alert])]);
+    expect(counts.sort()).toEqual([0, 0, 1]);
+    expect((await store.allAlertRecords()).firings).toHaveLength(1);
+  });
 });
 
 describe('causality questionnaires on an ADR row', () => {

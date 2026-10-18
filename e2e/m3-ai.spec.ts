@@ -186,7 +186,7 @@ test('Teaching Case: Next → the model reads the file → each value checked �
   await page.getByText(/^Decided \(2\)$/).click();
   await expect(page.locator('[data-testid="suggestion"][data-decision="rejected"]')).toContainText('No source; I will check my reference');
 
-  // A dose that is not in the data is withheld — calculators come in M2.
+  // A dose that is not in the data is withheld — a dose comes only from a tested calculator.
   await page.goto(`/#/cases/${caseId}/task/t09`);
   const enox = suggestion(page, 'enoxaparin');
   await expect(enox.locator('[data-check="dose_withheld"]')).toBeVisible();

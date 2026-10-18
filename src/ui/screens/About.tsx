@@ -5,6 +5,7 @@ import { useI18n } from '../../i18n/i18n';
 import { IntendedUseStatement } from '../components/IntendedUse';
 import { ProvenanceBadge } from '../components/ProvenanceBadge';
 import { Banner, Card, PageTitle } from '../components/ui';
+import { DatasetStatus } from '../rules/DatasetStatus';
 
 export function About() {
   const { t } = useI18n();
@@ -48,6 +49,7 @@ export function About() {
       <Card title={t('about.sources')}>
         <p className="text-sm text-slate-700">{t('about.sourcesText')}</p>
       </Card>
+      <DatasetStatus />
     </div>
   );
 }

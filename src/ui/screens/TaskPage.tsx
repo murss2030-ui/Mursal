@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { MODULE_BY_ID, MODULES, TASKS, type CheckDef, type ScopedSection, type TaskDef, type TaskFieldDef } from '../../domain/workflow/catalogue';
 import { readiness, type ReadinessItem } from '../../domain/workflow/readiness';
 import { appliesKey, normalizeTaskInput, scopedKey, taskProgress, TASK_STATUSES, type TaskInput } from '../../domain/workflow/tasks';
@@ -19,6 +19,8 @@ import { TaskPanels } from './panels';
 import { RegisterList } from './RegisterList';
 import { AiDraft } from './AiDraft';
 import { TaskCalculators } from '../calc/TaskCalculators';
+import { InlineAlertTags, TaskAlerts } from '../rules/SafetyViews';
+import { useCaseRules } from '../rules/useCaseRules';
 import { GATED_ANSWERS, renalDoseReviewGate, type GateResult } from '../../calc/gate';
 
 type Flat = Record<string, string>;
@@ -273,6 +275,7 @@ function ScopedBlock({
   disabled,
   kind,
   gateFor,
+  tagsFor,
   errors,
   caseId,
 }: {
@@ -286,6 +289,8 @@ function ScopedBlock({
   kind: 'medication' | 'problem';
   /** M2: the Verify gate of an assessment made per row (Task 8 renal dose review). */
   gateFor?: (rowId: string) => GateResult | undefined;
+  /** M2: the safety alerts of this task about one row (a medication), shown on the row itself. */
+  tagsFor?: (rowId: string) => ReactNode;
   errors?: Record<string, string>;
   caseId: string;
 }) {
@@ -321,6 +326,7 @@ function ScopedBlock({
                     {r.subtitle}
                   </span>
                 )}
+                {tagsFor?.(r.id)}
               </span>
               <span className="shrink-0 text-xs text-slate-600">
                 {sec.applies && applies === 'no' ? t('task.notApplicableShort') : <Num>{`${answered}/${total}`}</Num>}
@@ -396,6 +402,7 @@ function Worksheet({ def, b, rec }: { def: TaskDef; b: CaseBundle; rec: TaskReco
   const { store } = useSession();
   const initial = flatten(rec);
   const draft = usePersistentDraft<Flat>(`task:${b.case.id}:${def.id}`, initial);
+  const rules = useCaseRules(b);
   const v = draft.values;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<number>();
@@ -506,6 +513,8 @@ function Worksheet({ def, b, rec }: { def: TaskDef; b: CaseBundle; rec: TaskReco
         </div>
       </section>
 
+      <TaskAlerts b={b} taskId={def.id} />
+
       {draft.restored && dirty && (
         <Banner tone="info">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -584,6 +593,7 @@ function Worksheet({ def, b, rec }: { def: TaskDef; b: CaseBundle; rec: TaskReco
               const course = b.activeCourses.find((c) => c.medId === medId);
               return course ? renalDoseReviewGate(b.calcContext, course) : undefined;
             } : undefined}
+            tagsFor={(medId) => (rules.ready ? <InlineAlertTags alerts={rules.forMed(medId).filter((a) => a.taskId === def.id)} /> : null)}
             errors={errors}
             caseId={caseId}
           />

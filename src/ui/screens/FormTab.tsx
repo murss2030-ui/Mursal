@@ -13,6 +13,10 @@ import { CALC_BY_ID } from '../../calc/registry';
 import { indexTimeline } from '../../domain/timeline';
 import { usePersistentDraft } from '../hooks';
 import { useSession } from '../session-context';
+import { useCaseBundle } from '../case-bundle';
+import { DATASETS } from '../../drugs/useVocabulary';
+import { useCaseRules } from '../rules/useCaseRules';
+import type { FormContext } from '../../domain/form/derive';
 
 function Label({ l }: { l: FormLabel }) {
   const { lang } = useI18n();
@@ -194,6 +198,25 @@ function SectionCard({ s, caseId, readOnly, draft }: { s: FormSectionView; caseI
     >
       <div data-section={s.number}>
         {s.number === 1 && <p className="mb-2 text-xs text-slate-600">{t('form.calcNote')}</p>}
+        {s.automatic && (
+          <div className="mb-3 flex flex-col gap-2 rounded-xl border border-dashed border-slate-400 p-3" data-testid="form-automatic-interactions" data-checked={s.automatic.checked}>
+            <h3 className="text-sm font-semibold text-slate-900">{t('form.s7.automatic')}</h3>
+            {!s.automatic.checked ? (
+              <p className="text-sm text-amber-900">{s.automatic.reason}</p>
+            ) : s.automatic.rows.length === 0 ? (
+              <p className="text-sm text-slate-800">{t('form.s7.noneFound', { source: s.automatic.source })}</p>
+            ) : (
+              s.automatic.rows.map((r) => (
+                <div key={r.key} className="rounded-lg border border-slate-200 bg-slate-50 p-2" data-row={r.key}>
+                  {r.cells.map((cell) => (
+                    <FieldRow key={cell.key} f={cell} caseId={caseId} readOnly draft={draft} />
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+        {s.automatic && <h3 className="text-sm font-semibold text-slate-900">{t('form.s7.trainee')}</h3>}
         {s.fields.map((f) => (
           <FieldRow key={f.key} f={f} caseId={caseId} readOnly={readOnly} draft={draft} />
         ))}
@@ -267,6 +290,8 @@ export function FormTab({ c }: { c: Case }) {
   const items = useItems(c.id);
   const tasks = useTasks(c.id);
   const calcs = useCalcResults(c.id);
+  const bundle = useCaseBundle(c.id);
+  const rules = useCaseRules(bundle.status === 'ready' ? bundle.b : undefined);
   const [mode, setMode] = useState<CopyMode>('teaching'); // Teaching copy is the default (Section 15)
   const [editing, setEditing] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string>();
@@ -280,7 +305,15 @@ export function FormTab({ c }: { c: Case }) {
     trainee.status === 'ready' &&
     items.status === 'ready' &&
     tasks.status === 'ready' &&
-    calcs.status === 'ready';
+    calcs.status === 'ready' &&
+    rules.ready;
+  const automaticInteractions = useMemo((): FormContext['automaticInteractions'] => {
+    if (!rules.ready) return undefined;
+    const notChecked = rules.notChecked.find((n) => n.what === 'interactions');
+    if (notChecked) return { checked: false, reason: notChecked.reason.en };
+    const found = rules.alerts.filter((a) => a.interaction);
+    return { checked: true, source: found[0]?.source.en ?? DATASETS.interactions?.source ?? '', rows: found.map((a) => ({ key: a.key, ...a.interaction! })) };
+  }, [rules.ready, rules.notChecked, rules.alerts]);
   const view = useMemo(
     () =>
       ready
@@ -294,10 +327,11 @@ export function FormTab({ c }: { c: Case }) {
             tasks: tasks.data,
             calcResults: calcs.data,
             calcOutOfDate: outOfDate(c, entries.data, calcs.data),
+            ...(automaticInteractions ? { automaticInteractions } : {}),
             mode,
           })
         : null,
-    [ready, c, ids, entries, formDraft, trainee, items, tasks, calcs, mode],
+    [ready, c, ids, entries, formDraft, trainee, items, tasks, calcs, automaticInteractions, mode],
   );
   if (!view) return <p className="text-slate-600">{t('common.loading')}</p>;
 

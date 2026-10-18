@@ -1455,8 +1455,17 @@ export class Store {
     return { firings: await this.openRows<AlertFiring>('alertFirings', f), acks: await this.openRows<AlertAck>('alertAcks', a) };
   }
 
+  /** Firings are recorded one call at a time, so two screens showing the same alert count it once. */
+  private firingQueue: Promise<unknown> = Promise.resolve();
+
   /** Record the alerts shown for the first time (one record per key and data hash). */
-  async recordAlertFirings(caseId: string, alerts: readonly Pick<Alert, 'key' | 'ruleId' | 'level' | 'dataHash'>[]): Promise<number> {
+  recordAlertFirings(caseId: string, alerts: readonly Pick<Alert, 'key' | 'ruleId' | 'level' | 'dataHash'>[]): Promise<number> {
+    const run = this.firingQueue.then(() => this.recordFreshFirings(caseId, alerts));
+    this.firingQueue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async recordFreshFirings(caseId: string, alerts: readonly Pick<Alert, 'key' | 'ruleId' | 'level' | 'dataHash'>[]): Promise<number> {
     if (!alerts.length) return 0;
     const seen = new Set((await this.openRows<AlertFiring>('alertFirings', await this.db.alertFirings.where('caseId').equals(caseId).toArray())).map((f) => `${f.key}#${f.dataHash}`));
     const fresh = alerts.filter((a) => !seen.has(`${a.key}#${a.dataHash}`));

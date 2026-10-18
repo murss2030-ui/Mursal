@@ -8,6 +8,9 @@ import { ProvenanceBadge } from '../components/ProvenanceBadge';
 import { Banner, Card, DayLabel, LinkButton, Num } from '../components/ui';
 import { useEntries } from '../data';
 import { ENTRY_ICONS, entryTermId, entryText } from '../format';
+import { useCaseBundle } from '../case-bundle';
+import { AlertBadges, DrugMatchLine } from '../rules/SafetyViews';
+import { useCaseRules } from '../rules/useCaseRules';
 
 type Filter = 'all' | 'labs' | 'vitals' | 'meds' | 'notes' | 'other';
 const FILTERS: Filter[] = ['all', 'labs', 'vitals', 'meds', 'notes', 'other'];
@@ -137,6 +140,8 @@ export function TimelineTab({ c }: { c: Case }) {
   const readOnly = c.status === 'archived';
 
   const idx = useMemo(() => (entries.status === 'ready' ? indexTimeline(entries.data) : null), [entries]);
+  const bundle = useCaseBundle(c.id);
+  const rules = useCaseRules(bundle.status === 'ready' ? bundle.b : undefined);
   if (entries.status === 'loading' || !idx) return <p className="text-slate-600">{t('common.loading')}</p>;
   if (entries.status === 'error') return <Banner tone="danger">{entries.error.message}</Banner>;
 
@@ -172,6 +177,8 @@ export function TimelineTab({ c }: { c: Case }) {
                     {t('tl.since', { d: m.startDay })}
                     {m.indication ? ` · ${m.indication}` : ''}
                   </p>
+                  {rules.ready && <DrugMatchLine name={m.drug} rules={rules} />}
+                  {rules.ready && <AlertBadges alerts={rules.forMed(m.medId)} rules={rules} caseId={c.id} />}
                 </div>
                 {!readOnly && (
                   <div className="flex gap-1">

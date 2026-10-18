@@ -211,6 +211,13 @@ function interactionRule(ctx: RulesContext, ds: readonly DrugRef[], add: (a: Ale
               dataHash: hash(`${pair}|${hit.severity}|${hit.onc}|${ctx.interactions.version}`),
               medIds: [a.medId!, b.medId!],
               taskId: 't06',
+              interaction: {
+                drugA: a.label,
+                drugB: b.label,
+                severity: sev,
+                ...(hit.mechanism ? { mechanism: hit.mechanism } : {}),
+                ...(hit.management ? { management: hit.management } : {}),
+              },
             });
           }
         }

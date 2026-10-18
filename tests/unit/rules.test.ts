@@ -165,6 +165,9 @@ describe('interactions', () => {
     expect(level('omeprazole')).toBe('informational');
     expect(level('vancomycin')).toBe('critical');
     expect(a.find((y) => y.title.en.includes('ibuprofen'))!.detail.en).toContain('Mechanism: additive bleeding risk');
+    // The dataset's own fields travel with the alert, for the automatic rows of form Section 7.
+    expect(a.find((y) => y.title.en.includes('ibuprofen'))!.interaction).toEqual({ drugA: 'enoxaparin', drugB: 'ibuprofen', severity: 'major', mechanism: 'additive bleeding risk', management: 'monitor' });
+    expect(a.find((y) => y.title.en.includes('vancomycin'))!.interaction).toMatchObject({ severity: 'ONC high-priority' });
   });
 });
 

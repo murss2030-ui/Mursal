@@ -15,6 +15,10 @@
  */
 import { L } from '../domain/label';
 
+export const NARANJO_CITATION =
+  'Naranjo CA, Busto U, Sellers EM, et al. A method for estimating the probability of adverse drug reactions. Clin Pharmacol Ther 1981;30(2):239–245.';
+export const UMC_CITATION = 'Uppsala Monitoring Centre. The use of the WHO-UMC system for standardised case causality assessment.';
+
 // ---------------------------------------------------------------- Naranjo
 
 export type NaranjoAnswer = 'yes' | 'no' | 'unknown';

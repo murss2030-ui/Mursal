@@ -252,15 +252,6 @@ const TASK_LIST: readonly TaskDef[] = [
         ck('discrepancies_resolved', 'Unintentional discrepancies communicated to the prescriber', 'تم إبلاغ الطبيب بالتباينات غير المقصودة'),
       ],
     },
-    later: [
-      {
-        milestone: 'M2',
-        what: L(
-          'A local formulary and brand-name alias table to match local brands to generic names.',
-          'دستور دوائي محلي وجدول للأسماء التجارية لمطابقة الأسماء التجارية المحلية بالأسماء العلمية.',
-        ),
-      },
-    ],
   },
   {
     id: 't22',
@@ -373,15 +364,6 @@ const TASK_LIST: readonly TaskDef[] = [
         ck('administration', 'Administration checked (dilution, compatibility, crushing, infusion time)', 'تمت مراجعة طريقة الإعطاء (التخفيف، التوافق، السحق، مدة التسريب)'),
       ],
     },
-    later: [
-      {
-        milestone: 'M2',
-        what: L(
-          'The rules engine flags allergy matches, duplications and required renal adjustments automatically.',
-          'يشير محرك القواعد تلقائياً إلى تطابق الحساسية والازدواجية والتعديلات الكلوية المطلوبة.',
-        ),
-      },
-    ],
   },
   {
     id: 't04',
@@ -517,15 +499,6 @@ const TASK_LIST: readonly TaskDef[] = [
         ck('informed', 'Patient or caregiver told the warning signs', 'تم إعلام المريض أو مقدم الرعاية بعلامات الخطر'),
       ],
     },
-    later: [
-      {
-        milestone: 'M2',
-        what: L(
-          'A high-alert flag in your local formulary (maintained by you), used by the rules engine.',
-          'علامة «عالي الخطورة» في الدستور الدوائي المحلي (تديره أنت) يستخدمها محرك القواعد.',
-        ),
-      },
-    ],
   },
 
   // ============================================================ 3 · Dosing
@@ -687,8 +660,8 @@ const TASK_LIST: readonly TaskDef[] = [
       {
         milestone: 'M2',
         what: L(
-          'DDInter 2.0 and the ONC high-priority list stored on the device and checked automatically, with three alert levels.',
-          'بيانات DDInter 2.0 وقائمة ONC عالية الأولوية مخزنة على الجهاز وتُفحص تلقائياً مع ثلاثة مستويات للتنبيه.',
+          'DDInter 2.0 and the ONC high-priority list on the device, checked automatically. The checking and its three alert levels are built; the datasets are not installed yet, because their sites could not be reached — until then, interactions are listed as not checked.',
+          'بيانات DDInter 2.0 وقائمة ONC عالية الأولوية على الجهاز وفحصها تلقائياً. الفحص ومستويات التنبيه الثلاثة مبنية؛ أما البيانات فلم تُثبَّت بعد لتعذّر الوصول إلى مواقعها — وحتى ذلك الحين تُذكر التداخلات على أنها لم تُفحص.',
         ),
       },
     ],
@@ -723,15 +696,6 @@ const TASK_LIST: readonly TaskDef[] = [
         ck('history_updated', 'Allergy and ADR history updated if confirmed', 'تم تحديث سجل الحساسية والتفاعلات الضارة عند التأكيد'),
       ],
     },
-    later: [
-      {
-        milestone: 'M2',
-        what: L(
-          'Naranjo and WHO-UMC causality questionnaires, scored deterministically.',
-          'استبيانا السببية Naranjo وWHO-UMC بحساب ثابت لا يعتمد على الذكاء الاصطناعي.',
-        ),
-      },
-    ],
   },
   {
     id: 't26',
@@ -899,8 +863,8 @@ const TASK_LIST: readonly TaskDef[] = [
       {
         milestone: 'M2',
         what: L(
-          'WHO AWaRe tagging of every antimicrobial, a time-out prompt at 48–72 hours and a de-escalation prompt when a culture result is entered.',
-          'تصنيف AWaRe لكل مضاد ميكروبي، وتنبيه للمراجعة عند 48–72 ساعة، وتنبيه للتضييق عند إدخال نتيجة زرع.',
+          'WHO AWaRe tagging of every antimicrobial. The 48–72-hour time-out and the de-escalation prompt are built; the AWaRe 2025 file is not installed yet, because the WHO site could not be reached.',
+          'تصنيف AWaRe لكل مضاد ميكروبي. تنبيه المراجعة عند 48–72 ساعة وتنبيه التضييق مبنيان؛ أما ملف AWaRe 2025 فلم يُثبَّت بعد لتعذّر الوصول إلى موقع منظمة الصحة العالمية.',
         ),
       },
     ],
@@ -975,7 +939,6 @@ const TASK_LIST: readonly TaskDef[] = [
       ],
       fields: [{ id: 'impact', kind: 'longtext', label: L('Optimisation proposed and its expected impact', 'التحسين المقترح وأثره المتوقع') }],
     },
-    later: [{ milestone: 'M2', what: L('A local formulary with an availability flag for each drug.', 'دستور دوائي محلي مع علامة توفر لكل دواء.') }],
   },
 
   // ============================================================ 6 · Rounds & follow-up

@@ -8,6 +8,7 @@ import { Icon } from '../components/Icon';
 import { ProgressBar } from '../components/Progress';
 import { Banner, LinkButton, Num } from '../components/ui';
 import { MODULE_STYLE } from '../modules-style';
+import { CaseSafety } from '../rules/SafetyViews';
 
 /** A task's status as a compact, labelled marker. Shape and text, not colour alone, carry the state. */
 export function StatusDot({ n, status, solid }: { n: number; status: TaskStatus; solid: string }) {
@@ -132,6 +133,8 @@ export function ModulesHub({ caseId }: { caseId: string }) {
       ) : (
         <Banner tone="success">{t('hub.allDone')}</Banner>
       )}
+
+      <CaseSafety b={b} />
 
       <a href={`#/cases/${b.case.id}/calc`} className="surface flex items-center gap-3 p-4 hover:shadow-lift" data-testid="open-calculators">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-900">

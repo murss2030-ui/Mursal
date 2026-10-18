@@ -6,10 +6,10 @@
 import { useMemo } from 'react';
 import { hospitalDayOf } from '../domain/dates';
 import { deriveMedCourses, deriveProblems, indexTimeline, type MedCourse, type ProblemThread } from '../domain/timeline';
-import type { Attachment, Case, CaseAnalysis, CaseIdentifiers, RegisterId, RegisterItem, TaskRecord, TimelineEntry } from '../domain/types';
+import type { Attachment, Case, CaseAnalysis, CaseIdentifiers, CausalityAssessment, RegisterId, RegisterItem, TaskRecord, TimelineEntry } from '../domain/types';
 import { analysisStale } from '../store/store';
 import { indexTasks } from '../domain/workflow/tasks';
-import { useAnalyses, useAttachments, useCalcResults, useCaseVersions, useEntries, useExtractions, useIdentifiers, useItems, useTasks } from './data';
+import { useAnalyses, useAttachments, useCalcResults, useCausality, useCaseVersions, useEntries, useExtractions, useIdentifiers, useItems, useTasks } from './data';
 import { pendingFromRuns } from '../calc/currency';
 import type { GatherContext } from '../calc/gather';
 import type { CalcResult } from '../calc/types';
@@ -38,6 +38,8 @@ export interface CaseBundle {
   /** M2: every calculation result, oldest first, and what the calculators read. */
   calcResults: CalcResult[];
   calcContext: GatherContext;
+  /** M2: the latest Naranjo and WHO-UMC assessment of each suspected ADR. */
+  causalityOf: (itemId: string) => CausalityAssessment[];
 }
 
 export type BundleState = { status: 'loading' } | { status: 'error'; error: Error } | { status: 'missing' } | { status: 'ready'; b: CaseBundle };
@@ -53,9 +55,10 @@ export function useCaseBundle(caseId: string): BundleState {
   const analyses = useAnalyses(caseId);
   const calcs = useCalcResults(caseId);
   const runs = useExtractions(caseId);
+  const causality = useCausality(caseId);
   const today = store.today();
   return useMemo((): BundleState => {
-    const all = [versions, entries, tasks, items, atts, ids, analyses, calcs, runs];
+    const all = [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality];
     const err = all.find((x) => x.status === 'error');
     if (err && err.status === 'error') return { status: 'error', error: err.error };
     if (
@@ -67,7 +70,8 @@ export function useCaseBundle(caseId: string): BundleState {
       ids.status !== 'ready' ||
       analyses.status !== 'ready' ||
       calcs.status !== 'ready' ||
-      runs.status !== 'ready'
+      runs.status !== 'ready' ||
+      causality.status !== 'ready'
     ) {
       return { status: 'loading' };
     }
@@ -101,7 +105,8 @@ export function useCaseBundle(caseId: string): BundleState {
         draftOf: (m) => drafts.get(m),
         calcResults: calcs.data,
         calcContext: { demographics: c.demographics, current, pending: pendingFromRuns(runs.data, activeIds) },
+        causalityOf: (itemId) => causality.data.filter((a) => a.itemId === itemId),
       },
     };
-  }, [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, today]);
+  }, [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, today]);
 }

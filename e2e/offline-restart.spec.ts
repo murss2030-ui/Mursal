@@ -42,5 +42,10 @@ test('a case survives a full browser restart with the device offline and the ser
   // Still fully usable offline: record another entry.
   await addCreatinine(page, caseId, '1.6', '3');
   await expect(page.getByTestId('timeline-entry')).toHaveCount(2);
+
+  // The safety checks run offline too: the drug vocabulary comes from the app's own cache, checksum verified.
+  await page.goto(`${base}/#/cases/${caseId}`);
+  await expect(page.getByTestId('safety-card')).toContainText('No alerts from the checks that could be made.');
+  await expect(page.getByTestId('safety-card')).not.toContainText('could not be loaded');
   await ctx.close();
 });

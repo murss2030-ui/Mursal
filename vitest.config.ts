@@ -1,8 +1,9 @@
 import { defineConfig } from 'vitest/config';
 import { calcValidationPlugin } from './scripts/calc-validation';
+import { datasetsPlugin } from './scripts/datasets-plugin';
 
 export default defineConfig({
-  plugins: [calcValidationPlugin()],
+  plugins: [calcValidationPlugin(), datasetsPlugin()],
   test: {
     include: ['tests/unit/**/*.test.ts', 'tests/calc/**/*.test.ts'],
     environment: 'node',

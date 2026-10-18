@@ -48,6 +48,8 @@ export interface Alert {
   entryIds?: string[];
   /** The task worksheet where it is acted on. */
   taskId?: string;
+  /** Interaction alerts: the dataset's own fields, for the automatic rows of form Section 7. */
+  interaction?: { drugA: string; drugB: string; severity: string; mechanism?: string; management?: string };
 }
 
 /** Something the engine could not check — reported, never treated as safe. */

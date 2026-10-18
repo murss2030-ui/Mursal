@@ -114,6 +114,8 @@ export interface FormSectionView {
   title: FormLabel;
   fields: FormFieldView[];
   table?: FormTableView;
+  /** Section 7 (M2): rows from PRECEPTOR's offline check, each with its source, never mixed with the trainee's rows. */
+  automatic?: { checked: false; reason: string } | { checked: true; source: string; rows: FormRowView[] };
   /** `ticked` is present only when the state is a value: an unticked box then means "not recorded", never "no problem". */
   checkboxes?: { labels: readonly FormLabel[]; state: FieldState; ticked?: readonly boolean[] };
 }
@@ -146,7 +148,22 @@ export interface FormContext {
   /** M2: calculation results (BMI, CrCl, eGFR for Section 1), oldest first, and which are out of date. */
   calcResults?: readonly CalcResult[];
   calcOutOfDate?: ReadonlySet<string>;
+  /**
+   * M2: the rules engine's interaction check for Section 7, kept apart from
+   * the trainee's rows. `checked: false` when no interaction dataset is
+   * installed (or it failed to load): the reason is shown, never "none".
+   */
+  automaticInteractions?: { checked: false; reason: string } | { checked: true; source: string; rows: readonly AutomaticInteraction[] };
   mode: CopyMode;
+}
+
+export interface AutomaticInteraction {
+  key: string;
+  drugA: string;
+  drugB: string;
+  severity: string;
+  mechanism?: string;
+  management?: string;
 }
 
 // ---------------------------------------------------------------- helpers
@@ -621,10 +638,30 @@ function section7(ctx: FormContext): FormSectionView {
     };
   });
   const done = taskDone(ctx, 't06');
+  const auto = ctx.automaticInteractions;
+  const automatic: FormSectionView['automatic'] = !auto
+    ? undefined
+    : !auto.checked
+      ? { checked: false, reason: auto.reason }
+      : {
+          checked: true,
+          source: auto.source,
+          rows: auto.rows.map((r) => ({
+            key: r.key,
+            cells: [
+              f('s7.drugA', value([{ text: r.drugA }])),
+              f('s7.drugB', value([{ text: r.drugB }])),
+              f('s7.severity', value([{ text: r.severity }])),
+              f('s7.mechanism', r.mechanism ? value([{ text: r.mechanism }]) : EMPTY),
+              f('s7.management', value([{ text: `${r.management ?? 'Not given by the dataset'} — Source: ${auto.source}` }])),
+            ],
+          })),
+        };
   return {
     number: 7,
     title: SECTION_TITLES[7]!,
     fields: [],
+    ...(automatic ? { automatic } : {}),
     table: {
       columns: ['s7.drugA', 's7.drugB', 's7.severity', 's7.mechanism', 's7.management'],
       rows,

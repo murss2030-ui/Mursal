@@ -1,6 +1,6 @@
 # PRECEPTOR — M2 implementation plan (Calculation and rules)
 
-**Status:** plan only, prepared 13 October 2026 and updated 16 October 2026 for M1 Revision 1 (patient-file intake and the Clinical Modules). No M2 code exists. M2 starts only after (1) the owner approves M1 and (2) the owner answers the decisions in Section 5. (The earlier precondition — the branch pushed to GitHub with the remote head verified — is met.)
+**Status:** plan prepared 13 October 2026, updated 16 October 2026 for M1 Revision 1. M2 was started on the owner's "go ahead" of 17 October 2026 and built on 17–18 October 2026; the decisions of Section 5 were applied as their proposed defaults where the work needed them, pending the owner's confirmation. Results, blockers and the decisions still open: [M2-REPORT.md](M2-REPORT.md).
 
 ## 1. Where M2 sits in the whole product
 

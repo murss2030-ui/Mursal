@@ -422,8 +422,8 @@ const INTERACTION: RegisterDef = {
       required: true,
       label: L('Where you checked it', 'أين تحققت منه'),
       hint: L(
-        'Name the source you consulted yourself. PRECEPTOR did not check it — automatic checking with DDInter arrives in M2.',
-        'اذكر المصدر الذي رجعت إليه بنفسك. لم يتحقق PRECEPTOR منه — الفحص الآلي باستخدام DDInter يأتي في M2.',
+        'Name the source you consulted yourself. PRECEPTOR’s own offline check is shown separately on the safety card, never in this row.',
+        'اذكر المصدر الذي رجعت إليه بنفسك. يُعرض فحص PRECEPTOR المحلي منفصلاً في بطاقة السلامة، ولا يظهر أبداً في هذا السطر.',
       ),
     },
     {
@@ -510,8 +510,8 @@ const ADR: RegisterDef = {
       kind: 'choice',
       label: L('Causality — your WHO-UMC category', 'السببية — تصنيفك وفق WHO-UMC'),
       hint: L(
-        'Your own judgement. Structured Naranjo and WHO-UMC questionnaires arrive in M2.',
-        'تقديرك الشخصي. الاستبيانات المنظّمة لـ Naranjo وWHO-UMC تأتي في M2.',
+        'Your own judgement. Once the row is saved, the Naranjo and WHO-UMC questionnaires open from it; their results never change this answer.',
+        'تقديرك الشخصي. بعد حفظ السطر تُفتح منه استبيانات Naranjo وWHO-UMC؛ ونتائجها لا تغيّر هذه الإجابة أبداً.',
       ),
       options: [
         c('certain', 'Certain', 'مؤكد'),

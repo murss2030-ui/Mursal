@@ -26,7 +26,7 @@ PRECEPTOR does not replace a clinical pharmacist. It never makes a clinical deci
 |---|---|
 | M1 — Case and timeline core, with Revision 1 (patient-file intake and the Clinical Modules) | Accepted by the owner on 16 October 2026 ([report](docs/m1/M1-REPORT.md)) |
 | M3 — The patient file read by the model, and AI drafts for the 30 tasks (moved before M2 by the owner's decision of 16 October 2026) | Accepted by the owner on 17 October 2026, after a live run with Google Gemini on a synthetic case ([plan](docs/m3/M3-PLAN.md), [report](docs/m3/M3-REPORT.md), [live run](docs/m3/M3-LIVE-RUN.md)) |
-| M2 — Calculation and rules | Plan prepared ([plan](docs/m2/M2-PLAN.md)); not started |
+| M2 — Calculation and rules | Built and tested, **not complete**: the interaction and AWaRe datasets cannot be downloaded from the build environment yet, and the vancomycin no-level path needs a decision. Waiting for the owner ([plan](docs/m2/M2-PLAN.md), [report](docs/m2/M2-REPORT.md), [test values for review](docs/m2/CALCULATOR-FIXTURES.md)) |
 | M4–M9 | Not started (each begins only after the previous one is accepted) |
 
 What M1 contains: an encrypted local record (AES-GCM, key derived from a passphrase), rotations, Teaching and Clinical Cases, manual entry on an append-only timeline dated by hospital day, correction by supersession, an append-only audit log, the eight provenance states, the department's 11-section form as an on-screen review with missing-data flags, encrypted backup and restore, Arabic and English with right-to-left layout, and an offline-capable installable web app.
@@ -37,9 +37,15 @@ M3 adds **Next: Analyse the file**, in three steps the trainee controls:
 
 1. **Read** — the model reads each document of the patient file (identifiers masked again and calendar dates turned into hospital days before sending; only redacted images). Medication pages and handwriting are read twice; a disagreement flags the value. Values are checked in code (units, plausible ranges, error-prone abbreviations, drug names through RxNorm); an illegible value is never guessed.
 2. **Check** — each value read is shown beside the page (with its box on a photographed page) and is **confirmed, corrected or rejected one at a time**. Until confirmed it is used nowhere.
-3. **Draft** — the confirmed record (no identifiers) is sent module by module, and every task worksheet shows the model's draft: checklist answers, register rows, missing data and questions. Each statement says whether it rests on the case data (with references) or on **general knowledge — no source, unverified**. Before anything is shown, code removes references to data that was not sent, numbers not in the case data, **doses (calculators come in M2)**, citations and commercial source names, invalid values, and everything only the trainee can record (what was done, outcomes, sources). Each suggestion is **accepted, edited or rejected with a reason**, one at a time; there is no "accept all". A draft older than the record is locked until drafted again.
+3. **Draft** — the confirmed record (no identifiers) is sent module by module, and every task worksheet shows the model's draft: checklist answers, register rows, missing data and questions. Each statement says whether it rests on the case data (with references) or on **general knowledge — no source, unverified**. Before anything is shown, code removes references to data that was not sent, numbers not in the case data, **doses** (a dose comes only from a tested calculator), citations and commercial source names, invalid values, and everything only the trainee can record (what was done, outcomes, sources). Each suggestion is **accepted, edited or rejected with a reason**, one at a time; there is no "accept all". A draft older than the record is locked until drafted again.
 
 The Clinical Modules stay one tap away throughout, so every task can still be done by hand, offline or without the AI service.
+
+M2 adds the **calculators and the safety checks**, all on the device and without AI:
+
+- **17 tested calculators** (the specification's sixteen and BMI), inside the tasks that use them and on the case's Calculators screen. Every result shows its formula, each value used with where it came from, the units, the steps and the assumptions; it is stored, never overwritten, and marked out of date when its inputs change. A missing or unconfirmed input is refused by name; an implausible value needs confirmation; a calculator that has not passed its tests is hidden, with the reason. The renal dose review stays locked until its required data is recorded.
+- **Safety checks with three alert levels**: a documented allergy or previous ADR (by ingredient and drug class), duplication, the high-alert flag, laboratory critical values, creatinine rise (KDIGO), renal and hepatic adjustment from your own table, missing data that blocks a dose assessment, the antibiotic time-out and the de-escalation prompt. A **critical** alert blocks the screen until it is acknowledged with a reason (audited); **important** alerts are badges; **informational** notes are collapsed. Whatever could not be checked — an unrecognised drug name, the interaction and AWaRe checks while their data is not installed — is listed, never shown as safe.
+- **Your reference tables**: the local formulary with local brand names and the high-alert flag, the renal and hepatic adjustment table, and the laboratory's critical values — versioned and audited. **Naranjo and WHO-UMC** questionnaires on each suspected ADR, beside your own judgement.
 
 ## Privacy and data
 
@@ -82,7 +88,9 @@ The relay's code is in `relay/` (provider-independent; one module per provider, 
 
 ## Sources and licences
 
-This build contains no third-party clinical content. UpToDate, Medscape, Lexicomp, Micromedex, Clinical Pharmacology, Epocrates, NICE, BNF and NCCN content is not and will not be integrated (Section 4 of the specification), and the model's drafts are cleaned of any such name. The task worksheets were written for PRECEPTOR from general clinical-pharmacy practice and contain no doses or drug-specific thresholds. RxNorm (U.S. National Library of Medicine, via RxNav) is used only to match drug names.
+This build contains no third-party clinical reference text (no monograph, guideline or dosing content). UpToDate, Medscape, Lexicomp, Micromedex, Clinical Pharmacology, Epocrates, NICE, BNF and NCCN content is not and will not be integrated (Section 4 of the specification), and the model's drafts are cleaned of any such name. The task worksheets were written for PRECEPTOR from general clinical-pharmacy practice and contain no doses or drug-specific thresholds. Each calculator cites the published source of its formula.
+
+The offline drug vocabulary (`public/data/rxnorm-subset.json`) is built from RxNorm Current Prescribable Content and RxClass (FDA Established Pharmacologic Classes, VA antimicrobial classes) through the RxNav API. This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product. DDInter 2.0 (CC BY-NC-SA 4.0) and WHO AWaRe (CC BY-NC-SA 3.0 IGO) are not installed yet; when they are, each stays in its own file with its licence, shown on the About screen.
 
 Libraries shipped in the app: React and React DOM (MIT), Dexie and dexie-react-hooks (Apache-2.0), Workbox window (MIT), PDF.js `pdfjs-dist` (Apache-2.0; runs on the device, loaded only when a PDF is added), and the IBM Plex Sans, Sans Arabic and Mono fonts via Fontsource (SIL Open Font License 1.1, bundled — no font server). The relay uses `@netlify/blobs` (MIT) for its counters.
 
@@ -100,6 +108,10 @@ npm run test:e2e   # end-to-end tests (Playwright, Chromium) against the product
 ```
 
 The end-to-end tests run against `vite preview` of the production build, because the service worker and the Content-Security-Policy exist only there. Run `npm run build` first.
+
+**Calculators and their tests.** `npm test` writes `src/calc/validation-manifest.json` when every calculator test ran: per calculator, its formula version and passing tests, and a hash of the engine's code and tests. The build hides any calculator without a passing record — and all of them if `src/calc/` or `tests/calc/` changed after the last full run. After changing either, run `npm test` before `npm run build`, and commit the manifest. `npm run docs:fixtures` regenerates `docs/m2/CALCULATOR-FIXTURES.md` (every test case with the origin of its values, for review).
+
+**Drug data.** `NODE_USE_ENV_PROXY=1 node scripts/data/build-rxnorm.mjs` rebuilds the offline vocabulary from RxNav and records its version, size and SHA-256 in `src/data/datasets.json`; the app refuses the file if the checksum does not match.
 
 The AI tests (`e2e/m3-ai.spec.ts`) need no key and no network: the app's calls to `/api` run the real relay code and Gemini adapter inside the test, and only the final call to Google is answered by a stand-in that replies in Gemini's response format (`e2e/ai-relay.ts`, `e2e/ai-fixtures.ts`). The same suite scans the built app for API keys, the provider's address and model names.
 
@@ -121,6 +133,10 @@ src/
   store/      Dexie schema, append-only guard, encrypted repository, session/lock, backup
   domain/     data model, entry validation, timeline logic, provenance spec, department form
     workflow/ the 30-task catalogue, registers, worksheet progress, readiness checks, identifier check
+  calc/       the calculation engine: units, input specifications, the 17 calculators, the Verify gate, the validation manifest
+  drugs/      the offline drug vocabulary and dataset loaders (checksum-verified), drug-name matching
+  rules/      the safety rules, allergy class words, Naranjo and WHO-UMC
+  data/       the dataset manifest (version, size, SHA-256, licence of each file in public/data)
   ai/         callModel (the only way to the model), settings, RxNorm
     extraction/ reading a document: contract, de-identification, checks, dual pass
     analysis/   drafting a module: payload with references, contract, checks in code, limits
@@ -129,6 +145,7 @@ src/
 relay/        the model relay: configuration, spending cap and rate limits, provider modules
 netlify/functions/  the relay's Netlify Function entry
 tests/unit/   unit tests
+tests/calc/   calculator and engine tests (they write the validation manifest)
 e2e/          end-to-end tests (with the test relay and the provider stand-in)
 docs/         milestone plans and reports, with screenshots
 ```

@@ -4,7 +4,7 @@
  * Pharmacologic Classes (ids as published in RxClass). A word that is also an
  * ingredient name in the singular ("tetracycline", "heparin") is matched as
  * the ingredient; only its plural names the class. The table is vocabulary,
- * not clinical judgement, and is listed for review in docs/m2/M2-REPORT.md.
+ * not clinical judgement, and is listed for review in docs/m2/CALCULATOR-FIXTURES.md.
  */
 import { normaliseName, type DrugClass, type DrugVocabulary } from '../drugs/vocabulary';
 
