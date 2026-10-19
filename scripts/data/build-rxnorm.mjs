@@ -16,7 +16,9 @@
  * verifies the checksum before using the file and never fetches it from
  * anywhere but its own origin.
  *
- * Run: NODE_USE_ENV_PROXY=1 node scripts/data/build-rxnorm.mjs
+ * Run: NODE_USE_ENV_PROXY=1 node scripts/data/build-rxnorm.mjs, then build-epc.mjs (direct EPC
+ * membership and grouping nodes), build-ddinter.mjs and build-aware.mjs — `npm run data:build` runs all four.
+ * This script rewrites the vocabulary file, so the other three must be run again after it.
  * RxNav asks for no more than 20 requests per second; this script stays below 12.
  */
 import { createHash } from 'node:crypto';

@@ -182,9 +182,9 @@ test('the form and the About screen say which checks could not be made, with dat
   await page.goto(`/#/cases/${caseId}/form`);
   const s7 = page.locator('[data-section="7"]');
   const auto = s7.getByTestId('form-automatic-interactions');
-  await expect(auto).toHaveAttribute('data-checked', 'false');
+  await expect(auto).toHaveAttribute('data-checked', 'true');
   await expect(auto).toContainText('Checked automatically by PRECEPTOR (offline)');
-  await expect(auto).toContainText('Drug–drug interactions were not checked');
+  await expect(auto).toContainText('No interaction between the current orders was found in');
   await expect(s7).toContainText('Recorded by you (Task 6)');
 
   await page.goto('/#/about');
@@ -194,8 +194,16 @@ test('the form and the About screen say which checks could not be made, with dat
   await expect(rx).toContainText('RxNorm 05-Oct-2026');
   await rx.getByText('Licence and attribution').click();
   await expect(rx).toContainText('This product uses publicly available data from the U.S. National Library of Medicine (NLM)');
-  await expect(ds.locator('[data-dataset="interactions"]')).toContainText('not installed');
-  await expect(ds.locator('[data-dataset="aware"]')).toContainText('not installed');
+  const ddinter = ds.locator('[data-dataset="interactions"]');
+  await expect(ddinter).toContainText('installed');
+  await expect(ddinter).toContainText('DDInter download files (DDInter 1.0, 2021; re-served by DDInter 2.0, May 2024)');
+  await ddinter.getByText('Licence and attribution').click();
+  await expect(ddinter).toContainText('Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International');
+  const aware = ds.locator('[data-dataset="aware"]');
+  await expect(aware).toContainText('WHO AWaRe classification 2025');
+  await aware.getByText('Licence and attribution').click();
+  await expect(aware).toContainText('Licence: CC BY-NC-SA 3.0 IGO');
+  await expect(ds.locator('[data-dataset="onc"]')).toContainText('not installed');
   await expect(page.getByText('Version 0.4.0 · milestone M2')).toBeVisible();
   await expectFitsWidth(page);
   await shot(page, 'm2-15-about-datasets');
@@ -209,7 +217,7 @@ test('the form and the About screen say which checks could not be made, with dat
   await page.goto(`/#/cases/${caseId}`);
   await expect(page.getByRole('heading', { name: 'فحوص السلامة' })).toBeVisible();
   await expect(page.getByTestId('safety-card')).toContainText('فُحصت دون اتصال');
-  await expect(page.getByTestId('not-checked')).toContainText('لم تُفحص التداخلات الدوائية');
+
   await expectFitsWidth(page);
   await shot(page, 'm2-16-safety-arabic');
 });

@@ -40,6 +40,9 @@ const PAIRS: [QuantityId, number, string, number, string][] = [
   ['qt', 0.44, 's', 440, 'ms'],
   ['dose', 1.25, 'g', 1250, 'mg'],
   ['duration', 90, 'min', 1.5, 'h'],
+  ['dose_rate', 300, 'mcg/kg/h', 5, 'mcg/kg/min'],
+  ['concentration', 1.6, 'mg/mL', 1600, 'mcg/mL'],
+  ['volume', 1.5, 'L', 1500, 'mL'],
 ];
 
 describe('engine:units', () => {

@@ -27,8 +27,8 @@ const RENAL_FAILURE = finding(
     'قصور كلوي شديد: تصفية الكرياتينين أقل من 10 mL/min، أو على الغسيل الدموي',
   ),
   L(
-    'Answer from the record. "Yes" uses the renal-failure form of the equation; sources differ on the cut-off (10–25 mL/min).',
-    'أجب من السجل. «نعم» يستخدم صيغة القصور الكلوي من المعادلة؛ وتختلف المصادر في الحد الفاصل (10–25 mL/min).',
+    'The department’s definition (owner decision, 18 October 2026): creatinine clearance below 10 mL/min, or on haemodialysis. Answer from the record; "Yes" uses the renal-failure form of the equation.',
+    'تعريف القسم (قرار المالك، 18 أكتوبر 2026): تصفية الكرياتينين أقل من 10 mL/min، أو الغسيل الدموي. أجب من السجل؛ «نعم» يستخدم صيغة القصور الكلوي من المعادلة.',
   ),
 );
 
@@ -115,8 +115,8 @@ export const phenytoinCorrected: CalculatorDef = {
       'لا يصح عندما يزيح دواء آخر الفينيتوين عن الألبومين (مثل الفالبروات): قِس المستوى الحر.',
     ),
     L(
-      'Revised coefficients (for example 0.25 or 0.275 instead of 0.2) and other renal cut-offs have been published; this calculator uses the original equations.',
-      'نُشرت معاملات معدّلة (مثل 0.25 أو 0.275 بدلاً من 0.2) وحدود كلوية أخرى؛ وهذه الحاسبة تستخدم المعادلات الأصلية.',
+      'Revised coefficients (for example 0.25 or 0.275 instead of 0.2) and other renal cut-offs have been published; this calculator uses the original equations and the department’s renal definition.',
+      'نُشرت معاملات معدّلة (مثل 0.25 أو 0.275 بدلاً من 0.2) وحدود كلوية أخرى؛ وهذه الحاسبة تستخدم المعادلات الأصلية وتعريف القسم للقصور الكلوي.',
     ),
   ],
 };

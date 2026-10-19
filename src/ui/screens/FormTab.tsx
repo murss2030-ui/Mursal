@@ -203,16 +203,25 @@ function SectionCard({ s, caseId, readOnly, draft }: { s: FormSectionView; caseI
             <h3 className="text-sm font-semibold text-slate-900">{t('form.s7.automatic')}</h3>
             {!s.automatic.checked ? (
               <p className="text-sm text-amber-900">{s.automatic.reason}</p>
-            ) : s.automatic.rows.length === 0 ? (
-              <p className="text-sm text-slate-800">{t('form.s7.noneFound', { source: s.automatic.source })}</p>
             ) : (
-              s.automatic.rows.map((r) => (
-                <div key={r.key} className="rounded-lg border border-slate-200 bg-slate-50 p-2" data-row={r.key}>
-                  {r.cells.map((cell) => (
-                    <FieldRow key={cell.key} f={cell} caseId={caseId} readOnly draft={draft} />
-                  ))}
-                </div>
-              ))
+              <>
+                {s.automatic.rows.length === 0 ? (
+                  <p className="text-sm text-slate-800">{t('form.s7.noneFound', { source: s.automatic.source })}</p>
+                ) : (
+                  s.automatic.rows.map((r) => (
+                    <div key={r.key} className="rounded-lg border border-slate-200 bg-slate-50 p-2" data-row={r.key}>
+                      {r.cells.map((cell) => (
+                        <FieldRow key={cell.key} f={cell} caseId={caseId} readOnly draft={draft} />
+                      ))}
+                    </div>
+                  ))
+                )}
+                {s.automatic.gaps.map((g) => (
+                  <p key={g} className="text-sm text-amber-900" data-testid="form-automatic-gap">
+                    {g}
+                  </p>
+                ))}
+              </>
             )}
           </div>
         )}
@@ -309,10 +318,12 @@ export function FormTab({ c }: { c: Case }) {
     rules.ready;
   const automaticInteractions = useMemo((): FormContext['automaticInteractions'] => {
     if (!rules.ready) return undefined;
-    const notChecked = rules.notChecked.find((n) => n.what === 'interactions');
-    if (notChecked) return { checked: false, reason: notChecked.reason.en };
+    // No dataset, or one refused: no check at all. Otherwise the gaps of a partial check are listed with the rows.
+    const none = rules.notChecked.find((n) => n.key === 'interactions');
+    if (none) return { checked: false, reason: none.reason.en };
     const found = rules.alerts.filter((a) => a.interaction);
-    return { checked: true, source: found[0]?.source.en ?? DATASETS.interactions?.source ?? '', rows: found.map((a) => ({ key: a.key, ...a.interaction! })) };
+    const gaps = rules.notChecked.filter((n) => n.what === 'interactions').map((n) => n.reason.en);
+    return { checked: true, source: found[0]?.source.en ?? DATASETS.interactions?.source ?? '', rows: found.map((a) => ({ key: a.key, ...a.interaction! })), gaps };
   }, [rules.ready, rules.notChecked, rules.alerts]);
   const view = useMemo(
     () =>

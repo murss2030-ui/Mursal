@@ -2,8 +2,9 @@
  * The offline drug vocabulary: RxNorm prescribable ingredients, precise
  * ingredients, combinations and brands, international names confirmed by
  * RxNav, FDA Established Pharmacologic Classes and the VA antimicrobial
- * classes (built by scripts/data/build-rxnorm.mjs, described in
- * src/data/datasets.json).
+ * classes (built by scripts/data/build-rxnorm.mjs), plus the RxNorm
+ * ingredients outside that subset that DDInter or WHO AWaRe name (added by
+ * their builders). Described in src/data/datasets.json.
  *
  * The file is served from the app's own origin and precached for offline
  * use; its SHA-256 is checked against the manifest before it is used, so a
@@ -20,8 +21,14 @@ export interface RxnormSubset {
   multi: [rxcui: string, name: string, ingredients: string[]][];
   brands: [rxcui: string, name: string, ingredients: string[]][];
   synonyms: [name: string, ingredient: string][];
+  /** FDA EPC classes with the ingredients FDA assigns to them directly. */
   epc: [classId: string, name: string, members: string[]][];
+  /** Grouping nodes of the EPC hierarchy with all their members, direct and through subclasses (scripts/data/build-epc.mjs). */
+  epcGroups?: [classId: string, name: string, members: string[]][];
   vaAntimicrobial: [classId: string, name: string, members: string[]][];
+  /** RxNorm ingredients outside the prescribable subset that an installed dataset names (e.g. acenocoumarol). */
+  extra?: [rxcui: string, name: string][];
+  extraSources?: string[];
 }
 
 export type MatchVia = 'ingredient' | 'precise' | 'multi' | 'brand' | 'synonym' | 'formulary';
@@ -46,11 +53,11 @@ export interface DrugVocabulary {
   /** Exact lookup of a normalised name (see normaliseName). */
   lookup(normalised: string): NameHit | undefined;
   ingredientName(rxcui: string): string | undefined;
-  /** FDA EPC classes of an ingredient. */
+  /** The FDA EPC classes an ingredient is directly assigned to (never a broad grouping node). */
   classesOf(ingredient: string): DrugClass[];
   /** VA antimicrobial classes of an ingredient (empty when it is not an antimicrobial in those classes). */
   antimicrobialClassesOf(ingredient: string): DrugClass[];
-  /** Ingredients of an EPC class. */
+  /** Ingredients of an EPC class; for a grouping node, all of them, through its subclasses. */
   members(classId: string): readonly string[];
   classById(classId: string): DrugClass | undefined;
   /** Every class whose name contains all the words given (lower case), for allergy terms like "penicillin". */
@@ -76,7 +83,7 @@ export function buildVocabulary(d: RxnormSubset): DrugVocabulary {
     const k = normaliseName(name);
     if (!byName.has(k)) byName.set(k, hit);
   };
-  for (const [rxcui, name] of d.ingredients) {
+  for (const [rxcui, name] of [...d.ingredients, ...(d.extra ?? [])]) {
     names.set(rxcui, name);
     put(name, { via: 'ingredient', name, rxcui, ingredients: [rxcui] });
   }
@@ -94,6 +101,11 @@ export function buildVocabulary(d: RxnormSubset): DrugVocabulary {
     allClasses.push(c);
     members.set(id, ms);
     for (const m of ms) classes.set(m, [...(classes.get(m) ?? []), c]);
+  }
+  // A grouping node is a class for membership (an allergy to "opioids"), not one an ingredient is said to belong to.
+  for (const [id, name, ms] of d.epcGroups ?? []) {
+    if (!allClasses.some((c) => c.id === id)) allClasses.push({ id, name, source: 'FDA EPC' });
+    members.set(id, [...new Set([...(members.get(id) ?? []), ...ms])]);
   }
   for (const [id, name, ms] of d.vaAntimicrobial) {
     const c: DrugClass = { id, name, source: 'VA' };

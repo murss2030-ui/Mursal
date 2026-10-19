@@ -1,14 +1,10 @@
 /**
- * M2 safety checks in the browser (Section 10): a documented allergy
- * interrupts with a dialog that closes only with a recorded reason; the
- * acknowledgement holds until the data behind it changes; what could not be
- * checked is listed; and a moderate interaction stays in the collapsed
- * informational group while a major one is an inline badge.
- *
- * No interaction dataset is installed (the DDInter hosts are not reachable
- * from the build environment), so the interaction test runs on a separate
- * build that carries a small file marked as a test fixture — never clinical
- * data, and never part of the production build.
+ * M2 safety checks in the browser (Section 10), on the real offline data: a
+ * documented allergy interrupts with a dialog that closes only with a recorded
+ * reason; the acknowledgement holds until the data behind it changes; what
+ * could not be checked is listed; a DDInter Moderate pair stays in the
+ * collapsed informational group while a Major pair is an inline badge; WHO
+ * AWaRe categories are shown; and a dataset that fails its checksum is refused.
  */
 import { expect, test, type Page } from '@playwright/test';
 import { execFileSync, spawn } from 'node:child_process';
@@ -62,7 +58,7 @@ test('a documented penicillin allergy interrupts a new amoxicillin order until a
   await page.goto(`/#/cases/${caseId}`);
   const card = page.getByTestId('safety-card');
   await expect(card).toContainText('No alerts from the checks that could be made.');
-  await expect(card.getByTestId('not-checked')).toContainText('Drug–drug interactions were not checked: the DDInter and ONC datasets are not installed yet.');
+  await expect(card.getByTestId('not-checked')).toHaveCount(0);
   await expect(page.getByTestId('critical-alert')).toHaveCount(0);
 
   // A new amoxicillin order: amoxicillin is in the FDA class "Penicillin-class Antibacterial".
@@ -148,36 +144,80 @@ test('an unrecognised drug name is listed as not checked', async ({ page }) => {
   await expect(notChecked).toContainText('"Zyntrax" was not checked for allergies, duplications or interactions: the name is not recognised.');
 });
 
-// ---------------------------------------------------------------- interaction levels, on a build with a test fixture
+// ---------------------------------------------------------------- interaction levels and AWaRe, on the real data
 
-const FIXTURE = {
-  dataset: 'interactions',
-  version: 'test fixture 1',
-  citation: 'TEST FIXTURE for an end-to-end test — not clinical data, not DDInter',
-  pairs: [
-    ['67108', '7646', 'moderate', false, 'Test fixture record (not a real interaction).', 'Test fixture record.'],
-    ['67108', '5640', 'major', false, 'Test fixture record (not a real interaction).', 'Test fixture record.'],
-  ],
-};
+test('a DDInter Moderate pair stays in the collapsed group; a Major pair is a badge; AWaRe is shown (real data)', async ({ page }) => {
+  await onboard(page);
+  await createRotation(page);
+  const caseId = await createCase(page, { kind: 'teaching' });
+  await addOrder(page, caseId, { drug: 'enoxaparin', amount: '40', unit: 'mg', route: 'subcut', frequency: 'once daily' });
+  await addOrder(page, caseId, { drug: 'ibuprofen', amount: '400', unit: 'mg', route: 'PO', frequency: 'three times daily' });
+  await addOrder(page, caseId, { drug: 'furosemide', amount: '40', unit: 'mg', route: 'IV', frequency: 'once daily' });
+  await addOrder(page, caseId, { drug: 'ceftriaxone', amount: '1', unit: 'g', route: 'IV', frequency: 'once daily' });
 
-function fixtureBuild(): string {
+  // Nothing interrupts: the ONC list is not installed, and neither pair is on it.
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  // DDInter Major (enoxaparin + ibuprofen): an inline badge on both medicines.
+  for (const drug of ['enoxaparin', 'ibuprofen']) {
+    await expect(page.getByTestId('active-med').filter({ hasText: `${drug} — ` }).getByTestId('alert-badges')).toContainText('Interaction (major): enoxaparin + ibuprofen');
+  }
+  // DDInter Moderate (furosemide + ibuprofen): no badge on furosemide.
+  await expect(page.getByTestId('active-med').filter({ hasText: 'furosemide — ' }).getByTestId('alert-badges')).toHaveCount(0);
+
+  await page.goto(`/#/cases/${caseId}`);
+  const card = page.getByTestId('safety-card');
+  const major = card.getByTestId('alert-row').filter({ hasText: 'Interaction (major): enoxaparin + ibuprofen' });
+  await expect(major).toHaveAttribute('data-level', 'important');
+  await expect(major).toContainText('DDInter level: major — highly clinically significant');
+  await expect(major).toContainText('Xiong G, et al. DDInter');
+  const group = card.getByTestId('informational-group');
+  await expect(group).not.toHaveAttribute('open', '');
+  const moderate = group.getByTestId('alert-row').filter({ hasText: 'Interaction (moderate): furosemide + ibuprofen' });
+  await expect(moderate).toBeHidden();
+  await expect(card.getByTestId('alert-row').filter({ hasText: 'Interaction (moderate)' })).toHaveCount(1);
+  await group.locator('summary').click();
+  await expect(moderate).toBeVisible();
+  await expect(moderate).toHaveAttribute('data-level', 'informational');
+  // WHO AWaRe 2025: ceftriaxone is Watch.
+  await expect(group.getByTestId('alert-row').filter({ hasText: 'AWaRe: Watch — ceftriaxone' })).toBeVisible();
+  // What was not checked is said: no ONC list, so nothing is raised to critical.
+  await expect(card.getByTestId('not-checked')).toContainText('The ONC high-priority list is not installed');
+  await shot(page, 'm2-10-interaction-levels');
+
+  // In the stewardship task, the AWaRe tag sits on the antibiotic's own row.
+  await page.goto(`/#/cases/${caseId}/task/t14`);
+  await expect(page.locator('[data-testid^="scope-"]').filter({ hasText: 'ceftriaxone' }).getByTestId('row-alerts')).toContainText('AWaRe: Watch — ceftriaxone');
+  // The department form's Section 7 lists the automatic rows, apart from the trainee's own.
+  await page.goto(`/#/cases/${caseId}/form`);
+  const auto = page.locator('[data-section="7"]').getByTestId('form-automatic-interactions');
+  await expect(auto).toHaveAttribute('data-checked', 'true');
+  await expect(auto).toContainText('enoxaparin');
+  await expect(auto).toContainText('Source: DDInter download files');
+  await expect(auto.getByTestId('form-automatic-gap').filter({ hasText: 'The ONC high-priority list is not installed' })).toHaveCount(1);
+  // Ceftriaxone (J) + furosemide (C): a pair outside DDInter's download files, said so.
+  await expect(auto.getByTestId('form-automatic-gap').filter({ hasText: 'Not checked for interactions: ceftriaxone + furosemide' })).toHaveCount(1);
+});
+
+test('two drugs outside the DDInter download files are listed as not checked, never as safe (real data)', async ({ page }) => {
+  await onboard(page);
+  await createRotation(page);
+  const caseId = await createCase(page, { kind: 'teaching' });
+  // Both cardiovascular (ATC C): DDInter's download files do not hold this pair.
+  await addOrder(page, caseId, { drug: 'amiodarone', amount: '200', unit: 'mg', route: 'PO', frequency: 'once daily' });
+  await addOrder(page, caseId, { drug: 'digoxin', amount: '0.125', unit: 'mg', route: 'PO', frequency: 'once daily' });
+  await page.goto(`/#/cases/${caseId}`);
+  const notChecked = page.getByTestId('safety-card').getByTestId('not-checked');
+  await expect(notChecked).toContainText('Not checked for interactions: amiodarone + digoxin');
+  await expect(page.getByTestId('safety-card').getByTestId('alert-row').filter({ hasText: 'Interaction' })).toHaveCount(0);
+});
+
+// ---------------------------------------------------------------- a dataset that fails its checksum is refused
+
+function corruptedManifestBuild(): string {
   const dir = mkdtempSync(join(tmpdir(), 'preceptor-ds-'));
-  const file = join(dir, 'interactions-test.json');
-  const text = JSON.stringify(FIXTURE);
-  writeFileSync(file, text);
-  const manifest = JSON.parse(readFileSync(resolve('src/data/datasets.json'), 'utf8')) as { datasets: Record<string, unknown> };
-  manifest.datasets.interactions = {
-    file: 'data/interactions-test.json',
-    fixture: file,
-    title: 'Interaction test fixture',
-    version: FIXTURE.version,
-    retrievedAt: '2026-10-18',
-    bytes: Buffer.byteLength(text),
-    sha256: createHash('sha256').update(text).digest('hex'),
-    source: FIXTURE.citation,
-    licence: 'Test data written for this test.',
-    testFixture: true,
-  };
+  const manifest = JSON.parse(readFileSync(resolve('src/data/datasets.json'), 'utf8')) as { datasets: Record<string, { sha256: string }> };
+  // The file is the real one; the recorded checksum is not: the app must refuse the file.
+  manifest.datasets.interactions!.sha256 = createHash('sha256').update('not the interaction file').digest('hex');
   const manifestPath = join(dir, 'datasets.json');
   writeFileSync(manifestPath, JSON.stringify(manifest));
   const outDir = join(dir, 'dist');
@@ -185,8 +225,8 @@ function fixtureBuild(): string {
   return outDir;
 }
 
-test('a moderate interaction stays in the collapsed informational group; a major one is a badge (test fixture)', async ({ browser }) => {
-  const outDir = fixtureBuild();
+test('an interaction file whose checksum does not match is refused, and the check is reported as not made', async ({ browser }) => {
+  const outDir = corruptedManifestBuild();
   const server = spawn('npx', ['vite', 'preview', '--outDir', outDir, '--port', '4181', '--strictPort'], { stdio: 'pipe', detached: true });
   try {
     for (let i = 0; i < 100; i++) {
@@ -203,37 +243,11 @@ test('a moderate interaction stays in the collapsed informational group; a major
     await createRotation(page);
     const caseId = await createCase(page, { kind: 'teaching' });
     await addOrder(page, caseId, { drug: 'enoxaparin', amount: '40', unit: 'mg', route: 'subcut', frequency: 'once daily' });
-    await addOrder(page, caseId, { drug: 'omeprazole', amount: '20', unit: 'mg', route: 'PO', frequency: 'once daily' });
     await addOrder(page, caseId, { drug: 'ibuprofen', amount: '400', unit: 'mg', route: 'PO', frequency: 'three times daily' });
-
-    // Neither interrupts.
-    await expect(page.getByRole('alertdialog')).toHaveCount(0);
-    // The major one is an inline badge on both medications.
-    for (const drug of ['enoxaparin', 'ibuprofen']) {
-      await expect(page.getByTestId('active-med').filter({ hasText: `${drug} — ` }).getByTestId('alert-badges')).toContainText('Interaction (major): enoxaparin + ibuprofen');
-    }
-    // The moderate one is not a badge…
-    await expect(page.getByTestId('active-med').filter({ hasText: 'omeprazole — ' }).getByTestId('alert-badges')).toHaveCount(0);
-
-    // …and on the safety card it is inside the collapsed informational group only.
     await page.goto(`/#/cases/${caseId}`);
-    await expect(page.getByRole('alertdialog')).toHaveCount(0);
     const card = page.getByTestId('safety-card');
-    const major = card.getByTestId('alert-row').filter({ hasText: 'Interaction (major)' });
-    await expect(major).toHaveAttribute('data-level', 'important');
-    await expect(major).toBeVisible();
-    const group = card.getByTestId('informational-group');
-    await expect(group).not.toHaveAttribute('open', '');
-    const moderate = group.getByTestId('alert-row').filter({ hasText: 'Interaction (moderate): enoxaparin + omeprazole' });
-    await expect(moderate).toBeHidden();
-    await expect(card.getByTestId('alert-row').filter({ hasText: 'Interaction (moderate)' })).toHaveCount(1);
-    await group.locator('summary').click();
-    await expect(moderate).toBeVisible();
-    await expect(moderate).toHaveAttribute('data-level', 'informational');
-    await expect(moderate).toContainText('TEST FIXTURE for an end-to-end test — not clinical data, not DDInter');
-    // With a dataset present, interactions are no longer listed as not checked.
-    await expect(card).not.toContainText('Drug–drug interactions were not checked');
-    await shot(page, 'm2-10-interaction-levels-test-fixture');
+    await expect(card.getByTestId('not-checked')).toContainText('Drug–drug interactions were not checked: the dataset could not be loaded or failed its integrity check.');
+    await expect(card.getByTestId('alert-row').filter({ hasText: 'Interaction' })).toHaveCount(0);
     await ctx.close();
   } finally {
     if (server.pid) process.kill(-server.pid, 'SIGTERM');

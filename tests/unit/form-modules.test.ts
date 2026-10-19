@@ -116,12 +116,18 @@ describe('Sections 7–10 and the references, from the Clinical Modules', () => 
       deriveForm(
         ctx({
           items: [ix],
-          automaticInteractions: { checked: true, source: 'Dataset X v1', rows: [{ key: 'interaction:m1+m2:1+2', drugA: 'ibuprofen', drugB: 'enoxaparin', severity: 'major', mechanism: 'additive bleeding risk' }] },
+          automaticInteractions: {
+            checked: true,
+            source: 'Dataset X v1',
+            rows: [{ key: 'interaction:m1+m2:1+2', drugA: 'ibuprofen', drugB: 'enoxaparin', severity: 'major', mechanism: 'additive bleeding risk' }],
+            gaps: ['Not checked for interactions: amiodarone + digoxin.'],
+          },
         }),
       ),
       7,
     );
     expect(checked.automatic?.checked).toBe(true);
+    expect(checked.automatic?.checked && checked.automatic.gaps).toEqual(['Not checked for interactions: amiodarone + digoxin.']);
     const row = checked.automatic!.checked ? checked.automatic!.rows[0]! : undefined;
     const at = (k: string) => texts(row!.cells.find((c) => c.key === k)!.state);
     expect(at('s7.drugA')).toEqual(['ibuprofen']);

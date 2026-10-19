@@ -66,7 +66,7 @@ export interface RulesOutcome {
   notChecked: NotChecked[];
 }
 
-/** One drug-drug interaction from a dataset (DDInter 2.0, raised by the ONC high-priority list). */
+/** One drug-drug interaction from a dataset (DDInter, raised by the ONC high-priority list). */
 export interface InteractionHit {
   severity: 'major' | 'moderate' | 'minor' | 'unknown';
   /** On the ONC high-priority list (Phansalkar et al., JAMIA 2012). */
@@ -76,14 +76,40 @@ export interface InteractionHit {
   sourceId?: string;
 }
 
+/**
+ * For a pair without a record: whether it was really looked at. DDInter's
+ * download files cover only some ATC groups, and some drugs are not in DDInter
+ * at all — a missing record then means "not checked", never "no interaction".
+ */
+export type InteractionCoverage = 'checked' | 'drug_not_in_dataset' | 'outside_files';
+
 export interface InteractionDataset {
   version: string;
   citation: string;
+  /** Whether the ONC high-priority list is installed (it raises pairs to critical). */
+  oncInstalled: boolean;
   lookup(ingredientA: string, ingredientB: string): InteractionHit[];
+  coverage(ingredientA: string, ingredientB: string): InteractionCoverage;
+  /** Whether the dataset has the ingredient at all. */
+  knows(ingredient: string): boolean;
+}
+
+export type AwareCategory = 'access' | 'watch' | 'reserve';
+export type AwareRoute = 'oral' | 'parenteral';
+
+export interface AwareMatch {
+  category: AwareCategory;
+  /** The antibiotic as WHO names it. */
+  name: string;
+  route?: AwareRoute;
 }
 
 export interface AwareDataset {
   version: string;
   citation: string;
-  categoryOf(ingredient: string): 'access' | 'watch' | 'reserve' | undefined;
+  /**
+   * The WHO entries for exactly this set of ingredients (a combination is one
+   * entry). With a route, the entry for that route, or the route-independent one.
+   */
+  categoryOf(ingredients: readonly string[], route?: AwareRoute): AwareMatch[];
 }

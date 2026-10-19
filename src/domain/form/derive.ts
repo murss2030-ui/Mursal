@@ -115,7 +115,7 @@ export interface FormSectionView {
   fields: FormFieldView[];
   table?: FormTableView;
   /** Section 7 (M2): rows from PRECEPTOR's offline check, each with its source, never mixed with the trainee's rows. */
-  automatic?: { checked: false; reason: string } | { checked: true; source: string; rows: FormRowView[] };
+  automatic?: { checked: false; reason: string } | { checked: true; source: string; rows: FormRowView[]; gaps: string[] };
   /** `ticked` is present only when the state is a value: an unticked box then means "not recorded", never "no problem". */
   checkboxes?: { labels: readonly FormLabel[]; state: FieldState; ticked?: readonly boolean[] };
 }
@@ -153,7 +153,7 @@ export interface FormContext {
    * the trainee's rows. `checked: false` when no interaction dataset is
    * installed (or it failed to load): the reason is shown, never "none".
    */
-  automaticInteractions?: { checked: false; reason: string } | { checked: true; source: string; rows: readonly AutomaticInteraction[] };
+  automaticInteractions?: { checked: false; reason: string } | { checked: true; source: string; rows: readonly AutomaticInteraction[]; gaps?: readonly string[] };
   mode: CopyMode;
 }
 
@@ -646,6 +646,8 @@ function section7(ctx: FormContext): FormSectionView {
       : {
           checked: true,
           source: auto.source,
+          // What the check could not cover (pairs outside the files, the ONC list missing): said, never hidden.
+          gaps: [...(auto.gaps ?? [])],
           rows: auto.rows.map((r) => ({
             key: r.key,
             cells: [

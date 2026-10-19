@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { datasets, type DatasetEntry } from 'virtual:preceptor-datasets';
 import type { AwareDataset, InteractionDataset } from '../rules/types';
-import { buildAware, buildInteractions, loadVerified, type AwareFile, type InteractionFile } from './datasets';
+import { buildAware, buildInteractions, loadVerified, type AwareFile, type InteractionFile, type OncFile } from './datasets';
 import { loadVocabulary, type DrugVocabulary } from './vocabulary';
 
 export const DATASETS = datasets;
@@ -28,7 +28,13 @@ function once<T>(load: () => Promise<T>): () => Promise<T> {
 export const appVocabulary = once<DrugVocabulary>(() =>
   RXNORM_DATASET ? loadVocabulary(url(RXNORM_DATASET), RXNORM_DATASET.sha256) : Promise.reject(new Error('The drug vocabulary is not installed.')),
 );
-const appInteractions = once<InteractionDataset>(async () => buildInteractions(await loadVerified<InteractionFile>(url(datasets.interactions!), datasets.interactions!.sha256)));
+const appInteractions = once<InteractionDataset>(async () => {
+  const [ddinter, onc] = await Promise.all([
+    loadVerified<InteractionFile>(url(datasets.interactions!), datasets.interactions!.sha256),
+    datasets.onc ? loadVerified<OncFile>(url(datasets.onc), datasets.onc.sha256) : Promise.resolve(undefined),
+  ]);
+  return buildInteractions(ddinter, onc);
+});
 const appAware = once<AwareDataset>(async () => buildAware(await loadVerified<AwareFile>(url(datasets.aware!), datasets.aware!.sha256)));
 
 export type DatasetState<T> = { status: 'loading' } | { status: 'ready'; data: T } | { status: 'absent' } | { status: 'error'; error: Error };

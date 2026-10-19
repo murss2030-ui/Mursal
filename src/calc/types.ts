@@ -30,6 +30,9 @@ export const CALCULATOR_IDS = [
   'vancomycin_auc',
   // Proposed seventeenth calculator (M2 plan, decision 5): form Section 1 needs BMI as a calculated value.
   'bmi',
+  // Owner decision 9 (18 October 2026): infusion rates for Task 9, weight-based and volume over time.
+  'infusion_rate_weight',
+  'infusion_rate_volume',
 ] as const;
 export type CalculatorId = (typeof CALCULATOR_IDS)[number];
 

@@ -9,7 +9,7 @@ import type { AdjustmentRule, FormularyItem, LabThreshold } from '../../src/doma
 import type { RegisterItem, TaskRecord, TimelineEntry } from '../../src/domain/types';
 import { buildVocabulary, type RxnormSubset } from '../../src/drugs/vocabulary';
 import { evaluateRules, type RulesContext } from '../../src/rules/engine';
-import type { InteractionDataset } from '../../src/rules/types';
+import { buildAware, buildInteractions, packPairs } from '../../src/drugs/datasets';
 import { lab } from '../calc/helpers';
 
 const VOCAB = buildVocabulary({
@@ -152,22 +152,59 @@ describe('interactions', () => {
     expect(out.alerts.filter((a) => a.ruleId === 'interaction')).toEqual([]);
   });
 
-  it('with a dataset: ONC pair critical, major important, moderate informational (synthetic pairs)', () => {
-    const pairs: Record<string, ReturnType<InteractionDataset['lookup']>> = {
-      '5640+67108': [{ severity: 'major', onc: false, mechanism: 'additive bleeding risk', management: 'monitor' }],
-      '6809+7646': [{ severity: 'moderate', onc: false }],
-      '11124+2193': [{ severity: 'major', onc: true }],
-    };
-    const interactions: InteractionDataset = { version: 'test', citation: 'synthetic fixture', lookup: (a, b) => pairs[[a, b].sort().join('+')] ?? pairs[[b, a].sort().join('+')] ?? [] };
+  // Synthetic records in the real file format: ibuprofen + enoxaparin major, metformin + omeprazole moderate,
+  // vancomycin + ceftriaxone major and on a synthetic ONC list. Not clinical data.
+  const ING = ['161', '2193', '5640', '6809', '7646', '11124', '67108', '723'];
+  const file = (anchored: string[]) => ({
+    dataset: 'interactions' as const,
+    format: 2 as const,
+    version: 'test',
+    citation: 'synthetic fixture',
+    ingredients: ING,
+    anchored: anchored.map((r) => ING.indexOf(r).toString(36).padStart(3, '0')).join(''),
+    packed: packPairs(ING, [
+      ['5640', '67108', 'major'],
+      ['6809', '7646', 'moderate'],
+      ['11124', '2193', 'major'],
+    ]),
+  });
+  const onc = { dataset: 'onc' as const, version: 'onc test', citation: 'synthetic ONC', pairs: [[['11124'], ['2193'], 'synthetic pair']] as [string[], string[], string][] };
+
+  it('with the datasets: ONC pair critical, major important, moderate informational', () => {
+    const interactions = buildInteractions(file(['5640', '7646', '2193']), onc);
     const a = alertsOf(ctx([med('ibuprofen'), med('enoxaparin'), med('omeprazole'), med('metformin'), med('vancomycin'), med('ceftriaxone')], { interactions }), 'interaction');
     const level = (x: string) => a.find((y) => y.title.en.includes(x))?.level;
     expect(level('ibuprofen')).toBe('important');
     expect(level('omeprazole')).toBe('informational');
     expect(level('vancomycin')).toBe('critical');
-    expect(a.find((y) => y.title.en.includes('ibuprofen'))!.detail.en).toContain('Mechanism: additive bleeding risk');
+    const ibu = a.find((y) => y.title.en.includes('ibuprofen'))!;
+    expect(ibu.detail.en).toContain('DDInter level: major — highly clinically significant');
+    expect(ibu.detail.en).toContain('look up the mechanism and the management in your reference');
     // The dataset's own fields travel with the alert, for the automatic rows of form Section 7.
-    expect(a.find((y) => y.title.en.includes('ibuprofen'))!.interaction).toEqual({ drugA: 'enoxaparin', drugB: 'ibuprofen', severity: 'major', mechanism: 'additive bleeding risk', management: 'monitor' });
+    expect(ibu.interaction).toEqual({ drugA: 'enoxaparin', drugB: 'ibuprofen', severity: 'major' });
     expect(a.find((y) => y.title.en.includes('vancomycin'))!.interaction).toMatchObject({ severity: 'ONC high-priority' });
+  });
+
+  it('without the ONC list, no interaction is critical, and that is said', () => {
+    const interactions = buildInteractions(file(['5640', '2193']));
+    const out = evaluateRules(ctx([med('vancomycin'), med('ceftriaxone')], { interactions }));
+    expect(out.alerts.filter((x) => x.ruleId === 'interaction').map((x) => x.level)).toEqual(['important']);
+    expect(out.notChecked.find((x) => x.key === 'interactions:onc')?.reason.en).toContain('no interaction is raised to critical');
+  });
+
+  it('a pair the files do not cover, or a drug not in the dataset, is listed as not checked — never as safe', () => {
+    // Neither acetaminophen nor metformin is anchored, and they have no record: outside the files.
+    const interactions = buildInteractions(file(['5640']), onc);
+    const out = evaluateRules(ctx([med('acetaminophen'), med('metformin')], { interactions }));
+    expect(out.alerts.filter((x) => x.ruleId === 'interaction')).toEqual([]);
+    const outside = out.notChecked.find((x) => x.key === 'interactions:outside')!;
+    expect(outside.reason.en).toContain('Not checked for interactions: acetaminophen + metformin');
+    // Ibuprofen is anchored: its pair with acetaminophen (no record) was checked.
+    const checked = evaluateRules(ctx([med('ibuprofen'), med('acetaminophen')], { interactions }));
+    expect(checked.notChecked.filter((x) => x.what === 'interactions' && x.key !== 'interactions:onc')).toEqual([]);
+    // Ampicillin is a recognised drug but not in the interaction dataset.
+    const absent = evaluateRules(ctx([med('ampicillin'), med('ibuprofen')], { interactions }));
+    expect(absent.notChecked.find((x) => x.key === 'interactions:absent')?.reason.en).toContain('ampicillin — not in DDInter');
   });
 });
 
@@ -270,6 +307,42 @@ describe('antimicrobial stewardship prompts', () => {
   it('identifies antimicrobials from the VA classes; AWaRe is reported as not checked without its dataset', () => {
     const out = evaluateRules(ctx([med('ceftriaxone', 0)], { today: 0 }));
     expect(out.notChecked.map((x) => x.what)).toContain('aware');
+  });
+
+  // Synthetic AWaRe entries in the real file format (the shipped file is checked in installed-datasets.test.ts).
+  const aware = buildAware({
+    dataset: 'aware',
+    format: 2,
+    version: 'test',
+    citation: 'synthetic AWaRe',
+    categories: [
+      ['723+48203', 'access', '', 'Amoxicillin/clavulanic-acid'],
+      ['2193', 'watch', '', 'Ceftriaxone'],
+      ['11124', 'watch', 'parenteral', 'Vancomycin (IV)'],
+      ['11124', 'watch', 'oral', 'Vancomycin (oral)'],
+      ['733', 'access', '', 'Ampicillin'],
+    ],
+  });
+
+  it('AWaRe: a combination is matched as a whole, the route picks the entry, and a drug WHO does not list is said so', () => {
+    const coAmox: TimelineEntry = { ...med('amoxicillin / clavulanate', 0, 'm-ca') };
+    const out = evaluateRules(ctx([coAmox, med('ceftriaxone', 0, 'm-cef'), med('vancomycin', 0, 'm-van')], { today: 0, aware }));
+    const tag = (medId: string) => out.alerts.find((x) => x.ruleId === 'aware' && x.medIds?.includes(medId));
+    expect(tag('m-ca')!.title.en).toBe('AWaRe: Access — amoxicillin / clavulanate');
+    expect(tag('m-ca')!.level).toBe('informational');
+    expect(tag('m-cef')!.title.en).toBe('AWaRe: Watch — ceftriaxone');
+    // An IV order gets the IV entry only; vancomycin is recognised as an antibiotic through AWaRe alone.
+    expect(tag('m-van')!.detail.en).toContain('Vancomycin (IV): Watch (IV)');
+    expect(tag('m-van')!.detail.en).not.toContain('oral');
+    expect(alertsOf(ctx([med('vancomycin', 0, 'm-v2')], { today: 3, aware }), 'antibiotic_timeout')).toHaveLength(1);
+  });
+
+  it('AWaRe: a combination WHO does not list is shown by ingredient, and says so', () => {
+    const combo: TimelineEntry = { ...base(0), type: 'med_start', payload: { medId: 'm-x', drug: 'ampicillin / clavulanate', dose: { kind: 'structured', value: 1, unit: 'g' }, route: 'IV', frequency: 'once daily' } };
+    const out = evaluateRules(ctx([combo], { today: 0, aware }));
+    const tag = out.alerts.find((x) => x.ruleId === 'aware')!;
+    expect(tag.title.en).toBe('AWaRe: Access — ampicillin / clavulanate');
+    expect(tag.detail.en).toContain('by ingredient: WHO does not list this combination');
   });
 
   it('time-out prompt from 48 hours, gone once the review is documented', () => {

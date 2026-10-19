@@ -23,7 +23,7 @@ import { appliesKey, scopedKey } from '../domain/workflow/tasks';
 import { aliasesFrom, matchDrug, type DrugMatch } from '../drugs/normalize';
 import { normaliseName, type DrugClass, type DrugVocabulary } from '../drugs/vocabulary';
 import { allergenTerm, classesForAllergen } from './allergy-terms';
-import type { Alert, AlertLevel, AwareDataset, InteractionDataset, NotChecked, RulesOutcome } from './types';
+import type { Alert, AlertLevel, AwareDataset, AwareMatch, AwareRoute, InteractionDataset, InteractionHit, NotChecked, RulesOutcome } from './types';
 
 export interface RulesContext {
   /** Today's hospital day (null when the case is not active: prompts that depend on time are not raised). */
@@ -173,42 +173,78 @@ function allergyRule(ctx: RulesContext, ds: readonly DrugRef[], add: (a: Alert) 
   }
 }
 
-// ---------------------------------------------------------------- 2. interactions (DDInter 2.0, ONC high-priority list)
+// ---------------------------------------------------------------- 2. interactions (DDInter, ONC high-priority list)
+
+/** DDInter's own definitions of its levels (Xiong et al., Nucleic Acids Res 2022). */
+const DDINTER_LEVEL: Record<InteractionHit['severity'], L> = {
+  major: L('highly clinically significant; DDInter advises avoiding the combination', 'ذو أهمية سريرية عالية؛ ينصح DDInter بتجنّب الجمع'),
+  moderate: L('may worsen the patient’s condition and/or require a change in therapy', 'قد يفاقم حالة المريض و/أو يستدعي تغيير العلاج'),
+  minor: L('minimally clinically significant; usually no change in therapy is needed', 'أهميته السريرية ضئيلة؛ لا يستدعي عادةً تغيير العلاج'),
+  unknown: L('the interaction is recorded but its description is unavailable or incomplete', 'التداخل مسجّل لكن وصفه غير متاح أو غير مكتمل'),
+};
 
 function interactionRule(ctx: RulesContext, ds: readonly DrugRef[], add: (a: Alert) => void, skip: (n: NotChecked) => void) {
-  if (!ctx.interactions) {
+  const data = ctx.interactions;
+  if (!data) {
     skip({
       key: 'interactions',
       what: 'interactions',
       reason: L(
-        'Drug–drug interactions were not checked: the DDInter and ONC datasets are not installed yet. Check interactions yourself in Task 6.',
-        'لم تُفحص التداخلات الدوائية: بيانات DDInter وONC غير مثبتة بعد. افحص التداخلات بنفسك في المهمة 6.',
+        'Drug–drug interactions were not checked: the DDInter dataset is not installed. Check interactions yourself in Task 6.',
+        'لم تُفحص التداخلات الدوائية: بيانات DDInter غير مثبتة. افحص التداخلات بنفسك في المهمة 6.',
       ),
     });
     return;
   }
   const active = ds.filter((d) => d.kind === 'course' && d.ingredients.length);
+  if (active.length > 1 && !data.oncInstalled) {
+    skip({
+      key: 'interactions:onc',
+      what: 'interactions',
+      reason: L(
+        'The ONC high-priority list is not installed, so no interaction is raised to critical: a DDInter Major pair is shown as important.',
+        'قائمة ONC عالية الأولوية غير مثبتة، لذلك لا يُرفع أي تداخل إلى مستوى حرج: يُعرض تداخل DDInter الشديد (Major) على أنه مهم.',
+      ),
+    });
+  }
+  const outside: string[] = [];
+  const absent = new Set<string>();
   for (let i = 0; i < active.length; i++) {
     for (let j = i + 1; j < active.length; j++) {
       const a = active[i]!;
       const b = active[j]!;
+      const pair = [a.medId, b.medId].sort().join('+');
+      let found = false;
+      let unchecked: 'outside_files' | 'drug_not_in_dataset' | undefined;
       for (const x of a.ingredients) {
         for (const y of b.ingredients) {
-          for (const hit of ctx.interactions.lookup(x, y)) {
+          if (x === y) continue;
+          const hits = data.lookup(x, y);
+          if (!hits.length) {
+            const cov = data.coverage(x, y);
+            if (cov !== 'checked') unchecked = cov;
+            continue;
+          }
+          found = true;
+          for (const hit of hits) {
             const level: AlertLevel = hit.onc ? 'critical' : hit.severity === 'major' ? 'important' : 'informational';
             const sev = hit.onc ? 'ONC high-priority' : hit.severity === 'unknown' ? 'severity not graded' : hit.severity;
-            const pair = [a.medId, b.medId].sort().join('+');
+            const def = DDINTER_LEVEL[hit.severity];
             add({
               key: `interaction:${pair}:${[x, y].sort().join('+')}`,
               ruleId: 'interaction',
               level,
               title: L(`Interaction (${sev}): ${a.label} + ${b.label}`, `تداخل (${sev}): ${a.label} + ${b.label}`),
               detail: L(
-                [hit.mechanism ? `Mechanism: ${hit.mechanism}` : 'Mechanism: not given by the dataset', hit.management ? `Management: ${hit.management}` : 'Management: not given by the dataset'].join('. '),
-                [hit.mechanism ? `الآلية: ${hit.mechanism}` : 'الآلية: غير مذكورة في البيانات', hit.management ? `التعامل: ${hit.management}` : 'التعامل: غير مذكور في البيانات'].join('. '),
+                `${hit.onc ? 'On the ONC list of high-priority interactions, judged contraindicated for concurrent use. ' : ''}DDInter level: ${hit.severity} — ${def.en}. ${
+                  hit.mechanism ? `Mechanism: ${hit.mechanism}. ` : ''
+                }${hit.management ? `Management: ${hit.management}.` : 'The dataset gives the level only: look up the mechanism and the management in your reference and record them in Task 6.'}`,
+                `${hit.onc ? 'ضمن قائمة ONC للتداخلات عالية الأولوية، ويُعدّ الجمع مضاد استطباب. ' : ''}مستوى DDInter: ${hit.severity} — ${def.ar}. ${
+                  hit.mechanism ? `الآلية: ${hit.mechanism}. ` : ''
+                }${hit.management ? `التعامل: ${hit.management}.` : 'تذكر البيانات المستوى فقط: ابحث عن الآلية وطريقة التعامل في مرجعك وسجّلهما في المهمة 6.'}`,
               ),
-              source: L(ctx.interactions.citation, ctx.interactions.citation),
-              dataHash: hash(`${pair}|${hit.severity}|${hit.onc}|${ctx.interactions.version}`),
+              source: L(data.citation, data.citation),
+              dataHash: hash(`${pair}|${hit.severity}|${hit.onc}|${data.version}`),
               medIds: [a.medId!, b.medId!],
               taskId: 't06',
               interaction: {
@@ -222,8 +258,31 @@ function interactionRule(ctx: RulesContext, ds: readonly DrugRef[], add: (a: Ale
           }
         }
       }
+      if (found || !unchecked) continue;
+      if (unchecked === 'outside_files') outside.push(`${a.label} + ${b.label}`);
+      else for (const d of [a, b]) if (!d.ingredients.some((x) => data.knows(x))) absent.add(d.label);
     }
   }
+  if (outside.length)
+    skip({
+      key: 'interactions:outside',
+      what: 'interactions',
+      subject: outside.join('; '),
+      reason: L(
+        `Not checked for interactions: ${outside.join('; ')}. DDInter's download files hold the pairs in which at least one drug belongs to ATC groups A, B, D, H, L, P, R or V; a pair of two drugs outside these groups (for example two cardiovascular or two nervous-system drugs) is not in them. Check these pairs yourself in Task 6.`,
+        `لم تُفحص للتداخلات: ${outside.join('؛ ')}. تضم ملفات DDInter المتاحة للتنزيل الأزواج التي ينتمي أحد دواءيها على الأقل إلى مجموعات ATC: A أو B أو D أو H أو L أو P أو R أو V؛ أما زوج دواءين من خارج هذه المجموعات (مثل دواءين قلبيين أو دواءين للجهاز العصبي) فليس فيها. افحص هذه الأزواج بنفسك في المهمة 6.`,
+      ),
+    });
+  if (absent.size)
+    skip({
+      key: 'interactions:absent',
+      what: 'interactions',
+      subject: [...absent].join('; '),
+      reason: L(
+        `Not checked for interactions: ${[...absent].join('; ')} — not in DDInter's download files. Check its interactions yourself in Task 6.`,
+        `لم يُفحص للتداخلات: ${[...absent].join('؛ ')} — غير موجود في ملفات DDInter المتاحة. افحص تداخلاته بنفسك في المهمة 6.`,
+      ),
+    });
 }
 
 // ---------------------------------------------------------------- 3. therapeutic duplication
@@ -435,36 +494,68 @@ function adjustmentRules(ctx: RulesContext, courses: readonly MedCourse[], ds: r
 
 // ---------------------------------------------------------------- 7. antimicrobials: AWaRe, time-out at 48–72 h, de-escalation
 
+/** WHO lists some antibiotics by route ("_IV", "_oral"); the order's route chooses the entry. */
+function awareRoute(route: string): AwareRoute | undefined {
+  const r = route.toLowerCase();
+  if (['po', 'sublingual', 'ng tube'].includes(r)) return 'oral';
+  if (['iv', 'im', 'subcut', 'intraosseous'].includes(r)) return 'parenteral';
+  return undefined;
+}
+
 function antimicrobialRules(ctx: RulesContext, courses: readonly MedCourse[], ds: readonly DrugRef[], add: (a: Alert) => void, skip: (n: NotChecked) => void) {
   const t14 = ctx.tasks.find((t) => t.taskId === 't14');
+  const awareOf = (d: DrugRef, route?: AwareRoute): { matches: AwareMatch[]; byIngredient: boolean } => {
+    if (!ctx.aware) return { matches: [], byIngredient: false };
+    const whole = ctx.aware.categoryOf(d.ingredients, route);
+    if (whole.length || d.ingredients.length < 2) return { matches: whole, byIngredient: false };
+    // A combination WHO does not list: the categories of the antibiotics in it, said to be by ingredient.
+    return { matches: d.ingredients.flatMap((i) => ctx.aware!.categoryOf([i], route)), byIngredient: true };
+  };
   const antimicrobials = ds.filter((d) => {
     if (d.kind !== 'course') return false;
     const said = t14?.fields[appliesKey(d.medId!)];
     if (said === 'no') return false;
     if (said === 'yes') return true;
-    return d.ingredients.some((i) => (ctx.vocab?.antimicrobialClassesOf(i).length ?? 0) > 0);
+    return d.ingredients.some((i) => (ctx.vocab?.antimicrobialClassesOf(i).length ?? 0) > 0) || awareOf(d).matches.length > 0;
   });
   if (antimicrobials.length && !ctx.aware) {
     skip({
       key: 'aware',
       what: 'aware',
-      reason: L('WHO AWaRe categories were not assigned: the AWaRe 2025 dataset is not installed yet.', 'لم تُحدَّد فئات AWaRe: بيانات AWaRe 2025 غير مثبتة بعد.'),
+      reason: L('WHO AWaRe categories were not assigned: the AWaRe 2025 dataset is not installed.', 'لم تُحدَّد فئات AWaRe: بيانات AWaRe 2025 غير مثبتة.'),
     });
   }
   const cultures = ctx.current.filter((e): e is EntryOf<'culture'> => e.type === 'culture' && (e.payload.status === 'growth' || e.payload.status === 'no_growth'));
   for (const d of antimicrobials) {
     const course = courses.find((c) => c.medId === d.medId)!;
     if (ctx.aware) {
-      const cats = [...new Set(d.ingredients.map((i) => ctx.aware!.categoryOf(i)).filter(Boolean))];
-      if (cats.length)
+      const route = awareRoute(course.route);
+      const { matches, byIngredient } = awareOf(d, route);
+      const cap = (c: string) => c[0]!.toUpperCase() + c.slice(1);
+      const cats = [...new Set(matches.map((m) => cap(m.category)))];
+      const named = matches.map((m) => `${m.name}: ${cap(m.category)}${m.route ? ` (${m.route === 'oral' ? 'oral' : 'IV'})` : ''}`).join('; ');
+      if (!matches.length)
+        skip({
+          key: `aware:${d.medId}`,
+          what: 'aware',
+          subject: d.label,
+          reason: L(
+            `No AWaRe category for "${d.label}": it is not in the WHO AWaRe 2025 list as installed (some antibiotics in the list have no RxNorm name and could not be mapped).`,
+            `لا توجد فئة AWaRe لـ«${d.label}»: ليس ضمن قائمة WHO AWaRe 2025 المثبتة (بعض مضادات القائمة بلا اسم في RxNorm فلم تُطابَق).`,
+          ),
+        });
+      else
         add({
           key: `aware:${d.medId}`,
           ruleId: 'aware',
           level: 'informational',
-          title: L(`AWaRe: ${cats.join(', ')} — ${d.label}`, `تصنيف AWaRe: ${cats.join('، ')} — ${d.label}`),
-          detail: L('WHO Access, Watch, Reserve classification of the antibiotic.', 'تصنيف منظمة الصحة العالمية للمضاد الحيوي (Access وWatch وReserve).'),
+          title: L(`AWaRe: ${cats.join(' / ')} — ${d.label}`, `تصنيف AWaRe: ${cats.join(' / ')} — ${d.label}`),
+          detail: L(
+            `${named}${byIngredient ? ' — by ingredient: WHO does not list this combination' : ''}${!route && matches.some((m) => m.route) ? ' — the category depends on the route' : ''}. WHO Access, Watch, Reserve classification for monitoring and stewardship.`,
+            `${named}${byIngredient ? ' — حسب المكوّن: لا تذكر المنظمة هذه التركيبة' : ''}${!route && matches.some((m) => m.route) ? ' — تختلف الفئة باختلاف طريق الإعطاء' : ''}. تصنيف منظمة الصحة العالمية (Access وWatch وReserve) للرصد وترشيد الاستخدام.`,
+          ),
           source: L(ctx.aware.citation, ctx.aware.citation),
-          dataHash: hash(`${d.ingredients.join(',')}|${ctx.aware.version}`),
+          dataHash: hash(`${d.ingredients.join(',')}|${route ?? ''}|${ctx.aware.version}`),
           medIds: [d.medId!],
           taskId: 't14',
         });

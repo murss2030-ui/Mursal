@@ -2,22 +2,116 @@
   "datasets": {
     "rxnorm-subset": {
       "file": "data/rxnorm-subset.json",
-      "title": "RxNorm prescribable ingredients and brands, with FDA EPC and VA antimicrobial classes",
+      "title": "RxNorm prescribable ingredients and brands, with FDA EPC and VA antimicrobial classes, and the RxNorm ingredients the installed datasets name",
       "version": "RxNorm 05-Oct-2026",
       "retrievedAt": "2026-10-17",
-      "bytes": 651315,
-      "sha256": "357e961fcb8f9aef241b3d34d9ac36b0b27761d56d674f0989ec3e1b892f2864",
+      "bytes": 665904,
+      "sha256": "6dad18b9b4f710138543faddd06dc83e2bd667a078bd0b68f626bb09e88d39c4",
       "counts": {
         "ingredients": 5874,
         "preciseIngredients": 1654,
         "multipleIngredients": 954,
         "brands": 4140,
         "internationalNames": 99,
-        "epcClasses": 672,
-        "vaAntimicrobialClasses": 23
+        "epcClasses": 632,
+        "vaAntimicrobialClasses": 23,
+        "extraIngredients": 315,
+        "epcGroups": 106
       },
       "source": "RxNorm Current Prescribable Content and RxClass, U.S. National Library of Medicine, via the RxNav API (https://rxnav.nlm.nih.gov)",
       "licence": "RxNorm content from NLM (SAB=RXNORM) is free to use without a UMLS licence; FDA EPC and VA classes are U.S. Government works. This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product."
+    },
+    "interactions": {
+      "file": "data/ddinter-interactions.json",
+      "title": "DDInter drug–drug interactions (download files), mapped to RxNorm ingredients",
+      "version": "DDInter download files (DDInter 1.0, 2021; re-served by DDInter 2.0, May 2024)",
+      "retrievedAt": "2026-10-18",
+      "bytes": 1044258,
+      "sha256": "6d0d304a1d94e92589970c47d271113046534d6b73a344da835745eda013aef2",
+      "counts": {
+        "sourceRows": 222383,
+        "sourcePairs": 160235,
+        "ddinterDrugs": 1939,
+        "drugsUsed": 1814,
+        "drugsNotMapped": 33,
+        "combinationsLeftOut": 1,
+        "ingredientPairs": 146697,
+        "major": 25258,
+        "moderate": 85820,
+        "minor": 5832,
+        "unknown": 29787,
+        "ingredients": 1766,
+        "anchoredIngredients": 801
+      },
+      "source": "DDInter, Computational Biology & Drug Design Group (https://ddinter2.scbdd.com/download/): the eight download files, ATC groups A, B, D, H, L, P, R and V. Tian Y, et al. DDInter 2.0. Nucleic Acids Res 2025;53(D1):D1356–D1362; Xiong G, et al. DDInter. Nucleic Acids Res 2022;50:D1200–D1207.",
+      "licence": "DDInter data: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0). This file is adapted from DDInter: drug names were mapped to RxNorm ingredients, unmapped names and combination products were left out, and where DDInter lists a drug in several forms the highest risk level is kept. It is shared under the same licence. DDInter states that it cannot guarantee the accuracy or completeness of its contents and that the absence of an interaction does not necessarily mean that no interaction exists. The download files hold no mechanism or management text.",
+      "sourceFiles": [
+        {
+          "name": "ddinter_downloads_code_A.csv",
+          "bytes": 3343434,
+          "sha256": "a22ca451d2b755ca2331886f7e00540c86f555f9f55704a59a19c691251f52e0"
+        },
+        {
+          "name": "ddinter_downloads_code_B.csv",
+          "bytes": 867726,
+          "sha256": "76de5115a55587f0e822e1096b684fd3ddde058fbefcbb19896df58820ace130"
+        },
+        {
+          "name": "ddinter_downloads_code_D.csv",
+          "bytes": 1520704,
+          "sha256": "c0627ec39965dbe27829e4934cd20d71eb079f4e373287678737bba9423a306a"
+        },
+        {
+          "name": "ddinter_downloads_code_H.csv",
+          "bytes": 705088,
+          "sha256": "f0f925f0ba1ee68c4668d3e7a6732719b34623b22a0f5d017f9090e59f63c88e"
+        },
+        {
+          "name": "ddinter_downloads_code_L.csv",
+          "bytes": 3885702,
+          "sha256": "f54f4486cc00344f8c86508c31c2ca3fad6d1d37ec3af5bcf609b4bbda5507ef"
+        },
+        {
+          "name": "ddinter_downloads_code_P.csv",
+          "bytes": 317460,
+          "sha256": "83f8c0edb20d09ef29b8500b48f9623e208379525688ade9e70a7df2d8749d55"
+        },
+        {
+          "name": "ddinter_downloads_code_R.csv",
+          "bytes": 1793766,
+          "sha256": "1c39c3d4a6e41659b7a988538d7f363867592abc6f41a815de8746f6e2150574"
+        },
+        {
+          "name": "ddinter_downloads_code_V.csv",
+          "bytes": 700777,
+          "sha256": "353973fb300453946aea95733e8fb52338e4b59426d2ce6ca318363d4f84f10a"
+        }
+      ]
+    },
+    "aware": {
+      "file": "data/who-aware-2025.json",
+      "title": "WHO AWaRe classification of antibiotics, 2025, mapped to RxNorm ingredients",
+      "version": "WHO AWaRe classification 2025",
+      "retrievedAt": "2026-10-18",
+      "bytes": 8526,
+      "sha256": "ce7acf797dd3c6462084ab0fec705dded39b9699c0891b6765e01c028c0025d7",
+      "counts": {
+        "whoEntries": 268,
+        "mapped": 209,
+        "notMapped": 56,
+        "access": 71,
+        "watch": 112,
+        "reserve": 26
+      },
+      "source": "World Health Organization, IRIS https://iris.who.int/handle/10665/382244 — spreadsheet B09489-eng.xlsx, sheet \"AWaRe classification 2025\"",
+      "licence": "The selection and use of essential medicines, 2025: WHO AWaRe (access, watch, reserve) classification of antibiotics for evaluation and monitoring of use. Geneva: World Health Organization; 2025. https://doi.org/10.2471/B09489. Licence: CC BY-NC-SA 3.0 IGO. This file is an adaptation of the WHO work: antibiotic names were mapped to RxNorm ingredients and names that did not map exactly were left out. It is shared under the same licence. The adaptation was not created by WHO; WHO is not responsible for its content or accuracy, and does not endorse PRECEPTOR.",
+      "sourceFiles": [
+        {
+          "name": "B09489-eng.xlsx",
+          "bytes": 109786,
+          "sha256": "2a885c92306f9865b16b6242ab51ac01bf8ee8b1f2470aa95f05c3fe4ea2907c"
+        }
+      ]
     }
   }
 }

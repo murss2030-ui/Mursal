@@ -45,6 +45,11 @@ export function DatasetStatus() {
             <Chip>{t('ds.notInstalled')}</Chip> {t('ds.missing.interactions')}
           </p>
         )}
+        {!DATASETS.onc && (
+          <p className="rounded-xl border border-dashed border-slate-400 p-3 text-sm text-slate-800" data-dataset="onc" data-installed="false">
+            <Chip>{t('ds.notInstalled')}</Chip> {t('ds.missing.onc')}
+          </p>
+        )}
         {!DATASETS.aware && (
           <p className="rounded-xl border border-dashed border-slate-400 p-3 text-sm text-slate-800" data-dataset="aware" data-installed="false">
             <Chip>{t('ds.notInstalled')}</Chip> {t('ds.missing.aware')}

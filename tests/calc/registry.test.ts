@@ -25,11 +25,12 @@ describe('engine:registry', () => {
     }
   });
 
-  it('pairs the two QTc calculators and marks vancomycin and phenytoin as high-risk', () => {
+  it('pairs the two QTc calculators and marks vancomycin, phenytoin and the weight-based infusion as high-risk', () => {
     const by = new Map(CALCULATOR_DEFS.map((d) => [d.id, d]));
     expect(by.get('qtc_bazett')?.pairedWith).toBe('qtc_fridericia');
     expect(by.get('qtc_fridericia')?.pairedWith).toBe('qtc_bazett');
-    expect(CALCULATOR_DEFS.filter((d) => d.highRisk).map((d) => d.id).sort()).toEqual(['phenytoin_corrected', 'vancomycin_auc']);
+    // Section 9: vancomycin AUC, phenytoin correction, and weight-based doses (the weight-based infusion rate).
+    expect(CALCULATOR_DEFS.filter((d) => d.highRisk).map((d) => d.id).sort()).toEqual(['infusion_rate_weight', 'phenytoin_corrected', 'vancomycin_auc']);
   });
 
   it('a calculator with a passing record for this engine is validated', () => {

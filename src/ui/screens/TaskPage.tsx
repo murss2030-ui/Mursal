@@ -593,7 +593,13 @@ function Worksheet({ def, b, rec }: { def: TaskDef; b: CaseBundle; rec: TaskReco
               const course = b.activeCourses.find((c) => c.medId === medId);
               return course ? renalDoseReviewGate(b.calcContext, course) : undefined;
             } : undefined}
-            tagsFor={(medId) => (rules.ready ? <InlineAlertTags alerts={rules.forMed(medId).filter((a) => a.taskId === def.id)} /> : null)}
+            tagsFor={(medId) =>
+              rules.ready ? (
+                <InlineAlertTags
+                  alerts={rules.alerts.filter((a) => a.taskId === def.id && a.medIds?.includes(medId) && (a.level !== 'informational' || a.ruleId === 'aware'))}
+                />
+              ) : null
+            }
             errors={errors}
             caseId={caseId}
           />

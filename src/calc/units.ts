@@ -42,7 +42,10 @@ export type QuantityId =
   | 'dose'
   | 'duration'
   | 'gcs'
-  | 'factor';
+  | 'factor'
+  | 'dose_rate'
+  | 'concentration'
+  | 'volume';
 
 interface UnitDef {
   unit: string;
@@ -121,6 +124,10 @@ export const QUANTITIES: Readonly<Record<QuantityId, QuantityDef>> = {
   duration: { id: 'duration', canonical: 'h', units: [same('h'), factor('min', 60)] },
   gcs: { id: 'gcs', canonical: 'points', units: [same('points')] },
   factor: { id: 'factor', canonical: 'unitless', units: [same('unitless')] },
+  // Weight-based infusion rate: 60 mcg/kg/h make one mcg/kg/min.
+  dose_rate: { id: 'dose_rate', canonical: 'mcg/kg/min', units: [same('mcg/kg/min'), factor('mcg/kg/h', 60)] },
+  concentration: { id: 'concentration', canonical: 'mcg/mL', units: [same('mcg/mL'), times('mg/mL', 1000)] },
+  volume: { id: 'volume', canonical: 'mL', units: [same('mL'), times('L', 1000)] },
 };
 
 /**

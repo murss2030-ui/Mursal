@@ -8,6 +8,7 @@
  */
 import { engineHash, manifest } from 'virtual:preceptor-calc-validation';
 import { anc } from './calculators/anc';
+import { infusionRateVolume, infusionRateWeight } from './calculators/infusion';
 import { bmi, bsaMosteller, ibwAdjbw } from './calculators/body';
 import { anionGap, correctedCalcium } from './calculators/electrolytes';
 import { childPugh } from './calculators/liver';
@@ -38,6 +39,8 @@ export const CALCULATOR_DEFS: readonly CalculatorDef[] = [
   qsofa,
   cha2ds2vasc,
   hasBled,
+  infusionRateWeight,
+  infusionRateVolume,
 ];
 
 export type Manifest = typeof manifest;

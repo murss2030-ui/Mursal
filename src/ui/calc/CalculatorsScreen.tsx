@@ -22,6 +22,7 @@ export const CALC_GROUPS: { key: string; ids: CalculatorId[] }[] = [
   { key: 'heart', ids: ['qtc_bazett'] },
   { key: 'blood', ids: ['anion_gap', 'corrected_calcium', 'anc'] },
   { key: 'scores', ids: ['curb65', 'qsofa', 'cha2ds2vasc', 'has_bled'] },
+  { key: 'infusion', ids: ['infusion_rate_weight', 'infusion_rate_volume'] },
 ];
 
 /** A pair (QTc) is usable only when both of its calculators passed their tests. */

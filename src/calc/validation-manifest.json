@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-17T21:59:58.780Z",
-  "engineHash": "878896545d34158c4e5b3dbe94fae5d73d7f1380a77c57c80e70a33178e59bab",
+  "generatedAt": "2026-10-18T20:07:26.692Z",
+  "engineHash": "1cd16b192273e237295e0b225f48a101db3ba31a63e78265e37509d6b1a4d8b2",
   "engineTests": {
-    "passed": 61,
+    "passed": 64,
     "failed": 0
   },
   "calculators": {
@@ -65,6 +65,16 @@
     "ibw_adjbw": {
       "formulaVersion": "1",
       "passed": 8,
+      "failed": 0
+    },
+    "infusion_rate_volume": {
+      "formulaVersion": "1",
+      "passed": 6,
+      "failed": 0
+    },
+    "infusion_rate_weight": {
+      "formulaVersion": "1",
+      "passed": 11,
       "failed": 0
     },
     "phenytoin_corrected": {

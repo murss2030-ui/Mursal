@@ -565,7 +565,7 @@ const TASK_LIST: readonly TaskDef[] = [
     ],
     needs: ['weight', 'height', 'demographics'],
     registers: ['calc_check'],
-    calculators: ['ibw_adjbw', 'bsa_mosteller', 'bmi'],
+    calculators: ['ibw_adjbw', 'bsa_mosteller', 'bmi', 'infusion_rate_weight', 'infusion_rate_volume'],
     perMedication: {
       applies: L('Is this given by IV infusion or as a weight-based dose?', 'هل يُعطى هذا الدواء بالتسريب الوريدي أو بجرعة محسوبة بالوزن؟'),
       checks: [
@@ -577,13 +577,6 @@ const TASK_LIST: readonly TaskDef[] = [
       ],
     },
     later: [
-      {
-        milestone: 'M2',
-        what: L(
-          'An infusion-rate calculator is not among the sixteen tested calculators — adding it needs the owner’s decision.',
-          'حاسبة معدل التسريب ليست ضمن الحاسبات الست عشرة المختبرة — وإضافتها تحتاج قرار المالك.',
-        ),
-      },
     ],
   },
   {
@@ -660,8 +653,8 @@ const TASK_LIST: readonly TaskDef[] = [
       {
         milestone: 'M2',
         what: L(
-          'DDInter 2.0 and the ONC high-priority list on the device, checked automatically. The checking and its three alert levels are built; the datasets are not installed yet, because their sites could not be reached — until then, interactions are listed as not checked.',
-          'بيانات DDInter 2.0 وقائمة ONC عالية الأولوية على الجهاز وفحصها تلقائياً. الفحص ومستويات التنبيه الثلاثة مبنية؛ أما البيانات فلم تُثبَّت بعد لتعذّر الوصول إلى مواقعها — وحتى ذلك الحين تُذكر التداخلات على أنها لم تُفحص.',
+          'The ONC high-priority list, which raises an interaction to critical, is not installed yet: its full text could not be obtained. DDInter interactions are checked automatically; a pair the DDInter files do not cover is listed as not checked.',
+          'قائمة ONC عالية الأولوية، التي ترفع التداخل إلى مستوى حرج، غير مثبتة بعد: تعذّر الحصول على نصها الكامل. تُفحص تداخلات DDInter تلقائياً، ويُذكر الزوج الذي لا تغطيه ملفات DDInter على أنه لم يُفحص.',
         ),
       },
     ],
@@ -859,15 +852,6 @@ const TASK_LIST: readonly TaskDef[] = [
         ck('duration', 'Planned duration or stop date documented', 'المدة المخططة أو موعد الإيقاف موثّق'),
       ],
     },
-    later: [
-      {
-        milestone: 'M2',
-        what: L(
-          'WHO AWaRe tagging of every antimicrobial. The 48–72-hour time-out and the de-escalation prompt are built; the AWaRe 2025 file is not installed yet, because the WHO site could not be reached.',
-          'تصنيف AWaRe لكل مضاد ميكروبي. تنبيه المراجعة عند 48–72 ساعة وتنبيه التضييق مبنيان؛ أما ملف AWaRe 2025 فلم يُثبَّت بعد لتعذّر الوصول إلى موقع منظمة الصحة العالمية.',
-        ),
-      },
-    ],
   },
   {
     id: 't27',

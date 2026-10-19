@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "icons": "node scripts/gen-icons.mjs",
-    "docs:fixtures": "vitest run tests/calc --reporter=json --outputFile=node_modules/.tmp/calc-report.json && vite-node scripts/fixtures-doc.ts node_modules/.tmp/calc-report.json"
+    "docs:fixtures": "vitest run tests/calc --reporter=json --outputFile=node_modules/.tmp/calc-report.json && vite-node scripts/fixtures-doc.ts node_modules/.tmp/calc-report.json",
+    "data:build": "node scripts/data/build-rxnorm.mjs && node scripts/data/build-epc.mjs && node scripts/data/build-ddinter.mjs && node scripts/data/build-aware.mjs"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "5.3.0",
