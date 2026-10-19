@@ -11,18 +11,17 @@
  *   PRECEPTOR never computes or suggests the adjusted dose;
  * - the hospital laboratory's critical thresholds (M2 plan decision 4,
  *   proposed default: none shipped; each entered with its source);
- * - the department's vancomycin dosing-interval table (owner decision 6,
- *   18 October 2026: empiric weight-based dosing with the interval set from
- *   Cockcroft–Gault creatinine clearance). The decision names the method, not
- *   the bands, so none are shipped: each band is entered with its source.
+ * - the ONC high-priority interaction list (owner decision, 19 October
+ *   2026): the publisher's site cannot be reached from the build, so the
+ *   administrator enters each pair here, with its source. A pair names drugs
+ *   or drug classes on each side; the rules raise it to critical.
  *
  * Every record is versioned and audited; "removed" is a new version with a
  * reason, never a deletion.
  */
 import { isValidISODate } from './dates';
 import { ANALYTE_BY_ID } from './catalogue';
-import { L } from './label';
-import { formatNumber, parseDecimal } from './numbers';
+import { parseDecimal } from './numbers';
 import type { Versioned } from './types';
 
 export type ReferenceStatus = 'active' | 'retracted';
@@ -81,21 +80,36 @@ export interface LabThreshold extends RefBase {
   source: string;
 }
 
-/** One band of the department's vancomycin interval table. */
-export interface VancomycinIntervalBand extends RefBase {
-  /** Creatinine clearance (Cockcroft–Gault, mL/min) from this value, inclusive; no lower end when absent. */
-  crclFrom?: number;
-  /** Up to this value, exclusive; no upper end when absent. */
-  crclBelow?: number;
-  /** `interval`: one dose every `intervalHours`. `levels`: the department sets no fixed interval in this band. */
-  action: 'interval' | 'levels';
-  intervalHours?: number;
-  /** The reference, with page or URL. */
+/**
+ * One side of an ONC pair: the names as the administrator entered them, and
+ * what they resolved to in the offline vocabulary — single-ingredient drugs,
+ * and FDA or VA drug classes whose members are read from the vocabulary when
+ * the rules run.
+ */
+export interface OncSide {
+  names: string[];
+  ingredients: string[];
+  classes: { id: string; name: string }[];
+}
+
+/** One pair of the ONC high-priority interaction list, entered by the administrator. */
+export interface OncPair extends RefBase {
+  /** The pair as the source names it, e.g. "Atazanavir — proton pump inhibitors". */
+  label: string;
+  sideA: OncSide;
+  sideB: OncSide;
+  /** The reference, with page or table. */
   source: string;
 }
 
-export type ReferenceKind = 'formulary' | 'adjustment' | 'threshold' | 'vancomycin_interval';
-export type RefError = 'required' | 'invalidChoice' | 'number' | 'date' | 'tooLong' | 'order' | 'unit' | 'range';
+/** A side of an ONC pair as the editor resolved it: names it could not resolve block the save. */
+export interface OncResolved {
+  side: OncSide;
+  unrecognised: string[];
+}
+
+export type ReferenceKind = 'formulary' | 'adjustment' | 'threshold' | 'onc';
+export type RefError = 'required' | 'invalidChoice' | 'number' | 'date' | 'tooLong' | 'order' | 'unit' | 'unrecognised';
 export type RefErrors = Record<string, RefError>;
 export type RefResult<T> = { ok: true; value: T } | { ok: false; errors: RefErrors };
 
@@ -221,38 +235,28 @@ export function normalizeThreshold(v: Readonly<Record<string, string>>): RefResu
   });
 }
 
-/** Longest dosing interval a band may give (one week). */
-export const MAX_INTERVAL_HOURS = 168;
+const NO_SIDE: OncResolved = { side: { names: [], ingredients: [], classes: [] }, unrecognised: [] };
 
-export function normalizeVancomycinInterval(v: Readonly<Record<string, string>>): RefResult<Fields<VancomycinIntervalBand> & Pick<RefBase, 'verifiedBy' | 'verifiedAt'>> {
+/**
+ * An ONC pair. Each side needs at least one name, and every name must have
+ * resolved (to one ingredient or a drug class) — a name the vocabulary does
+ * not know would silently never match.
+ */
+export function normalizeOnc(
+  v: Readonly<Record<string, string>>,
+  sides: { sideA: OncResolved; sideB: OncResolved } = { sideA: NO_SIDE, sideB: NO_SIDE },
+): RefResult<Fields<OncPair> & Pick<RefBase, 'verifiedBy' | 'verifiedAt'>> {
   const c = new Check(v);
-  const crclFrom = c.num('crclFrom', false);
-  const crclBelow = c.num('crclBelow', false);
-  if (crclFrom === undefined && crclBelow === undefined && !c.errors.crclFrom && !c.errors.crclBelow) c.errors.crclFrom = 'required';
-  if (crclFrom !== undefined && crclBelow !== undefined && crclFrom >= crclBelow) c.errors.crclBelow = 'order';
-  const action = c.choice('action', ['interval', 'levels'] as const);
-  const intervalHours = action === 'interval' ? c.num('intervalHours', true) : undefined;
-  if (intervalHours !== undefined && (intervalHours <= 0 || intervalHours > MAX_INTERVAL_HOURS)) c.errors.intervalHours = 'range';
+  const label = c.text('label', true) ?? '';
+  for (const k of ['sideA', 'sideB'] as const) {
+    c.text(k, true, MAX_LONG);
+    if (!c.errors[k] && (sides[k].unrecognised.length || !sides[k].side.names.length)) c.errors[k] = sides[k].side.names.length ? 'unrecognised' : 'required';
+  }
   return c.result({
-    ...(crclFrom !== undefined ? { crclFrom } : {}),
-    ...(crclBelow !== undefined ? { crclBelow } : {}),
-    action: action ?? 'interval',
-    ...(intervalHours !== undefined ? { intervalHours } : {}),
+    label,
+    sideA: sides.sideA.side,
+    sideB: sides.sideB.side,
     source: c.text('source', true) ?? '',
     ...meta(c),
   });
-}
-
-/** Does this band hold a creatinine clearance (mL/min)? */
-export function bandCovers(b: Pick<VancomycinIntervalBand, 'crclFrom' | 'crclBelow'>, crcl: number): boolean {
-  return (b.crclFrom === undefined || crcl >= b.crclFrom) && (b.crclBelow === undefined || crcl < b.crclBelow);
-}
-
-/** The band's range in words: "50 to below 90 mL/min", "90 mL/min or more", "below 20 mL/min". */
-export function bandRange(b: Pick<VancomycinIntervalBand, 'crclFrom' | 'crclBelow'>): L {
-  const f = formatNumber;
-  if (b.crclFrom !== undefined && b.crclBelow !== undefined)
-    return L(`${f(b.crclFrom)} to below ${f(b.crclBelow)} mL/min`, `من ${f(b.crclFrom)} إلى أقل من ${f(b.crclBelow)} mL/min`);
-  if (b.crclFrom !== undefined) return L(`${f(b.crclFrom)} mL/min or more`, `${f(b.crclFrom)} mL/min أو أكثر`);
-  return L(`below ${f(b.crclBelow ?? 0)} mL/min`, `أقل من ${f(b.crclBelow ?? 0)} mL/min`);
 }

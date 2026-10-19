@@ -82,7 +82,8 @@ export const FIELD_LIMITS: Partial<Record<RegisterId, Readonly<Record<string, Fi
     teaching: 'never',
     preceptorReviewed: 'never',
   },
-  interaction: { severity: 'never', source: 'never' },
+  // The trainee looks up and writes everything about an interaction but the drugs (owner decision, 19 October 2026).
+  interaction: { severity: 'never', source: 'never', mechanism: 'never', effect: 'never', management: 'never' },
   adr: { action: 'never', dechallenge: 'never', outcome: 'never', causality: 'never', preventable: 'never', reported: 'never', reportDay: 'never' },
   med_error: { reached: 'never', reported: 'never' },
   tdm: { target: 'never' },

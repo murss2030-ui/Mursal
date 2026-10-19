@@ -7,7 +7,7 @@
 import { useMemo, useState } from 'react';
 import { prepare } from '../../calc/engine';
 import { applies, candidates, confirmationKey, type Answer, type GatherRequest } from '../../calc/gather';
-import type { CalcResult, Calculator, InputSpec, InputValue, Problem } from '../../calc/types';
+import type { CalcResult, Calculator, InputSpec, Problem } from '../../calc/types';
 import { acceptedUnits, show, type QuantityId } from '../../calc/units';
 import { parseDecimal } from '../../domain/numbers';
 import type { TimelineEntry } from '../../domain/types';
@@ -114,7 +114,6 @@ function InputRow({
   draft,
   setDraft,
   readOnly,
-  value,
 }: {
   spec: InputSpec;
   required: boolean;
@@ -124,8 +123,6 @@ function InputRow({
   draft: Draft;
   setDraft: (d: Draft) => void;
   readOnly: boolean;
-  /** The value the inputs resolve to now (shown for an input read from a reference table). */
-  value?: InputValue;
 }) {
   const { t } = useI18n();
   const tl = useL();
@@ -153,26 +150,6 @@ function InputRow({
             {t('calc.addInDetails')}
           </a>
         )}
-      </div>
-    );
-  }
-
-  if (s.kind === 'reference') {
-    // Chosen by the calculator from the trainee's reference table once the other inputs are valid; shown with its source.
-    const used = value?.source.kind === 'reference' ? value.source : undefined;
-    return (
-      <div className="flex flex-col gap-1 py-2" data-input={spec.key}>
-        <span className="text-sm font-medium text-slate-800">{label}</span>
-        {used ? (
-          <span className="text-sm text-slate-900" data-testid={`reference-${spec.key}`}>
-            {tl(used.text)} <span className="text-xs text-slate-600">· {used.source}</span>
-          </span>
-        ) : (
-          <span className="text-xs text-slate-600">{t('calc.fromReference')}</span>
-        )}
-        <a href={`#/reference/${s.table}`} className="self-start text-sm font-medium text-teal-900 underline">
-          {t(`ref.kind.${s.table}`)}
-        </a>
       </div>
     );
   }
@@ -358,7 +335,7 @@ export function CalcPanel({ b, calc, heading = true }: { b: CaseBundle; calc: Ca
         <h4 className="pt-3 text-sm font-semibold text-slate-900">{t('calc.inputs')}</h4>
         <div className="flex flex-col divide-y divide-line">
           {[...calc.requiredInputs.map((s) => [s, true] as const), ...calc.optionalInputs.map((s) => [s, false] as const)]
-            .filter(([spec]) => applies(spec, req.answers))
+            .filter(([spec]) => applies(spec, req.answers, [...calc.requiredInputs, ...calc.optionalInputs]))
             .map(([spec, required]) => {
             const range = outOfRangeFor(spec.key);
             const v = prep.inputs[spec.key];
@@ -373,7 +350,6 @@ export function CalcPanel({ b, calc, heading = true }: { b: CaseBundle; calc: Ca
                   draft={drafts[spec.key] ?? {}}
                   setDraft={(d) => setDrafts({ ...drafts, [spec.key]: d })}
                   readOnly={readOnly}
-                  value={v}
                 />
                 {range && v && (
                   <div className="mb-2 flex flex-col gap-1 rounded-lg bg-saffron-50 p-2" data-testid={`out-of-range-${spec.key}`}>

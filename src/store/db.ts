@@ -45,7 +45,7 @@ export const APPEND_ONLY_TABLES = [
   'formulary',
   'adjustments',
   'thresholds',
-  'vancomycinIntervals',
+  'oncPairs',
   'alertFirings',
   'alertAcks',
   'causality',
@@ -132,7 +132,7 @@ export class PreceptorDB extends Dexie {
   formulary!: Table<EncryptedRow, string>;
   adjustments!: Table<EncryptedRow, string>;
   thresholds!: Table<EncryptedRow, string>;
-  vancomycinIntervals!: Table<EncryptedRow, string>;
+  oncPairs!: Table<EncryptedRow, string>;
   alertFirings!: Table<EncryptedRow, string>;
   alertAcks!: Table<EncryptedRow, string>;
   causality!: Table<EncryptedRow, string>;
@@ -178,9 +178,14 @@ export class PreceptorDB extends Dexie {
       // Naranjo and WHO-UMC questionnaires attached to ADR register rows, versioned.
       causality: 'id, entityId, caseId',
     });
-    // M2, owner decision 6: the department's vancomycin dosing-interval table, versioned like the other reference tables.
+    // M2 (18 October 2026): a trainee-entered vancomycin interval table, replaced the next day by the department's
+    // table built into the calculator. The store is no longer used; it is kept so that nothing a device holds is deleted.
     this.version(5).stores({
       vancomycinIntervals: 'id, entityId',
+    });
+    // M2, owner decision of 19 October 2026: the ONC high-priority interaction list, entered by the administrator.
+    this.version(6).stores({
+      oncPairs: 'id, entityId',
     });
     this.use(appendOnlyMiddleware);
   }

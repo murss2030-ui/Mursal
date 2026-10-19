@@ -160,74 +160,47 @@ test('vancomycin AUC refuses without two picked levels, then computes from level
   await shot(page, 'm2-05-vancomycin');
 });
 
-test('vancomycin without levels: refused until the department’s table has its bands; then the dose from actual weight and the interval from the band', async ({ page }) => {
+test('vancomycin without levels: the dose from actual weight and the interval from the department’s table; one dose, then levels, below 20 mL/min', async ({ page }) => {
   const w = watchPage(page);
   const caseId = await newCaseWithData(page); // female, 67 years
   await addWeight(page, caseId, '60', '0');
   await addCreatinine(page, caseId, '1.1', '1');
-  const answer = async () => {
-    await page.goto(`/#/cases/${caseId}/task/t10`);
-    await page.getByTestId('task-calc-vancomycin_empiric').locator('summary').click();
-    const panel = page.getByTestId('calc-panel-vancomycin_empiric');
-    await panel.getByTestId('answer-weightBasis').getByRole('radio', { name: 'Total body weight (TBW)' }).click();
-    await panel.locator('[data-input="mgPerKg"]').getByLabel('Value').fill('15');
-    await panel.getByTestId('answer-noRrt').getByRole('radio', { name: 'Yes' }).click();
-    return panel;
-  };
-  let panel = await answer();
+  await page.goto(`/#/cases/${caseId}/task/t10`);
+  await page.getByTestId('task-calc-vancomycin_empiric').locator('summary').click();
+  const panel = page.getByTestId('calc-panel-vancomycin_empiric');
   await expect(panel).toContainText('High-risk calculation');
-  await expect(panel.getByTestId('calc-problems')).toContainText('your department’s vancomycin interval table is empty');
-  await expect(panel.getByTestId('calc-run')).toBeDisabled();
-
-  // The department's bands — here a synthetic test table, not a clinical recommendation — each with its source.
-  const addBand = async (fields: { from?: string; below?: string; hours?: string }) => {
-    await page.goto('/#/reference/vancomycin_interval/new');
-    if (fields.from) await page.getByLabel(/Creatinine clearance from/).fill(fields.from);
-    if (fields.below) await page.getByLabel(/Creatinine clearance below/).fill(fields.below);
-    if (fields.hours) {
-      await page.getByRole('radio', { name: 'One dose at a fixed interval' }).check();
-      await page.getByLabel('Dosing interval (hours)').fill(fields.hours);
-    } else await page.getByRole('radio', { name: 'No fixed interval: dose by levels' }).check();
-    await page.getByLabel('Reference, with page or URL').fill('Synthetic test table (browser test, not a clinical recommendation)');
-    await page.getByLabel('Verified by').fill('Test');
-    await page.getByTestId('ref-save').click();
-    await expect(page).toHaveURL(/#\/reference\/vancomycin_interval$/);
-  };
-  await addBand({ from: '60', hours: '12' });
-  await addBand({ from: '30', below: '60', hours: '24' });
-  await addBand({ below: '30' });
-  await expect(page.getByTestId('ref-row')).toHaveCount(3);
-  await expect(page.getByTestId('ref-row').first()).toContainText('Creatinine clearance below 30 mL/min');
-  await shot(page, 'm2-17-vancomycin-interval-table');
-
-  // CrCl (TBW) = (140 − 67) × 60 ÷ (72 × 1.1) × 0.85 = 47.0 → band "30 to below 60" → every 24 h; dose = 15 × 60 = 900 mg.
-  panel = await answer();
-  await expect(panel.getByTestId('reference-interval')).toContainText('creatinine clearance 30 to below 60 mL/min → every 24 h');
-  await expect(panel.getByTestId('calc-problems')).toHaveCount(0);
+  await panel.locator('[data-input="mgPerKg"]').getByLabel('Value').fill('15');
+  // The creatinine inputs are asked only once the patient is known not to be on dialysis.
+  await expect(panel.locator('[data-input="weightBasis"]')).toHaveCount(0);
+  await panel.getByTestId('answer-onDialysis').getByRole('radio', { name: 'No' }).click();
+  await panel.getByTestId('answer-weightBasis').getByRole('radio', { name: 'Total body weight (TBW)' }).click();
   await panel.getByTestId('calc-run').click();
+
+  // CrCl (TBW) = (140 − 67) × 60 ÷ (72 × 1.1) × 0.85 = 47.0 → 47 → 20–49 mL/min → every 24 h; dose = 15 × 60 = 900 mg.
   const result = panel.getByTestId('calc-result-vancomycin_empiric');
   await expect(result.getByTestId('calc-value')).toHaveText('900 mg');
-  await expect(result.getByTestId('calc-category')).toHaveText('Every 24 h (your department’s table)');
+  await expect(result.getByTestId('calc-category')).toHaveText('Every 24 h (department’s table)');
   await expect(result.getByTestId('calc-warnings')).toContainText('A population-based starting regimen for a setting where levels cannot be measured');
   await result.getByTestId('calc-basis').locator('summary').click();
   await expect(result.getByTestId('calc-steps')).toContainText('CrCl compared with the table as a whole number: 47 mL/min');
+  await expect(result.getByTestId('calc-steps')).toContainText('Department’s table: CrCl 20–49 mL/min → every 24 h');
   await expect(result.getByTestId('calc-steps')).toContainText('Dose = 15 mg/kg × 60 kg = 900 mg');
-  await expect(result.getByTestId('calc-basis')).toContainText('department’s table, version 1: creatinine clearance 30 to below 60 mL/min → every 24 h');
-  await expect(result.getByTestId('calc-basis')).toContainText('owner decision 6');
+  await expect(result.getByTestId('calc-basis')).toContainText('owner decision, 19 October 2026');
   await shot(page, 'm2-18-vancomycin-no-level');
 
-  // A higher creatinine moves the patient into the "dose by levels" band: the old result is out of date, a new one is refused.
-  // CrCl = (140 − 67) × 60 ÷ (72 × 2.0) × 0.85 = 25.9 → 26 mL/min.
-  await addCreatinine(page, caseId, '2.0', '2');
+  // A higher creatinine: the result is out of date, and the new one is a single dose, then dosing by levels.
+  // CrCl = (140 − 67) × 60 ÷ (72 × 3.0) × 0.85 = 17.2 → 17 → below 20 mL/min.
+  await addCreatinine(page, caseId, '3.0', '2');
   await page.goto(`/#/cases/${caseId}/calc/vancomycin_empiric`);
   await expect(page.getByTestId('calc-result-vancomycin_empiric')).toHaveAttribute('data-current', 'no');
-  await page.getByTestId('answer-weightBasis').getByRole('radio', { name: 'Total body weight (TBW)' }).click();
   await page.locator('[data-input="mgPerKg"]').getByLabel('Value').fill('15');
-  await page.getByTestId('answer-noRrt').getByRole('radio', { name: 'Yes' }).click();
-  await expect(page.getByTestId('calc-problems')).toContainText(
-    'Your department’s table gives no fixed interval for a creatinine clearance of 26 mL/min (band below 30 mL/min): dose by levels.',
-  );
-  await expect(page.getByTestId('calc-run')).toBeDisabled();
+  await page.getByTestId('answer-onDialysis').getByRole('radio', { name: 'No' }).click();
+  await page.getByTestId('answer-weightBasis').getByRole('radio', { name: 'Total body weight (TBW)' }).click();
+  await page.getByTestId('calc-run').click();
+  const single = page.getByTestId('calc-result-vancomycin_empiric').first();
+  await expect(single.getByTestId('calc-category')).toHaveText('One dose, then dosing by levels (department’s table)');
+  await expect(single.getByTestId('calc-value')).toHaveText('900 mg');
+  await expect(single.getByTestId('calc-warnings')).toContainText('The department’s table gives this one dose only');
   expect(w.errors).toEqual([]);
 });
 

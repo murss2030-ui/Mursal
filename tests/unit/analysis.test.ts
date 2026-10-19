@@ -129,6 +129,9 @@ describe('checks in code — the hostile fixtures (Section 21, adapted)', () => 
                 { field: 'drugA', value: 'vancomycin' },
                 { field: 'drugB', value: 'piperacillin' },
                 { field: 'severity', value: 'catastrophic' },
+                { field: 'mechanism', value: 'additive nephrotoxicity' },
+                { field: 'effect', value: 'kidney injury' },
+                { field: 'management', value: 'monitor creatinine' },
                 { field: 'invented_field', value: 'y' },
               ],
               reason: 'Combination noted.',
@@ -146,6 +149,10 @@ describe('checks in code — the hostile fixtures (Section 21, adapted)', () => 
     expect(dropped).toBe(3); // the unknown task, the unknown check, the register that is not this task's
     const item = suggestions.find((x) => x.kind === 'item')!;
     expect(item.fields).not.toHaveProperty('severity');
+    // The trainee looks up and writes the mechanism, the effect and the management (owner decision, 19 October 2026).
+    expect(item.fields).not.toHaveProperty('mechanism');
+    expect(item.fields).not.toHaveProperty('effect');
+    expect(item.fields).not.toHaveProperty('management');
     expect(item.fields).not.toHaveProperty('invented_field');
     expect(item.checks).toEqual(expect.arrayContaining(['invalid_value_removed', 'incomplete']));
   });

@@ -2,19 +2,21 @@
  * The trainee's reference tables, used by the safety checks in every case
  * (Section 10): the local formulary with brand aliases and the high-alert
  * flag (Decision 11; M2 plan decision 3), the renal and hepatic adjustment
- * table, the laboratory's critical thresholds (decision 4), and the
- * department's vancomycin interval table (owner decision 6). Every record is
- * versioned and audited; removing one is a new version with a reason.
+ * table, the laboratory's critical thresholds (decision 4), and the ONC
+ * high-priority interaction list entered by the administrator (owner decision
+ * of 19 October 2026). Every record is versioned and audited; removing one is
+ * a new version with a reason.
  *
  * Also: how often each check fired and was acknowledged (per-rule counts),
  * and the status of the offline datasets.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { ANALYTES, ANALYTE_BY_ID } from '../../domain/catalogue';
-import { bandRange, type AdjustmentRule, type FormularyItem, type LabThreshold, type RefError, type ReferenceKind, type VancomycinIntervalBand } from '../../domain/reference';
+import type { AdjustmentRule, FormularyItem, LabThreshold, OncPair, RefError, ReferenceKind } from '../../domain/reference';
 import type { AlertAck, AlertFiring, Versioned } from '../../domain/types';
 import { ValidationError } from '../../domain/validation';
 import { matchDrug, type DrugMatch } from '../../drugs/normalize';
+import { resolveOncSide } from '../../rules/onc';
 import { useVocabulary } from '../../drugs/useVocabulary';
 import type { MsgKey } from '../../i18n/en';
 import { useI18n } from '../../i18n/i18n';
@@ -24,13 +26,12 @@ import { Icon } from '../components/Icon';
 import { useReference } from '../data';
 import { navigate } from '../router';
 import { DatasetStatus } from '../rules/DatasetStatus';
-import { useL } from '../bilingual';
 import { useSession } from '../session-context';
 
-export const REFERENCE_KINDS: readonly ReferenceKind[] = ['formulary', 'adjustment', 'threshold', 'vancomycin_interval'];
+export const REFERENCE_KINDS: readonly ReferenceKind[] = ['formulary', 'adjustment', 'threshold', 'onc'];
 export const isReferenceKind = (s: string): s is ReferenceKind => (REFERENCE_KINDS as readonly string[]).includes(s);
 
-type AnyRef = FormularyItem | AdjustmentRule | LabThreshold | VancomycinIntervalBand;
+type AnyRef = FormularyItem | AdjustmentRule | LabThreshold | OncPair;
 
 const ERR_KEY: Record<RefError | 'reason', MsgKey> = {
   required: 'err.required',
@@ -40,7 +41,7 @@ const ERR_KEY: Record<RefError | 'reason', MsgKey> = {
   tooLong: 'err.tooLong',
   order: 'err.refOrder',
   unit: 'err.unit',
-  range: 'ref.err.intervalRange',
+  unrecognised: 'ref.err.oncUnrecognised',
   reason: 'err.required',
 };
 
@@ -78,6 +79,35 @@ function MatchLine({ name }: { name: string }) {
   );
 }
 
+/** What each name of an ONC side resolved to: one ingredient, a drug class (with how many drugs it holds), or nothing. */
+function OncSideLines({ text, testId }: { text: string; testId: string }) {
+  const { t } = useI18n();
+  const vocabulary = useVocabulary();
+  if (!text.trim()) return null;
+  if (vocabulary.status === 'loading') return <p className="text-xs text-slate-600">{t('ref.match.loading')}</p>;
+  if (vocabulary.status === 'error') return <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">{t('alert.vocabularyError')}</p>;
+  const { names } = resolveOncSide(text, vocabulary.vocab);
+  return (
+    <ul className="-mt-2 flex flex-col gap-1" data-testid={testId}>
+      {names.map((n, i) => (
+        <li
+          key={`${i}:${n.name}`}
+          className={`rounded-lg px-3 py-1.5 text-sm ${n.kind === 'ingredient' || n.kind === 'class' ? 'bg-teal-50 text-teal-950' : 'bg-amber-50 text-amber-950'}`}
+          data-kind={n.kind}
+        >
+          {n.kind === 'ingredient'
+            ? t('ref.onc.ingredient', { name: n.name, label: n.label, rxcui: n.rxcui })
+            : n.kind === 'class'
+              ? t('ref.onc.class', { name: n.name, label: n.label, n: n.members })
+              : n.kind === 'combination'
+                ? t('ref.onc.combination', { name: n.name, label: n.label })
+                : t('ref.onc.unknown', { name: n.name })}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // ---------------------------------------------------------------- hub
 
 export function ReferenceHub() {
@@ -85,13 +115,13 @@ export function ReferenceHub() {
   const formulary = useReference<FormularyItem>('formulary');
   const adjustments = useReference<AdjustmentRule>('adjustment');
   const thresholds = useReference<LabThreshold>('threshold');
-  const vanco = useReference<VancomycinIntervalBand>('vancomycin_interval');
-  const count = (s: typeof formulary | typeof adjustments | typeof thresholds | typeof vanco) => (s.status === 'ready' ? s.data.filter((r) => r.status === 'active').length : undefined);
+  const onc = useReference<OncPair>('onc');
+  const count = (s: typeof formulary | typeof adjustments | typeof thresholds | typeof onc) => (s.status === 'ready' ? s.data.filter((r) => r.status === 'active').length : undefined);
   const counts: Record<ReferenceKind, number | undefined> = {
     formulary: count(formulary),
     adjustment: count(adjustments),
     threshold: count(thresholds),
-    vancomycin_interval: count(vanco),
+    onc: count(onc),
   };
   return (
     <div className="flex flex-col gap-4">
@@ -100,7 +130,7 @@ export function ReferenceHub() {
       {REFERENCE_KINDS.map((k) => (
         <a key={k} href={`#/reference/${k}`} className="surface flex items-center gap-3 p-4 hover:shadow-lift" data-testid={`ref-open-${k}`}>
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-900">
-            <Icon name={k === 'formulary' ? 'pill' : k === 'adjustment' ? 'scale' : k === 'threshold' ? 'flask' : 'function'} className="h-5 w-5" />
+            <Icon name={k === 'formulary' ? 'pill' : k === 'adjustment' ? 'scale' : k === 'threshold' ? 'flask' : 'alert-triangle'} className="h-5 w-5" />
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="font-semibold text-slate-900">{t(`ref.kind.${k}`)}</span>
@@ -175,7 +205,6 @@ function RuleActivity() {
 
 function RefSummary({ kind, r }: { kind: ReferenceKind; r: AnyRef }) {
   const { t, date } = useI18n();
-  const tl = useL();
   const chips: JSX.Element[] = [];
   let title = '';
   let detail = '';
@@ -200,10 +229,9 @@ function RefSummary({ kind, r }: { kind: ReferenceKind; r: AnyRef }) {
     title = ANALYTE_BY_ID.get(l.analyte)?.name ?? l.analyte;
     detail = t('ref.threshold.range', { range: rangeText(l), unit: l.unit });
   } else {
-    const b = r as VancomycinIntervalBand;
-    title = t('ref.vanco.band', { range: tl(bandRange(b)) });
-    detail = b.action === 'interval' && b.intervalHours !== undefined ? t('ref.vanco.every', { h: b.intervalHours }) : t('ref.vanco.levels');
-    detail = `${detail} · ${b.source}`;
+    const o = r as OncPair;
+    title = o.label;
+    detail = `${o.sideA.names.join(', ')} + ${o.sideB.names.join(', ')} · ${o.source}`;
   }
   if (r.status === 'retracted') chips.push(<Chip key="r" tone="slate">{t('ref.removed')}</Chip>);
   return (
@@ -233,11 +261,8 @@ export function ReferenceList({ kind }: { kind: ReferenceKind }) {
   const active = all.filter((r) => r.status === 'active');
   const removed = all.filter((r) => r.status === 'retracted');
   const sortKey = (r: AnyRef) =>
-    'genericName' in r ? r.genericName : 'drugName' in r ? r.drugName : 'analyte' in r ? (ANALYTE_BY_ID.get(r.analyte)?.name ?? r.analyte) : '';
-  // Bands in creatinine clearance order (lowest first); the others by name.
-  const bandKey = (r: AnyRef) => ('action' in r ? (r.crclFrom ?? -1) : 0);
-  const sorted = (rs: AnyRef[]) =>
-    [...rs].sort((a, b) => bandKey(a) - bandKey(b) || (sortKey(a).toLowerCase() < sortKey(b).toLowerCase() ? -1 : sortKey(a).toLowerCase() > sortKey(b).toLowerCase() ? 1 : 0));
+    ('genericName' in r ? r.genericName : 'drugName' in r ? r.drugName : 'analyte' in r ? (ANALYTE_BY_ID.get(r.analyte)?.name ?? r.analyte) : r.label).toLowerCase();
+  const sorted = (rs: AnyRef[]) => [...rs].sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : 1));
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -321,15 +346,8 @@ function valuesOf(kind: ReferenceKind, r: AnyRef | undefined, today: string, que
     const l = r as LabThreshold;
     return { ...base, analyte: l.analyte, unit: l.unit, low: l.low !== undefined ? String(l.low) : '', high: l.high !== undefined ? String(l.high) : '', source: l.source };
   }
-  const b = r as VancomycinIntervalBand;
-  return {
-    ...base,
-    crclFrom: b.crclFrom !== undefined ? String(b.crclFrom) : '',
-    crclBelow: b.crclBelow !== undefined ? String(b.crclBelow) : '',
-    action: b.action,
-    intervalHours: b.intervalHours !== undefined ? String(b.intervalHours) : '',
-    source: b.source,
-  };
+  const o = r as OncPair;
+  return { ...base, label: o.label, sideA: o.sideA.names.join(', '), sideB: o.sideB.names.join(', '), source: o.source };
 }
 
 export function ReferenceEditor({ kind, id, query }: { kind: ReferenceKind; id?: string; query?: URLSearchParams }) {
@@ -353,6 +371,7 @@ function EditorForm({ kind, existing, today, when, query }: { kind: ReferenceKin
   const [history, setHistory] = useState<AnyRef[]>([]);
   const drugField = kind === 'formulary' ? 'genericName' : kind === 'adjustment' ? 'drugName' : undefined;
   const match = useMatch(drugField ? (v[drugField] ?? '') : '');
+  const vocabulary = useVocabulary();
   const readOnly = existing?.status === 'retracted';
 
   useEffect(() => {
@@ -374,12 +393,20 @@ function EditorForm({ kind, existing, today, when, query }: { kind: ReferenceKin
   const save = async () => {
     setErrors({});
     if (drugField && match.state === 'loading') return;
+    if (kind === 'onc' && vocabulary.status !== 'ready') {
+      if (vocabulary.status === 'error') setErrors({ save: t('alert.vocabularyError') });
+      return;
+    }
     const m = match.match?.status === 'matched' ? match.match : undefined;
     const ingredients = m ? m.ingredients.map((i) => i.rxcui) : [];
     const rxcui = m && m.ingredients.length === 1 ? m.ingredients[0]!.rxcui : undefined;
+    const onc =
+      kind === 'onc' && vocabulary.status === 'ready'
+        ? { sideA: resolveOncSide(v.sideA ?? '', vocabulary.vocab), sideB: resolveOncSide(v.sideB ?? '', vocabulary.vocab) }
+        : undefined;
     setBusy(true);
     try {
-      await store.saveReference(kind, existing?.id, v, { ...(rxcui ? { rxcui } : {}), ingredients }, existing ? v.reason : undefined);
+      await store.saveReference(kind, existing?.id, v, { ...(rxcui ? { rxcui } : {}), ingredients, ...(onc ? { onc } : {}) }, existing ? v.reason : undefined);
       navigate(`/reference/${kind}`);
     } catch (e) {
       showErrors(e);
@@ -499,25 +526,14 @@ function EditorForm({ kind, existing, today, when, query }: { kind: ReferenceKin
               <TextField label={t('ref.f.source')} name="source" value={v.source ?? ''} onChange={set('source')} error={err('source')} />
             </>
           )}
-          {kind === 'vancomycin_interval' && (
+          {kind === 'onc' && (
             <>
-              <TextField label={t('ref.f.crclFrom')} name="crclFrom" inputMode="decimal" optional value={v.crclFrom ?? ''} onChange={set('crclFrom')} error={err('crclFrom')} />
-              <TextField label={t('ref.f.crclBelow')} name="crclBelow" inputMode="decimal" optional hint={t('ref.h.crclBand')} value={v.crclBelow ?? ''} onChange={set('crclBelow')} error={err('crclBelow')} />
-              <RadioGroup
-                name="action"
-                label={t('ref.f.action')}
-                value={v.action ?? ''}
-                onChange={set('action')}
-                options={[
-                  { value: 'interval', label: t('ref.action.interval') },
-                  { value: 'levels', label: t('ref.action.levels') },
-                ]}
-                error={err('action')}
-              />
-              {v.action === 'interval' && (
-                <TextField label={t('ref.f.intervalHours')} name="intervalHours" inputMode="decimal" value={v.intervalHours ?? ''} onChange={set('intervalHours')} error={err('intervalHours')} />
-              )}
-              <TextField label={t('ref.f.source')} name="source" value={v.source ?? ''} onChange={set('source')} error={err('source')} />
+              <TextField label={t('ref.f.oncLabel')} name="label" hint={t('ref.h.oncLabel')} value={v.label ?? ''} onChange={set('label')} error={err('label')} />
+              <TextAreaField label={t('ref.f.sideA')} name="sideA" hint={t('ref.h.oncSide')} value={v.sideA ?? ''} onChange={set('sideA')} error={err('sideA')} />
+              <OncSideLines text={v.sideA ?? ''} testId="onc-side-a" />
+              <TextAreaField label={t('ref.f.sideB')} name="sideB" hint={t('ref.h.oncSide')} value={v.sideB ?? ''} onChange={set('sideB')} error={err('sideB')} />
+              <OncSideLines text={v.sideB ?? ''} testId="onc-side-b" />
+              <TextField label={t('ref.f.oncSource')} name="source" value={v.source ?? ''} onChange={set('source')} error={err('source')} />
             </>
           )}
           <TextField label={t('ref.f.verifiedBy')} name="verifiedBy" value={v.verifiedBy ?? ''} onChange={set('verifiedBy')} error={err('verifiedBy')} />

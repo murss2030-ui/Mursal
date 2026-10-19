@@ -15,6 +15,9 @@ import { join, resolve } from 'node:path';
 import { createCase, createRotation, onboard, unlock, watchPage } from './helpers';
 
 const SHOTS = 'docs/m2/screenshots';
+/** The owner's text, 19 October 2026. */
+const WARNING =
+  'Warning: the database is not connected to the internet and does not include all drug groups, such as cardiac drugs. The trainee must check interactions in the hospital’s approved references, such as Lexicomp or Micromedex.';
 const shot = (page: Page, name: string) => page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
 
 async function addEntry(page: Page, caseId: string, fill: (p: Page) => Promise<void>) {
@@ -155,7 +158,7 @@ test('a DDInter Moderate pair stays in the collapsed group; a Major pair is a ba
   await addOrder(page, caseId, { drug: 'furosemide', amount: '40', unit: 'mg', route: 'IV', frequency: 'once daily' });
   await addOrder(page, caseId, { drug: 'ceftriaxone', amount: '1', unit: 'g', route: 'IV', frequency: 'once daily' });
 
-  // Nothing interrupts: the ONC list is not installed, and neither pair is on it.
+  // Nothing interrupts: no ONC list has been entered on this device.
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
   // DDInter Major (enoxaparin + ibuprofen): an inline badge on both medicines.
   for (const drug of ['enoxaparin', 'ibuprofen']) {
@@ -181,8 +184,17 @@ test('a DDInter Moderate pair stays in the collapsed group; a Major pair is a ba
   // WHO AWaRe 2025: ceftriaxone is Watch.
   await expect(group.getByTestId('alert-row').filter({ hasText: 'AWaRe: Watch — ceftriaxone' })).toBeVisible();
   // What was not checked is said: no ONC list, so nothing is raised to critical.
-  await expect(card.getByTestId('not-checked')).toContainText('The ONC high-priority list is not installed');
+  await expect(card.getByTestId('not-checked')).toContainText('The ONC high-priority list has not been entered on this device');
+  // The owner's fixed warning on the limits of the interaction data.
+  await expect(card.getByTestId('interaction-coverage-warning')).toHaveText(WARNING);
   await shot(page, 'm2-10-interaction-levels');
+
+  // Task 6 (interactions) carries the same warning, and says the trainee writes the mechanism and the management.
+  await page.goto(`/#/cases/${caseId}/task/t06`);
+  await expect(page.getByTestId('task-alerts').getByTestId('interaction-coverage-warning')).toHaveText(WARNING);
+  await expect(page.getByTestId('task-alerts').getByTestId('alert-row').filter({ hasText: 'Interaction (major): enoxaparin + ibuprofen' })).toContainText(
+    'PRECEPTOR gives the level only: look up the mechanism and the management in your hospital’s approved reference and write them in Task 6.',
+  );
 
   // In the stewardship task, the AWaRe tag sits on the antibiotic's own row.
   await page.goto(`/#/cases/${caseId}/task/t14`);
@@ -193,7 +205,8 @@ test('a DDInter Moderate pair stays in the collapsed group; a Major pair is a ba
   await expect(auto).toHaveAttribute('data-checked', 'true');
   await expect(auto).toContainText('enoxaparin');
   await expect(auto).toContainText('Source: DDInter download files');
-  await expect(auto.getByTestId('form-automatic-gap').filter({ hasText: 'The ONC high-priority list is not installed' })).toHaveCount(1);
+  await expect(auto.getByTestId('form-automatic-gap').filter({ hasText: 'The ONC high-priority list has not been entered on this device' })).toHaveCount(1);
+  await expect(auto.getByTestId('interaction-coverage-warning')).toHaveText(WARNING);
   // Ceftriaxone (J) + furosemide (C): a pair outside DDInter's download files, said so.
   await expect(auto.getByTestId('form-automatic-gap').filter({ hasText: 'Not checked for interactions: ceftriaxone + furosemide' })).toHaveCount(1);
 });
@@ -209,6 +222,66 @@ test('two drugs outside the DDInter download files are listed as not checked, ne
   const notChecked = page.getByTestId('safety-card').getByTestId('not-checked');
   await expect(notChecked).toContainText('Not checked for interactions: amiodarone + digoxin');
   await expect(page.getByTestId('safety-card').getByTestId('alert-row').filter({ hasText: 'Interaction' })).toHaveCount(0);
+});
+
+// ---------------------------------------------------------------- the ONC list, entered by the administrator
+
+test('an ONC pair entered by the administrator makes two medicines a critical alert (test entry, not the ONC list)', async ({ page }) => {
+  const watch = watchPage(page);
+  await onboard(page);
+  await createRotation(page);
+  await page.goto('/#/reference');
+  await expect(page.getByTestId('dataset-status').locator('[data-dataset="onc"]')).toHaveAttribute('data-installed', 'false');
+  await page.getByTestId('ref-open-onc').click();
+  await expect(page.getByText('The ONC high-priority drug–drug interaction list (Phansalkar et al., J Am Med Inform Assoc 2012)')).toBeVisible();
+  await page.getByRole('link', { name: 'Add', exact: true }).click();
+  await expect(page).toHaveURL(/#\/reference\/onc\/new$/);
+
+  await page.getByLabel('The pair, as the source names it').fill('Test pair (browser test, not the ONC list)');
+  await page.getByLabel('First side: drugs or drug classes').fill('simvastatin');
+  await page.getByLabel('Second side: drugs or drug classes').fill('clarithromycn, Proton Pump Inhibitors');
+  await expect(page.getByTestId('onc-side-a')).toContainText('simvastatin → simvastatin (RxCUI');
+  const sideB = page.getByTestId('onc-side-b');
+  await expect(sideB.locator('[data-kind="unknown"]')).toHaveText('clarithromycn → not recognised: use a generic name or the exact name of a drug class');
+  await expect(sideB.locator('[data-kind="class"]')).toContainText('Proton Pump Inhibitors → drug class Proton Pump Inhibitor (FDA EPC):');
+  await page.getByLabel('Reference, with page or table').fill('Browser test source');
+  await page.getByLabel('Verified by').fill('Test');
+  await page.getByTestId('ref-save').click();
+  await expect(page.getByText('Some names are not recognised: correct them as shown below.')).toBeVisible();
+  await page.getByLabel('Second side: drugs or drug classes').fill('clarithromycin, Proton Pump Inhibitors');
+  await expect(sideB.locator('[data-kind="unknown"]')).toHaveCount(0);
+  await page.getByTestId('ref-save').click();
+  await expect(page).toHaveURL(/#\/reference\/onc$/);
+  await expect(page.getByTestId('ref-row')).toHaveCount(1);
+  await expect(page.getByTestId('ref-row')).toContainText('Test pair (browser test, not the ONC list)');
+  await expect(page.getByTestId('ref-row')).toContainText('simvastatin + clarithromycin, Proton Pump Inhibitors · Browser test source');
+  await shot(page, 'm2-17-onc-entry');
+
+  // Two medicines under the pair: a critical alert, whatever DDInter says.
+  const caseId = await createCase(page, { kind: 'teaching' });
+  await addOrder(page, caseId, { drug: 'simvastatin', amount: '40', unit: 'mg', route: 'PO', frequency: 'once daily' });
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await addOrder(page, caseId, { drug: 'clarithromycin', amount: '500', unit: 'mg', route: 'PO', frequency: 'twice daily' });
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute('data-rule', 'interaction');
+  await expect(dialog.getByRole('heading', { name: 'Interaction (ONC high-priority): clarithromycin + simvastatin' })).toBeVisible();
+  await expect(dialog).toContainText('On the ONC high-priority list entered on this device: “Test pair (browser test, not the ONC list)”. DDInter level: major.');
+  await expect(dialog).toContainText('ONC high-priority list, as entered on this device: Browser test source');
+  await dialog.getByLabel('Reason for continuing').fill('Browser test: the pair is a test entry');
+  await dialog.getByRole('button', { name: 'Acknowledge with this reason' }).click();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+
+  // The list now counts as entered: the "not entered" note is gone, and Reference tables shows it.
+  await page.goto(`/#/cases/${caseId}`);
+  const card = page.getByTestId('safety-card');
+  await expect(card.getByTestId('alert-row').filter({ hasText: 'Interaction (ONC high-priority): clarithromycin + simvastatin' })).toHaveAttribute('data-level', 'critical');
+  await expect(card).not.toContainText('has not been entered');
+  await page.goto('/#/reference');
+  const onc = page.getByTestId('dataset-status').locator('[data-dataset="onc"]');
+  await expect(onc).toHaveAttribute('data-installed', 'entered');
+  await expect(onc).toContainText('pairs entered on this device: 1');
+  expect(watch.errors).toEqual([]);
 });
 
 // ---------------------------------------------------------------- a dataset that fails its checksum is refused

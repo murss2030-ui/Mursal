@@ -188,6 +188,21 @@ function AlertRow({ a, rules, caseId, taskLink = true, action }: { a: Alert; rul
   );
 }
 
+/**
+ * The owner's fixed warning on the limits of the interaction data (owner
+ * decision, 19 October 2026): shown wherever interactions are, never
+ * dismissed.
+ */
+export function InteractionCoverageNotice() {
+  const { t } = useI18n();
+  return (
+    <p role="note" className="flex gap-2 rounded-xl border border-amber-400 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950" data-testid="interaction-coverage-warning">
+      <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>{t('interactions.coverageWarning')}</span>
+    </p>
+  );
+}
+
 export function SafetyCard({ b, rules }: { b: CaseBundle; rules: CaseRules }) {
   const { t } = useI18n();
   const tl = useL();
@@ -206,6 +221,7 @@ export function SafetyCard({ b, rules }: { b: CaseBundle; rules: CaseRules }) {
     >
       <div className="flex flex-col gap-3" data-testid="safety-card">
         <p className="text-xs text-slate-600">{t('alert.lead')}</p>
+        <InteractionCoverageNotice />
         {rules.vocabulary.status === 'error' && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">{t('alert.vocabularyError')}</p>}
         {!rules.alerts.length && <p className="text-sm text-slate-700">{t('alert.none')}</p>}
         {[...critical, ...important].length > 0 && (
@@ -261,9 +277,10 @@ export function CaseSafety({ b }: { b: CaseBundle }) {
 export function TaskAlerts({ b, taskId }: { b: CaseBundle; taskId: string }) {
   const { t } = useI18n();
   const rules = useCaseRules(b);
-  if (!rules.ready) return null;
-  const mine = rules.alerts.filter((a) => a.taskId === taskId);
-  if (!mine.length) return null;
+  // Task 6 (interactions) always carries the warning on the limits of the interaction data.
+  const notice = taskId === 't06';
+  const mine = rules.ready ? rules.alerts.filter((a) => a.taskId === taskId) : [];
+  if (!mine.length && !notice) return null;
   const shown = mine.filter((a) => a.level !== 'informational');
   const info = mine.filter((a) => a.level === 'informational');
   // Adding a flag to the trainee's own register is their decision, item by item: only the drug names are carried over.
@@ -284,6 +301,7 @@ export function TaskAlerts({ b, taskId }: { b: CaseBundle; taskId: string }) {
         <Icon name="shield" className="h-5 w-5 text-teal-800" />
         {t('alert.forTask')}
       </h2>
+      {notice && <InteractionCoverageNotice />}
       {shown.length > 0 && (
         <ul className="flex flex-col gap-2">
           {shown.map((a) => (

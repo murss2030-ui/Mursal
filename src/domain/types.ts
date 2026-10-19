@@ -651,7 +651,7 @@ export type AuditEntity =
   | 'formulary'
   | 'adjustment'
   | 'threshold'
-  | 'vancomycin_interval'
+  | 'onc'
   | 'alert'
   | 'causality';
 

@@ -9,7 +9,6 @@
  * is named as missing, a value still `extracted_unverified` is refused, and
  * a unit that is not accepted is rejected.
  */
-import type { VancomycinIntervalBand } from '../domain/reference';
 import { compareEntries } from '../domain/timeline';
 import type { Sex, TimelineEntry, VitalKind } from '../domain/types';
 import { isValidHospitalDay, isValidTimeOfDay } from '../domain/dates';
@@ -29,17 +28,11 @@ export interface PendingValue {
   vital?: VitalKind;
 }
 
-/** The trainee's reference tables a calculator can read (all versions' latest state, removed records included). */
-export interface CalcReferences {
-  vancomycinIntervals?: readonly VancomycinIntervalBand[];
-}
-
 export interface GatherContext {
   demographics: CaseFacts;
   /** The effective timeline (current entries, corrections applied). */
   current: readonly TimelineEntry[];
   pending?: readonly PendingValue[];
-  references?: CalcReferences;
 }
 
 export type Answer =
@@ -184,11 +177,26 @@ function fromAnswer(spec: InputSpec, a: Answer | undefined): { value?: InputValu
  * Collect the values for a calculator's inputs. Optional inputs that are
  * absent are simply left out; required ones are named as missing.
  */
-/** Whether an input applies, given the answers so far (see InputSpec.showIf). */
-export function applies(spec: InputSpec, answers: GatherRequest['answers']): boolean {
+/**
+ * Whether an input applies, given the answers so far (see InputSpec.showIf).
+ * With the calculator's inputs, a condition on an input that does not apply
+ * itself is false, whatever its old answer (an AdjBW factor is not asked when
+ * the weight basis is not asked).
+ */
+export function applies(spec: InputSpec, answers: GatherRequest['answers'], specs: readonly InputSpec[] = []): boolean {
   if (!spec.showIf) return true;
+  const control = specs.find((s) => s.key === spec.showIf!.key);
+  if (control && control !== spec && !applies(control, answers, specs)) return false;
   const a = answers?.[spec.showIf.key];
   const value = a?.kind === 'choice' ? a.value : a?.kind === 'boolean' ? (a.value ? 'yes' : 'no') : undefined;
+  return value !== undefined && spec.showIf.in.includes(value);
+}
+
+/** The same, from the values gathered: a choice by its value, a finding (1/0) as "yes" or "no". */
+export function appliesToInputs(spec: InputSpec, inputs: CalcInputs): boolean {
+  if (!spec.showIf) return true;
+  const v = inputs[spec.showIf.key];
+  const value = v === undefined ? undefined : (v.choice ?? (v.value === 1 ? 'yes' : v.value === 0 ? 'no' : undefined));
   return value !== undefined && spec.showIf.in.includes(value);
 }
 
@@ -202,10 +210,10 @@ export function gather(
   const problems: Problem[] = [];
   const pendingKeys: string[] = [];
   const confirmed = new Set(req.confirmed ?? []);
+  const all = [...required, ...optional];
 
   const one = (spec: InputSpec, isRequired: boolean) => {
-    if (!applies(spec, req.answers)) return;
-    if (spec.source.kind === 'reference') return; // chosen after validation (CalculatorDef.fromReference)
+    if (!applies(spec, req.answers, all)) return;
     let got: { value?: InputValue; problem?: Problem };
     const s = spec.source;
     if (s.kind === 'case') got = fromCase(spec, ctx.demographics);

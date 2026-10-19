@@ -2,9 +2,14 @@
  * Rules-engine records in the store: acknowledgements always carry a reason
  * and cover one data version; firings are recorded once per key and data;
  * causality questionnaires are versioned and scored in the store; reference
- * tables (formulary, adjustments, thresholds) are versioned and audited.
+ * tables (formulary, adjustments, thresholds, the ONC list) are versioned and
+ * audited.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import type { OncPair } from '../../src/domain/reference';
+import { buildVocabulary, type RxnormSubset } from '../../src/drugs/vocabulary';
+import { resolveOncSide } from '../../src/rules/onc';
 import { AppendOnlyViolationError } from '../../src/store/db';
 import { newCase, newSession } from './helpers';
 
@@ -90,26 +95,27 @@ describe('reference tables', () => {
     expect(ok).toMatchObject({ analyte: 'k', low: 2.5, high: 6 });
   });
 
-  it('the department’s vancomycin interval table: each band needs a range, an interval or "levels", and its source; versioned and audited', async () => {
+  it('the ONC list: each pair needs its wording, two recognised sides and its source; versioned and audited', async () => {
     const { store } = await setup();
-    const meta = { verifiedBy: 'T', verifiedAt: '2026-10-18' };
-    const bad = (values: Record<string, string>) => store.saveReference('vancomycin_interval', undefined, { ...meta, ...values });
-    await expect(bad({ action: 'interval', intervalHours: '12', source: 's' })).rejects.toMatchObject({ errors: { crclFrom: 'required' } });
-    await expect(bad({ crclFrom: '90', crclBelow: '60', action: 'interval', intervalHours: '12', source: 's' })).rejects.toMatchObject({ errors: { crclBelow: 'order' } });
-    await expect(bad({ crclFrom: '60', action: 'interval', source: 's' })).rejects.toMatchObject({ errors: { intervalHours: 'required' } });
-    await expect(bad({ crclFrom: '60', action: 'interval', intervalHours: '200', source: 's' })).rejects.toMatchObject({ errors: { intervalHours: 'range' } });
-    await expect(bad({ crclFrom: '60', action: 'interval', intervalHours: '0', source: 's' })).rejects.toMatchObject({ errors: { intervalHours: 'range' } });
-    await expect(bad({ crclFrom: '60', action: 'sometimes', source: 's' })).rejects.toMatchObject({ errors: { action: 'invalidChoice' } });
-    await expect(bad({ crclFrom: '60', action: 'interval', intervalHours: '12' })).rejects.toMatchObject({ errors: { source: 'required' } });
-    const open = await bad({ crclFrom: '60', action: 'interval', intervalHours: '12', source: 'Department protocol, p. 4' });
-    expect(open).toMatchObject({ crclFrom: 60, action: 'interval', intervalHours: 12, source: 'Department protocol, p. 4', version: 1, status: 'active' });
-    expect(open).not.toHaveProperty('crclBelow');
-    const levels = await bad({ crclBelow: '20', action: 'levels', intervalHours: '48', source: 'Department protocol, p. 4' });
-    expect(levels).toMatchObject({ crclBelow: 20, action: 'levels' });
-    expect(levels).not.toHaveProperty('intervalHours'); // no interval is kept for a "dose by levels" band
-    const v2 = await store.saveReference('vancomycin_interval', open.id, { ...meta, crclFrom: '50', action: 'interval', intervalHours: '12', source: 'Department protocol 2026, p. 4' }, undefined, 'protocol revised');
-    expect(v2).toMatchObject({ version: 2, crclFrom: 50, changeReason: 'protocol revised' });
-    const audit = (await store.listAudit()).filter((e) => e.entity === 'vancomycin_interval').map((e) => e.action).sort();
-    expect(audit).toEqual(['create', 'create', 'update']);
+    const vocab = buildVocabulary(JSON.parse(readFileSync('public/data/rxnorm-subset.json', 'utf8')) as RxnormSubset);
+    const values = { label: 'Test pair (unit test, not the ONC list)', sideA: 'simvastatin', sideB: 'clarithromycin', source: 'Test source', verifiedBy: 'T', verifiedAt: '2026-10-19' };
+    const save = (v: Partial<typeof values>, id?: string, reason?: string) => {
+      const all = { ...values, ...v };
+      return store.saveReference('onc', id, all, { ingredients: [], onc: { sideA: resolveOncSide(all.sideA, vocab), sideB: resolveOncSide(all.sideB, vocab) } }, reason);
+    };
+    await expect(save({ label: ' ' })).rejects.toMatchObject({ errors: { label: 'required' } });
+    await expect(save({ sideB: '' })).rejects.toMatchObject({ errors: { sideB: 'required' } });
+    await expect(save({ sideA: 'simvastatin, notadrugatall' })).rejects.toMatchObject({ errors: { sideA: 'unrecognised' } });
+    await expect(save({ sideA: 'amoxicillin / clavulanate' })).rejects.toMatchObject({ errors: { sideA: 'unrecognised' } }); // a combination: one ingredient per name
+    await expect(save({ source: '' })).rejects.toMatchObject({ errors: { source: 'required' } });
+    const ok = (await save({ sideB: 'clarithromycin, Proton Pump Inhibitors' })) as OncPair;
+    expect(ok).toMatchObject({ version: 1, status: 'active', label: values.label, source: 'Test source', sideA: { names: ['simvastatin'], classes: [] } });
+    expect(ok.sideA.ingredients).toHaveLength(1);
+    expect(ok.sideB.names).toEqual(['clarithromycin', 'Proton Pump Inhibitors']);
+    expect(ok.sideB.classes.map((c) => c.name)).toEqual(['Proton Pump Inhibitor']);
+    const v2 = await save({ source: 'Test source, table 2' }, ok.id, 'table number added');
+    expect(v2).toMatchObject({ version: 2, changeReason: 'table number added', source: 'Test source, table 2' });
+    const audit = (await store.listAudit()).filter((e) => e.entity === 'onc').map((e) => e.action).sort();
+    expect(audit).toEqual(['create', 'update']);
   });
 });

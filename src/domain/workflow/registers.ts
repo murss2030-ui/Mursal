@@ -413,9 +413,28 @@ const INTERACTION: RegisterDef = {
         c('unknown', 'Not established', 'غير محدد'),
       ],
     },
-    { id: 'mechanism', kind: 'text', label: L('Mechanism', 'الآلية') },
+    // Owner decision of 19 October 2026: PRECEPTOR gives the level only; the trainee looks up and writes the mechanism and the management.
+    {
+      id: 'mechanism',
+      kind: 'text',
+      required: true,
+      label: L('Mechanism', 'الآلية'),
+      hint: L(
+        'Write it yourself, from the hospital’s approved reference: PRECEPTOR gives the interaction level only.',
+        'اكتبها بنفسك من المرجع المعتمد في المستشفى: يعطي PRECEPTOR مستوى التداخل فقط.',
+      ),
+    },
     { id: 'effect', kind: 'text', label: L('Clinical effect', 'الأثر السريري') },
-    { id: 'management', kind: 'longtext', required: true, label: L('Management plan', 'خطة التعامل') },
+    {
+      id: 'management',
+      kind: 'longtext',
+      required: true,
+      label: L('Management plan', 'خطة التعامل'),
+      hint: L(
+        'Write it yourself, from the hospital’s approved reference and the patient’s situation.',
+        'اكتبها بنفسك من المرجع المعتمد في المستشفى ومن وضع المريض.',
+      ),
+    },
     {
       id: 'source',
       kind: 'text',

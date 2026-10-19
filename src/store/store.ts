@@ -64,13 +64,14 @@ import type { Alert } from '../rules/types';
 import {
   normalizeAdjustment,
   normalizeFormulary,
+  normalizeOnc,
   normalizeThreshold,
-  normalizeVancomycinInterval,
   type AdjustmentRule,
   type FormularyItem,
   type LabThreshold,
+  type OncPair,
+  type OncResolved,
   type ReferenceKind,
-  type VancomycinIntervalBand,
 } from '../domain/reference';
 import type { CalcInputs, CalcResult, Calculator, CalculatorId, Problem } from '../calc/types';
 import {
@@ -208,11 +209,11 @@ export type VersionedTable =
   | 'formulary'
   | 'adjustments'
   | 'thresholds'
-  | 'vancomycinIntervals'
+  | 'oncPairs'
   | 'causality';
 
-const REFERENCE_TABLE = { formulary: 'formulary', adjustment: 'adjustments', threshold: 'thresholds', vancomycin_interval: 'vancomycinIntervals' } as const;
-type ReferenceRecord = FormularyItem | AdjustmentRule | LabThreshold | VancomycinIntervalBand;
+const REFERENCE_TABLE = { formulary: 'formulary', adjustment: 'adjustments', threshold: 'thresholds', onc: 'oncPairs' } as const;
+type ReferenceRecord = FormularyItem | AdjustmentRule | LabThreshold | OncPair;
 
 export class Store {
   /** Decrypted immutable rows, keyed `${table}:${id}`. Cleared on lock. */
@@ -1326,22 +1327,13 @@ export class Store {
     return this.decodeCalcResults(await this.rawCalcResults(caseId));
   }
 
-  /**
-   * What a calculator reads: the effective timeline, the case's demographics,
-   * values still waiting for confirmation, and the reference tables a
-   * calculator can read (the department's vancomycin interval table).
-   */
+  /** What a calculator reads: the effective timeline, the case's demographics, and values still waiting for confirmation. */
   async calculationContext(caseId: string): Promise<GatherContext> {
     const c = await this.getCase(caseId);
     if (!c) throw new IntegrityError(`Case ${caseId} does not exist.`);
-    const [entries, runs, attachments, vancomycinIntervals] = await Promise.all([
-      this.listEntries(caseId),
-      this.listExtractions(caseId),
-      this.listAttachments(caseId),
-      this.listReference<VancomycinIntervalBand>('vancomycin_interval'),
-    ]);
+    const [entries, runs, attachments] = await Promise.all([this.listEntries(caseId), this.listExtractions(caseId), this.listAttachments(caseId)]);
     const active = new Set(attachments.filter((a) => a.status === 'active').map((a) => a.id));
-    return { demographics: c.demographics, current: indexTimeline(entries).current, pending: pendingFromRuns(runs, active), references: { vancomycinIntervals } };
+    return { demographics: c.demographics, current: indexTimeline(entries).current, pending: pendingFromRuns(runs, active) };
   }
 
   /**
@@ -1386,7 +1378,7 @@ export class Store {
     return { ok: true, results };
   }
 
-  // ------------------------------------------------------------------ M2: reference tables (formulary, adjustments, thresholds, vancomycin intervals)
+  // ------------------------------------------------------------------ M2: reference tables (formulary, adjustments, thresholds, ONC list)
 
   rawReference(kind: ReferenceKind): Promise<EncryptedRow[]> {
     return this.db.encryptedTable(REFERENCE_TABLE[kind]).toArray();
@@ -1412,7 +1404,7 @@ export class Store {
     kind: ReferenceKind,
     id: string | undefined,
     values: Record<string, string>,
-    match: { rxcui?: string; ingredients: string[] } = { ingredients: [] },
+    match: { rxcui?: string; ingredients: string[]; onc?: { sideA: OncResolved; sideB: OncResolved } } = { ingredients: [] },
     reason?: string,
   ): Promise<ReferenceRecord> {
     const n =
@@ -1422,7 +1414,7 @@ export class Store {
           ? normalizeAdjustment(values, match.ingredients)
           : kind === 'threshold'
             ? normalizeThreshold(values)
-            : normalizeVancomycinInterval(values);
+            : normalizeOnc(values, match.onc);
     if (!n.ok) throw new ValidationError(n.errors as Errors);
     const table = REFERENCE_TABLE[kind];
     const entityId = id ?? this.uuid();

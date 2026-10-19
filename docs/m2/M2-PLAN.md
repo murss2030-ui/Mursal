@@ -1,6 +1,6 @@
 # PRECEPTOR — M2 implementation plan (Calculation and rules)
 
-**Status:** plan prepared 13 October 2026, updated 16 October 2026 for M1 Revision 1. M2 was started on the owner's "go ahead" of 17 October 2026 and built on 17–19 October 2026. On 18 October 2026 the owner confirmed the proposed defaults for decisions 1, 3, 4, 5 and 7, and decided 6 (vancomycin without levels), 9 (infusion rates) and the phenytoin renal threshold; decision 2 is still open and decision 8 stays deferred to M6. Results, what is still blocked and what is open: [M2-REPORT.md](M2-REPORT.md).
+**Status:** plan prepared 13 October 2026, updated 16 October 2026 for M1 Revision 1. M2 was started on the owner's "go ahead" of 17 October 2026 and built on 17–19 October 2026. On 18 October 2026 the owner confirmed the proposed defaults for decisions 1, 3, 4, 5 and 7, and decided 6 (vancomycin without levels), 9 (infusion rates) and the phenytoin renal threshold; on 19 October 2026, decision 2 (the level only; the trainee writes the mechanism and the management), the department's vancomycin interval table, the ONC list entered by the administrator, and keeping DDInter's coverage gap declared, with a fixed warning. Decision 8 stays deferred to M6. Results: [M2-REPORT.md](M2-REPORT.md).
 
 ## 1. Where M2 sits in the whole product
 

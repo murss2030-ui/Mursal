@@ -9,7 +9,7 @@ This is the list offered for review by a qualified pharmacist (M2 plan, Section 
 - **independent** — computed by `scripts/calc-crosscheck.py`, a separate Python implementation written from the cited formula (not from the TypeScript code);
 - tests without a number check behaviour: refusals, unit handling, warnings, boundaries.
 
-Validation manifest: generated 2026-10-19T20:14:11.966Z; engine tests passed 64, failed 0. A calculator is shown in the app only with a passing record for its exact formula version and an unchanged engine.
+Validation manifest: generated 2026-10-19T21:08:52.024Z; engine tests passed 64, failed 0. A calculator is shown in the app only with a passing record for its exact formula version and an unchanged engine.
 
 Plausibility ranges are deliberately wide: they catch unit slips and typing errors and are not reference ranges. A value outside one is used only after the trainee confirms it, with the value and unit shown. A value outside the definitional limits is rejected.
 
@@ -187,41 +187,40 @@ Test cases:
 1. ✓ a level above 100 mg/L needs confirmation; an implausible dose too
 1. ✓ shows every step with substituted values
 
-### Vancomycin without levels (empiric dose and interval) — `vancomycin_empiric@1`
+### Vancomycin without levels (empiric dose and interval) — `vancomycin_empiric@2`
 
-- Formula: Dose (mg) = dose per kg (15–20 mg/kg) × actual body weight (kg); interval = the band of the department’s table that holds CrCl (Cockcroft–Gault, mL/min, as a whole number); daily dose (mg/24 h) = dose × 24 ÷ interval (h)
-- Citation: Method set by the department (owner decision 6, 18 October 2026): empiric weight-based dosing, 15–20 mg/kg of actual body weight per dose, with the dosing interval set from creatinine clearance (Cockcroft–Gault) by the department’s own table, whose source is shown with each result. Creatinine clearance: Cockcroft DW, Gault MH. Prediction of creatinine clearance from serum creatinine. Nephron 1976;16(1):31–41. Ideal body weight: Devine BJ. Gentamicin therapy. Drug Intell Clin Pharm 1974;8:650–655.
-- Tests: 14 passed, 0 failed (formula version 1) · high-risk calculation: extended tests and an escalation message
-- Limitations shown with every result: The creatinine clearance bands are your department’s table, entered in More → Reference tables with their source; PRECEPTOR ships none and checks only that one band holds the value. A population-based starting regimen for a setting where levels cannot be measured, not a patient-specific one. When levels can be measured, use the AUC calculator. No loading dose and no maximum single dose are applied: follow your hospital’s protocol. Not for patients on dialysis or CRRT, and unreliable when creatinine is changing (acute kidney injury): Cockcroft–Gault does not describe their clearance. Adults only.
+- Formula: Dose (mg) = dose per kg (15–20 mg/kg) × actual body weight (kg). Interval, by the department’s table (CrCl by Cockcroft–Gault, as a whole number): above 90 mL/min every 8 h; 50–90 every 12 h; 20–49 every 24 h; below 20, or on dialysis, one dose, then dosing by levels. Daily dose (mg/24 h) = dose × 24 ÷ interval (h)
+- Citation: Method and table set by the department: owner decision 6 (18 October 2026) — empiric weight-based dosing, 15–20 mg/kg of actual body weight per dose, the interval from Cockcroft–Gault creatinine clearance — and the department’s interval table (owner decision, 19 October 2026). Creatinine clearance: Cockcroft DW, Gault MH. Prediction of creatinine clearance from serum creatinine. Nephron 1976;16(1):31–41. Ideal body weight: Devine BJ. Gentamicin therapy. Drug Intell Clin Pharm 1974;8:650–655.
+- Tests: 14 passed, 0 failed (formula version 2) · high-risk calculation: extended tests and an escalation message
+- Limitations shown with every result: The interval is the department’s table (owner decision, 19 October 2026), for adults: above 90 mL/min every 8 h; 50–90 every 12 h; 20–49 every 24 h; below 20 mL/min, or on dialysis, one dose, then dosing by levels. A population-based starting regimen for a setting where levels cannot be measured, not a patient-specific one. When levels can be measured, use the AUC calculator. No loading dose and no maximum single dose are applied: follow your hospital’s protocol. Unreliable when creatinine is changing (acute kidney injury): Cockcroft–Gault assumes a stable creatinine. Adults only.
 
 | Input | Required | Unit (canonical) | Plausible range (confirmation outside) | Definitional limits (rejected outside) |
 |---|---|---|---|---|
 | Age | yes | years | 0 – 120 | 0 – 130 |
-| Sex | yes | — | — | — |
 | Weight (total body weight) | yes | kg | 2 – 300 | 0.2 – 700 |
-| Serum creatinine | yes | mg/dL | 0.2 – 20 | 0.01 – 50 |
-| Weight used in the formula (choice: Total body weight (TBW) / Ideal body weight (IBW, Devine) / Adjusted body weight (AdjBW)) | yes | — | — | — |
 | Dose per kilogram of actual body weight | yes | mg/kg | — | 15 – 20 |
-| Not on dialysis or CRRT | yes | — | — | — |
-| Dosing interval, from your department’s table | yes | h | — | — |
-| Height | optional | cm | 45 – 230 | 1 – 300 |
+| On dialysis: intermittent haemodialysis, peritoneal dialysis or CRRT | yes | — | — | — |
+| Sex — asked when onDialysis is no | yes | — | — | — |
+| Serum creatinine — asked when onDialysis is no | yes | mg/dL | 0.2 – 20 | 0.01 – 50 |
+| Weight used in the formula (choice: Total body weight (TBW) / Ideal body weight (IBW, Devine) / Adjusted body weight (AdjBW)) — asked when onDialysis is no | yes | — | — | — |
+| Height — asked when onDialysis is no | optional | cm | 45 – 230 | 1 – 300 |
 | Adjustment factor for adjusted body weight — asked when weightBasis is adjbw | optional | unitless | 0.2 – 0.5 | 0.01 – 1 |
 
 Test cases:
 
+1. ✓ the department’s table holds every whole-number creatinine clearance exactly once
 1. ✓ 60 y M, 70 kg, SCr 1, 15 mg/kg → CrCl 77.77777777777777, every 12 h, 1050 mg (2100)
 1. ✓ 30 y M, 80 kg, SCr 0.9, 15 mg/kg → CrCl 135.8024691358025, every 8 h, 1200 mg (3600)
 1. ✓ 75 y M, 65 kg, SCr 1.5, 20 mg/kg → CrCl 39.120370370370374, every 24 h, 1300 mg (1300)
 1. ✓ 45 y F, 60 kg, SCr 0.8, 20 mg/kg → CrCl 84.11458333333333, every 12 h, 1200 mg (2400)
+1. ✓ below 20 mL/min: one dose, then dosing by levels — no interval and no daily dose
+1. ✓ on dialysis: one dose, then dosing by levels; Cockcroft–Gault is neither asked for nor used
+1. ✓ compares creatinine clearance with the table as a whole number, at each band edge
 1. ✓ the dose uses actual (total) body weight even when creatinine clearance uses ideal body weight
-1. ✓ compares creatinine clearance with the table as a whole number, as it is shown (59.6 → 60, 59.4 → 59)
-1. ✓ keeps the band it used with the result: its range, version and source, in the steps and the assumptions
-1. ✓ refuses without the department’s table, naming it
-1. ✓ refuses when no band holds the creatinine clearance, and when two bands do
-1. ✓ a band that sets no fixed interval refuses the calculation, quoting the band and its source
-1. ✓ accepts only the department’s dose range, 15 to 20 mg/kg
-1. ✓ refuses on dialysis or CRRT, in a child, and without a creatinine — before reading the table
-1. ✓ a result goes out of date when the band it used is changed or removed
+1. ✓ shows every step, the department’s band and its decision, and the population-based label
+1. ✓ accepts only the department’s dose range, 15 to 20 mg/kg, in mg/kg
+1. ✓ names what is missing: the dialysis answer, then (off dialysis) the creatinine and the weight basis; the weight always
+1. ✓ refuses a child, on and off dialysis
 1. ✓ a creatinine recorded in µmol/L is converted before Cockcroft–Gault
 
 ### Phenytoin corrected for albumin (Sheiner–Tozer) — `phenytoin_corrected@1`

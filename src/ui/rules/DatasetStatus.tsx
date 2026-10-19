@@ -3,12 +3,16 @@
  * checksum and licence (M2 plan 2.4: attribution and licence for every
  * dataset) — and which are not, with what that means for the checks.
  */
+import type { OncPair } from '../../domain/reference';
 import { DATASETS } from '../../drugs/useVocabulary';
 import { useI18n } from '../../i18n/i18n';
 import { Card, Chip, Num } from '../components/ui';
+import { useReference } from '../data';
 
 export function DatasetStatus() {
   const { t, date } = useI18n();
+  const onc = useReference<OncPair>('onc');
+  const entered = onc.status === 'ready' ? onc.data.filter((r) => r.status === 'active').length : 0;
   const installed = Object.entries(DATASETS).filter((e): e is [string, NonNullable<(typeof e)[1]>] => !!e[1]);
   return (
     <Card title={t('ds.title')}>
@@ -46,8 +50,15 @@ export function DatasetStatus() {
           </p>
         )}
         {!DATASETS.onc && (
-          <p className="rounded-xl border border-dashed border-slate-400 p-3 text-sm text-slate-800" data-dataset="onc" data-installed="false">
-            <Chip>{t('ds.notInstalled')}</Chip> {t('ds.missing.onc')}
+          <p
+            className={`rounded-xl border p-3 text-sm text-slate-800 ${entered ? 'border-slate-200' : 'border-dashed border-slate-400'}`}
+            data-dataset="onc"
+            data-installed={entered ? 'entered' : 'false'}
+          >
+            {entered ? <Chip tone="teal">{t('ds.oncEntered', { n: entered })}</Chip> : <Chip>{t('ds.notEntered')}</Chip>} {t(entered ? 'ds.onc.entered' : 'ds.missing.onc')}{' '}
+            <a href="#/reference/onc" className="font-medium text-teal-900 underline">
+              {t('ref.kind.onc')}
+            </a>
           </p>
         )}
         {!DATASETS.aware && (

@@ -16,13 +16,14 @@ import { creatinineChanges, KDIGO_CITATION, scrSeries } from '../calc/kdigo';
 import { show, toCanonical, type QuantityId } from '../calc/units';
 import { ANALYTE_BY_ID } from '../domain/catalogue';
 import { L } from '../domain/label';
-import type { AdjustmentRule, FormularyItem, LabThreshold } from '../domain/reference';
+import type { AdjustmentRule, FormularyItem, LabThreshold, OncPair } from '../domain/reference';
 import { compareEntries, deriveMedCourses, type MedCourse } from '../domain/timeline';
 import type { EntryOf, RegisterItem, TaskRecord, TimelineEntry } from '../domain/types';
 import { appliesKey, scopedKey } from '../domain/workflow/tasks';
 import { aliasesFrom, matchDrug, type DrugMatch } from '../drugs/normalize';
 import { normaliseName, type DrugClass, type DrugVocabulary } from '../drugs/vocabulary';
 import { allergenTerm, classesForAllergen } from './allergy-terms';
+import { oncIndex, oncMatches } from './onc';
 import type { Alert, AlertLevel, AwareDataset, AwareMatch, AwareRoute, InteractionDataset, InteractionHit, NotChecked, RulesOutcome } from './types';
 
 export interface RulesContext {
@@ -42,6 +43,8 @@ export interface RulesContext {
   vocab?: DrugVocabulary;
   interactions?: InteractionDataset;
   aware?: AwareDataset;
+  /** The ONC high-priority list as the administrator entered it (Reference tables). */
+  onc?: readonly OncPair[];
 }
 
 /** A drug the patient takes or is proposed: an inpatient order, a home medication or a discharge medication. */
@@ -185,7 +188,8 @@ const DDINTER_LEVEL: Record<InteractionHit['severity'], L> = {
 
 function interactionRule(ctx: RulesContext, ds: readonly DrugRef[], add: (a: Alert) => void, skip: (n: NotChecked) => void) {
   const data = ctx.interactions;
-  if (!data) {
+  const onc = oncIndex(ctx.onc ?? [], ctx.vocab);
+  if (!data)
     skip({
       key: 'interactions',
       what: 'interactions',
@@ -194,16 +198,14 @@ function interactionRule(ctx: RulesContext, ds: readonly DrugRef[], add: (a: Ale
         'لم تُفحص التداخلات الدوائية: بيانات DDInter غير مثبتة. افحص التداخلات بنفسك في المهمة 6.',
       ),
     });
-    return;
-  }
   const active = ds.filter((d) => d.kind === 'course' && d.ingredients.length);
-  if (active.length > 1 && !data.oncInstalled) {
+  if (data && active.length > 1 && !data.oncInstalled && !onc.length) {
     skip({
       key: 'interactions:onc',
       what: 'interactions',
       reason: L(
-        'The ONC high-priority list is not installed, so no interaction is raised to critical: a DDInter Major pair is shown as important.',
-        'قائمة ONC عالية الأولوية غير مثبتة، لذلك لا يُرفع أي تداخل إلى مستوى حرج: يُعرض تداخل DDInter الشديد (Major) على أنه مهم.',
+        'The ONC high-priority list has not been entered on this device, so no interaction is raised to critical: a DDInter Major pair is shown as important. The administrator can enter the list in More → Reference tables.',
+        'لم تُدخل قائمة ONC عالية الأولوية على هذا الجهاز، لذلك لا يُرفع أي تداخل إلى مستوى حرج: يُعرض تداخل DDInter الشديد (Major) على أنه مهم. يمكن للمسؤول إدخال القائمة من المزيد ← الجداول المرجعية.',
       ),
     });
   }
@@ -214,6 +216,32 @@ function interactionRule(ctx: RulesContext, ds: readonly DrugRef[], add: (a: Ale
       const a = active[i]!;
       const b = active[j]!;
       const pair = [a.medId, b.medId].sort().join('+');
+      const listed = oncMatches(onc, a.ingredients, b.ingredients);
+      if (listed.length) {
+        // On the administrator's ONC list: one critical alert per listed pair, with DDInter's level when it has one.
+        const levels = new Set<string>();
+        if (data) for (const x of a.ingredients) for (const y of b.ingredients) if (x !== y) for (const h of data.lookup(x, y)) levels.add(h.severity);
+        const level = levels.size ? [...levels].join(', ') : undefined;
+        for (const r of listed) {
+          add({
+            key: `interaction:${pair}:onc:${r.id}`,
+            ruleId: 'interaction',
+            level: 'critical',
+            title: L(`Interaction (ONC high-priority): ${a.label} + ${b.label}`, `تداخل (ONC عالي الأولوية): ${a.label} + ${b.label}`),
+            detail: L(
+              `On the ONC high-priority list entered on this device: “${r.label}”. ${level ? `DDInter level: ${level}.` : 'Not in DDInter’s download files.'} PRECEPTOR gives the level only: look up the mechanism and the management in your hospital’s approved reference and write them in Task 6.`,
+              `ضمن قائمة ONC عالية الأولوية المدخلة على هذا الجهاز: «${r.label}». ${level ? `مستوى DDInter: ${level}.` : 'غير موجود في ملفات DDInter المتاحة.'} يعطي PRECEPTOR المستوى فقط: ابحث عن الآلية وطريقة التعامل في المرجع المعتمد في مستشفاك واكتبهما في المهمة 6.`,
+            ),
+            source: L(`ONC high-priority list, as entered on this device: ${r.source}`, `قائمة ONC عالية الأولوية كما أُدخلت على هذا الجهاز: ${r.source}`),
+            dataHash: hash(`${pair}|onc|${r.id}|${r.version}|${level ?? ''}|${data?.version ?? ''}`),
+            medIds: [a.medId!, b.medId!],
+            taskId: 't06',
+            interaction: { drugA: a.label, drugB: b.label, severity: 'ONC high-priority' },
+          });
+        }
+        continue;
+      }
+      if (!data) continue;
       let found = false;
       let unchecked: 'outside_files' | 'drug_not_in_dataset' | undefined;
       for (const x of a.ingredients) {
@@ -236,12 +264,12 @@ function interactionRule(ctx: RulesContext, ds: readonly DrugRef[], add: (a: Ale
               level,
               title: L(`Interaction (${sev}): ${a.label} + ${b.label}`, `تداخل (${sev}): ${a.label} + ${b.label}`),
               detail: L(
-                `${hit.onc ? 'On the ONC list of high-priority interactions, judged contraindicated for concurrent use. ' : ''}DDInter level: ${hit.severity} — ${def.en}. ${
+                `${hit.onc ? 'On the ONC list of high-priority interactions. ' : ''}DDInter level: ${hit.severity} — ${def.en}. ${
                   hit.mechanism ? `Mechanism: ${hit.mechanism}. ` : ''
-                }${hit.management ? `Management: ${hit.management}.` : 'The dataset gives the level only: look up the mechanism and the management in your reference and record them in Task 6.'}`,
-                `${hit.onc ? 'ضمن قائمة ONC للتداخلات عالية الأولوية، ويُعدّ الجمع مضاد استطباب. ' : ''}مستوى DDInter: ${hit.severity} — ${def.ar}. ${
+                }${hit.management ? `Management: ${hit.management}.` : 'PRECEPTOR gives the level only: look up the mechanism and the management in your hospital’s approved reference and write them in Task 6.'}`,
+                `${hit.onc ? 'ضمن قائمة ONC للتداخلات عالية الأولوية. ' : ''}مستوى DDInter: ${hit.severity} — ${def.ar}. ${
                   hit.mechanism ? `الآلية: ${hit.mechanism}. ` : ''
-                }${hit.management ? `التعامل: ${hit.management}.` : 'تذكر البيانات المستوى فقط: ابحث عن الآلية وطريقة التعامل في مرجعك وسجّلهما في المهمة 6.'}`,
+                }${hit.management ? `التعامل: ${hit.management}.` : 'يعطي PRECEPTOR المستوى فقط: ابحث عن الآلية وطريقة التعامل في المرجع المعتمد في مستشفاك واكتبهما في المهمة 6.'}`,
               ),
               source: L(data.citation, data.citation),
               dataHash: hash(`${pair}|${hit.severity}|${hit.onc}|${data.version}`),

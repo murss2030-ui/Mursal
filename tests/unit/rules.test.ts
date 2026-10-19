@@ -179,7 +179,7 @@ describe('interactions', () => {
     expect(level('vancomycin')).toBe('critical');
     const ibu = a.find((y) => y.title.en.includes('ibuprofen'))!;
     expect(ibu.detail.en).toContain('DDInter level: major — highly clinically significant');
-    expect(ibu.detail.en).toContain('look up the mechanism and the management in your reference');
+    expect(ibu.detail.en).toContain('PRECEPTOR gives the level only: look up the mechanism and the management in your hospital’s approved reference and write them in Task 6.');
     // The dataset's own fields travel with the alert, for the automatic rows of form Section 7.
     expect(ibu.interaction).toEqual({ drugA: 'enoxaparin', drugB: 'ibuprofen', severity: 'major' });
     expect(a.find((y) => y.title.en.includes('vancomycin'))!.interaction).toMatchObject({ severity: 'ONC high-priority' });

@@ -16,6 +16,7 @@ import { useSession } from '../session-context';
 import { useCaseBundle } from '../case-bundle';
 import { DATASETS } from '../../drugs/useVocabulary';
 import { useCaseRules } from '../rules/useCaseRules';
+import { InteractionCoverageNotice } from '../rules/SafetyViews';
 import type { FormContext } from '../../domain/form/derive';
 
 function Label({ l }: { l: FormLabel }) {
@@ -201,6 +202,7 @@ function SectionCard({ s, caseId, readOnly, draft }: { s: FormSectionView; caseI
         {s.automatic && (
           <div className="mb-3 flex flex-col gap-2 rounded-xl border border-dashed border-slate-400 p-3" data-testid="form-automatic-interactions" data-checked={s.automatic.checked}>
             <h3 className="text-sm font-semibold text-slate-900">{t('form.s7.automatic')}</h3>
+            <InteractionCoverageNotice />
             {!s.automatic.checked ? (
               <p className="text-sm text-amber-900">{s.automatic.reason}</p>
             ) : (

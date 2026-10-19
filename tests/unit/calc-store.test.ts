@@ -161,35 +161,38 @@ describe('calculations in the store', () => {
   });
 });
 
-describe('vancomycin without levels reads the department’s table from the store', () => {
-  const req = {
+describe('vancomycin without levels, from the store, with the department’s table', () => {
+  const req = (onDialysis: boolean) => ({
     answers: {
-      weightBasis: { kind: 'choice' as const, value: 'tbw' },
+      ...(onDialysis ? {} : { weightBasis: { kind: 'choice' as const, value: 'tbw' } }),
       mgPerKg: { kind: 'number' as const, value: 15, unit: 'mg/kg' },
-      noRrt: { kind: 'boolean' as const, value: true },
+      onDialysis: { kind: 'boolean' as const, value: onDialysis },
     },
-  };
-  const bandValues = { crclFrom: '60', action: 'interval', intervalHours: '12', source: 'Synthetic test band (not a clinical recommendation)', verifiedBy: 'T', verifiedAt: '2026-10-18' };
+  });
 
-  it('refuses until the table has a band, then keeps the band (id, version, source) with the result; a changed band makes it out of date', async () => {
+  it('every 12 h at 78 mL/min; a newer creatinine makes the result out of date, and the stored result stays as it was', async () => {
     const { store, c } = await setup();
     await store.addEntry(c.id, weight(70));
     await store.addEntry(c.id, scr(1.0, 1));
-    expect(await store.calculate(c.id, 'vancomycin_empiric', req)).toMatchObject({ ok: false, problems: [{ kind: 'missing', key: 'interval' }] });
-    const band = await store.saveReference('vancomycin_interval', undefined, bandValues);
-    const out = await store.calculate(c.id, 'vancomycin_empiric', req);
+    const out = await store.calculate(c.id, 'vancomycin_empiric', req(false));
     if (!out.ok) throw new Error(JSON.stringify(out.problems));
     const r = out.results[0]!;
-    // hand: CrCl = 80 × 70 ÷ 72 = 77.8 → 78 mL/min → band "60 or more" → every 12 h; dose = 15 × 70 = 1050 mg.
+    // hand: CrCl = 80 × 70 ÷ 72 = 77.8 → 78 mL/min → 50–90 → every 12 h; dose = 15 × 70 = 1050 mg.
     expect(r.value).toBeCloseTo(1050, 9);
-    expect(r.inputs.detail.interval).toMatchObject({ value: 12, source: { kind: 'reference', id: band.id, version: 1, source: bandValues.source } });
+    expect(r.category?.value).toBe('every_12_h');
     const def = CALCULATOR_DEFS.find((d) => d.id === 'vancomycin_empiric')!;
     expect(resultCurrency(r, def, await store.calculationContext(c.id))).toEqual({ current: true });
-    await store.saveReference('vancomycin_interval', band.id, { ...bandValues, intervalHours: '8' }, undefined, 'department table revised');
-    const after = resultCurrency(r, def, await store.calculationContext(c.id));
-    expect(after.current).toBe(false);
-    // The stored result itself is unchanged.
+    await store.addEntry(c.id, scr(3.0, 2));
+    expect(resultCurrency(r, def, await store.calculationContext(c.id)).current).toBe(false);
     expect((await store.listCalcResults(c.id))[0]).toEqual(r);
+  });
+
+  it('on dialysis: one dose, then dosing by levels — no creatinine needed', async () => {
+    const { store, c } = await setup();
+    await store.addEntry(c.id, weight(70));
+    const out = await store.calculate(c.id, 'vancomycin_empiric', req(true));
+    if (!out.ok) throw new Error(JSON.stringify(out.problems));
+    expect(out.results[0]).toMatchObject({ value: 1050, category: { value: 'one_dose_then_levels' } });
   });
 });
 

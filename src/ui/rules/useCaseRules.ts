@@ -7,7 +7,7 @@
 import { useEffect, useMemo } from 'react';
 import { resultCurrency } from '../../calc/currency';
 import { CALC_BY_ID } from '../../calc/registry';
-import type { AdjustmentRule, FormularyItem, LabThreshold } from '../../domain/reference';
+import type { AdjustmentRule, FormularyItem, LabThreshold, OncPair } from '../../domain/reference';
 import { L } from '../../domain/label';
 import { aliasesFrom, matchDrug, type DrugMatch } from '../../drugs/normalize';
 import { useAware, useInteractions, useVocabulary, type VocabularyState } from '../../drugs/useVocabulary';
@@ -41,16 +41,22 @@ export function useCaseRules(b: CaseBundle | undefined): CaseRules {
   const formulary = useReference<FormularyItem>('formulary');
   const adjustments = useReference<AdjustmentRule>('adjustment');
   const thresholds = useReference<LabThreshold>('threshold');
+  const onc = useReference<OncPair>('onc');
   const acks = useAlertAcks(b?.case.id ?? '');
   const ready =
     !!b &&
     vocabulary.status !== 'loading' &&
     interactions.status !== 'loading' &&
     aware.status !== 'loading' &&
-    formulary.status === 'ready' && adjustments.status === 'ready' && thresholds.status === 'ready' && acks.status === 'ready';
+    formulary.status === 'ready' &&
+    adjustments.status === 'ready' &&
+    thresholds.status === 'ready' &&
+    onc.status === 'ready' &&
+    acks.status === 'ready';
 
   const outcome = useMemo(() => {
-    if (!b || !ready || formulary.status !== 'ready' || adjustments.status !== 'ready' || thresholds.status !== 'ready') return { alerts: [], notChecked: [] };
+    if (!b || !ready || formulary.status !== 'ready' || adjustments.status !== 'ready' || thresholds.status !== 'ready' || onc.status !== 'ready')
+      return { alerts: [], notChecked: [] };
     const out = evaluateRules({
       today: b.today,
       current: b.current,
@@ -64,6 +70,7 @@ export function useCaseRules(b: CaseBundle | undefined): CaseRules {
       formulary: formulary.data,
       adjustments: adjustments.data,
       thresholds: thresholds.data,
+      onc: onc.data,
       gather: b.calcContext,
       ...(vocabulary.status === 'ready' ? { vocab: vocabulary.vocab } : {}),
       ...(interactions.status === 'ready' ? { interactions: interactions.data } : {}),
@@ -88,7 +95,7 @@ export function useCaseRules(b: CaseBundle | undefined): CaseRules {
           : n,
       ),
     };
-  }, [b, ready, vocabulary, interactions, aware, formulary, adjustments, thresholds]);
+  }, [b, ready, vocabulary, interactions, aware, formulary, adjustments, thresholds, onc]);
 
   const ackMap = useMemo(() => {
     const m = new Map<string, string>();

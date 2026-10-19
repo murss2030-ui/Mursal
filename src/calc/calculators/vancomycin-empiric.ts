@@ -1,35 +1,69 @@
 /**
  * Vancomycin without levels (Section 9: "a documented no-level nomogram path
- * for the low-resource setting"), as the department decided (owner decision
- * 6, 18 October 2026):
+ * for the low-resource setting"), by the department's method and table:
  *
- * - empiric weight-based dosing: 15 to 20 mg/kg of actual body weight per
- *   dose;
- * - the dosing interval set from creatinine clearance by Cockcroft–Gault.
+ * - owner decision 6 (18 October 2026): empiric weight-based dosing, 15 to
+ *   20 mg/kg of actual body weight per dose, with the dosing interval set
+ *   from creatinine clearance by Cockcroft–Gault;
+ * - the department's interval table (owner decision, 19 October 2026):
+ *     CrCl above 90 mL/min ........................ every 8 h
+ *     CrCl 50 to 90 mL/min ........................ every 12 h
+ *     CrCl 20 to 49 mL/min ........................ every 24 h
+ *     CrCl below 20 mL/min, or on dialysis ........ one dose, then dosing by levels.
  *
- * The decision names the method, not the creatinine clearance bands, so the
- * bands are the department's own table (More → Reference tables), each with
- * its source — none are shipped, as for the high-alert list and the critical
- * values (decisions 3 and 4). The calculator chooses the band the patient's
- * creatinine clearance falls in, shows it with its source and version, and
- * refuses when the table is empty, has no band or two bands for that value,
- * or says to dose by levels.
- *
- * Creatinine clearance is the CrCl calculator's own formula, with the same
- * inputs (the weight basis chosen and recorded); it is compared with the
- * table as a whole number, as it is shown.
+ * Creatinine clearance is the CrCl calculator's own formula and inputs (the
+ * weight basis chosen and recorded), compared with the table as a whole
+ * number, as it is shown, so that the bands meet without a gap (49 → 24 h,
+ * 50 → 12 h). On dialysis — intermittent haemodialysis, peritoneal dialysis
+ * or CRRT — Cockcroft–Gault does not describe the clearance: it is neither
+ * asked for nor used, and the table gives one dose.
  */
 import { L } from '../../domain/label';
-import { bandCovers, bandRange } from '../../domain/reference';
 import { step } from '../engine';
-import type { CalcReferences } from '../gather';
-import { finding } from '../inputs';
-import type { CalcInputs, CalculatorDef, InputSource, InputSpec, InputValue, Problem } from '../types';
+import { AGE, SCR, SEX, WEIGHT, finding } from '../inputs';
+import type { CalcInputs, CalculatorDef, InputSpec, Problem } from '../types';
 import { show } from '../units';
 import { given, val, yes } from './common';
-import { crclCg } from './renal';
+import { WEIGHT_BASIS, crclCg } from './renal';
 
 export const DOSE_RANGE: readonly [number, number] = [15, 20];
+
+export type Regimen = { kind: 'interval'; hours: number } | { kind: 'single' };
+
+export interface DepartmentBand {
+  /** Creatinine clearance as a whole number (mL/min): from this value, inclusive. */
+  min?: number;
+  /** Up to this value, inclusive. */
+  max?: number;
+  regimen: Regimen;
+  text: L;
+}
+
+/** The department's table (owner decision, 19 October 2026). */
+export const DEPARTMENT_TABLE: readonly DepartmentBand[] = [
+  { min: 91, regimen: { kind: 'interval', hours: 8 }, text: L('CrCl above 90 mL/min → every 8 h', 'تصفية الكرياتينين أعلى من 90 mL/min ← كل 8 h') },
+  { min: 50, max: 90, regimen: { kind: 'interval', hours: 12 }, text: L('CrCl 50–90 mL/min → every 12 h', 'تصفية الكرياتينين 50–90 mL/min ← كل 12 h') },
+  { min: 20, max: 49, regimen: { kind: 'interval', hours: 24 }, text: L('CrCl 20–49 mL/min → every 24 h', 'تصفية الكرياتينين 20–49 mL/min ← كل 24 h') },
+  {
+    max: 19,
+    regimen: { kind: 'single' },
+    text: L('CrCl below 20 mL/min → one dose, then dosing by levels', 'تصفية الكرياتينين أقل من 20 mL/min ← جرعة واحدة، ثم الجرعات حسب المستويات'),
+  },
+];
+
+export const DIALYSIS_BAND: DepartmentBand = {
+  regimen: { kind: 'single' },
+  text: L('On dialysis → one dose, then dosing by levels', 'على الغسيل الكلوي ← جرعة واحدة، ثم الجرعات حسب المستويات'),
+};
+
+/** The band of the department's table that holds a creatinine clearance (a whole number, mL/min). */
+export function bandFor(crcl: number): DepartmentBand {
+  const b = DEPARTMENT_TABLE.find((x) => (x.min === undefined || crcl >= x.min) && (x.max === undefined || crcl <= x.max));
+  if (!b) throw new Error(`No band of the department's table holds ${crcl} mL/min`);
+  return b;
+}
+
+const DECISION = L('the department’s table (owner decision, 19 October 2026)', 'جدول القسم (قرار المالك، 19 أكتوبر 2026)');
 
 const MG_PER_KG: InputSpec = {
   key: 'mgPerKg',
@@ -40,100 +74,36 @@ const MG_PER_KG: InputSpec = {
   hint: L('The department’s range: 15 to 20 mg/kg per dose (owner decision 6).', 'نطاق القسم: من 15 إلى 20 mg/kg للجرعة (قرار المالك 6).'),
 };
 
-const NO_RRT = finding('noRrt', L('Not on dialysis or CRRT', 'ليس على غسيل كلوي ولا CRRT'));
+const ON_DIALYSIS = finding(
+  'onDialysis',
+  L('On dialysis: intermittent haemodialysis, peritoneal dialysis or CRRT', 'على الغسيل الكلوي: غسيل دموي متقطع أو غسيل بريتوني أو CRRT'),
+  L(
+    'Answer from the record (its renal replacement therapy entry). On dialysis the department’s table gives one dose, then dosing by levels.',
+    'أجب من السجل (إدخال العلاج الكلوي البديل). على الغسيل يعطي جدول القسم جرعة واحدة، ثم الجرعات حسب المستويات.',
+  ),
+);
 
-const INTERVAL: InputSpec = {
-  key: 'interval',
-  label: L('Dosing interval, from your department’s table', 'الفاصل بين الجرعات، من جدول قسمك'),
-  kind: 'duration',
-  source: { kind: 'reference', table: 'vancomycin_interval' },
-};
+/** Asked, and used, only when the patient is not on dialysis: the inputs of Cockcroft–Gault. */
+const offDialysis = (s: InputSpec): InputSpec => ({ ...s, showIf: { key: 'onDialysis', in: ['no'] } });
 
 export const POPULATION_ESTIMATE = L(
   'A population-based starting regimen for a setting where levels cannot be measured, not a patient-specific one. When levels can be measured, use the AUC calculator.',
   'نظام جرعات ابتدائي مبني على متوسط السكان لمكان يتعذر فيه قياس المستويات، وليس خاصاً بالمريض. حين يمكن قياس المستويات استخدم حاسبة AUC.',
 );
 
-/** The creatinine clearance compared with the table: the Cockcroft–Gault value, as a whole number. */
-const crclForTable = (inputs: CalcInputs) => Math.round(crclCg.compute(inputs).value);
+export const ONE_DOSE_THEN_LEVELS = L(
+  'The department’s table gives this one dose only: measure the level, and set the next doses from it with your preceptor.',
+  'يعطي جدول القسم هذه الجرعة الواحدة فقط: قِس المستوى، وحدّد الجرعات التالية منه مع مشرفك.',
+);
+
+const ADULTS_ONLY = L(
+  'The department’s vancomycin table is for adults (18 years or older). It is not used for younger patients.',
+  'جدول القسم للفانكومايسين مخصص للبالغين (18 سنة فأكثر)، ولا يُستخدم لمن هم أصغر.',
+);
 
 function check(inputs: CalcInputs): Problem[] {
-  const problems = [...(crclCg.check?.(inputs) ?? [])];
-  if (inputs.noRrt && !yes(inputs, 'noRrt'))
-    problems.push({
-      kind: 'refused',
-      reason: L(
-        'Cockcroft–Gault does not describe the clearance of a patient on dialysis or CRRT, so the interval cannot be set from it. Dose by levels, with your preceptor.',
-        'معادلة Cockcroft–Gault لا تصف تصفية مريض على الغسيل أو CRRT، فلا يمكن تحديد الفاصل منها. حدّد الجرعات بالمستويات مع مشرفك.',
-      ),
-    });
-  return problems;
-}
-
-function fromReference(inputs: CalcInputs, refs: CalcReferences): { input: InputValue } | { problem: Problem } {
-  const bands = (refs.vancomycinIntervals ?? []).filter((b) => b.status === 'active');
-  if (!bands.length)
-    return {
-      problem: {
-        kind: 'missing',
-        key: 'interval',
-        detail: L(
-          'your department’s vancomycin interval table is empty: add its bands, with their source, in More → Reference tables',
-          'جدول فواصل الفانكومايسين لقسمك فارغ: أضف فئاته مع مصدرها في المزيد ← الجداول المرجعية',
-        ),
-      },
-    };
-  const crcl = crclForTable(inputs);
-  const hits = bands.filter((b) => bandCovers(b, crcl));
-  if (!hits.length)
-    return {
-      problem: {
-        kind: 'missing',
-        key: 'interval',
-        detail: L(
-          `no band of your department’s table holds a creatinine clearance of ${crcl} mL/min`,
-          `لا توجد في جدول قسمك فئة تشمل تصفية كرياتينين قدرها ${crcl} mL/min`,
-        ),
-      },
-    };
-  if (hits.length > 1)
-    return {
-      problem: {
-        kind: 'invalid',
-        key: 'interval',
-        reason: L(
-          `${hits.length} bands of your department’s table hold ${crcl} mL/min (${hits.map((b) => bandRange(b).en).join('; ')}): correct the table`,
-          `${hits.length} فئات في جدول قسمك تشمل ${crcl} mL/min (${hits.map((b) => bandRange(b).ar).join('؛ ')}): صحّح الجدول`,
-        ),
-      },
-    };
-  const b = hits[0]!;
-  if (b.action === 'levels' || b.intervalHours === undefined)
-    return {
-      problem: {
-        kind: 'refused',
-        reason: L(
-          `Your department’s table gives no fixed interval for a creatinine clearance of ${crcl} mL/min (band ${bandRange(b).en}): dose by levels. Source: ${b.source}.`,
-          `لا يعطي جدول قسمك فاصلاً ثابتاً لتصفية كرياتينين قدرها ${crcl} mL/min (الفئة ${bandRange(b).ar}): حدّد الجرعات بالمستويات. المصدر: ${b.source}.`,
-        ),
-      },
-    };
-  const every = show(b.intervalHours, 'h', 1);
-  return {
-    input: {
-      key: 'interval',
-      value: b.intervalHours,
-      unit: 'h',
-      source: {
-        kind: 'reference',
-        table: 'vancomycin_interval',
-        id: b.id,
-        version: b.version,
-        text: L(`creatinine clearance ${bandRange(b).en} → every ${every}`, `تصفية الكرياتينين ${bandRange(b).ar} ← كل ${every}`),
-        source: b.source,
-      },
-    },
-  };
+  if (inputs.age && inputs.age.value < 18) return [{ kind: 'refused', reason: ADULTS_ONLY }];
+  return yes(inputs, 'onDialysis') ? [] : (crclCg.check?.(inputs) ?? []);
 }
 
 export const vancomycinEmpiric: CalculatorDef = {
@@ -141,65 +111,69 @@ export const vancomycinEmpiric: CalculatorDef = {
   name: 'Vancomycin without levels (empiric dose and interval)',
   nameAr: 'الفانكومايسين دون مستويات (جرعة وفاصل تجريبيان)',
   purpose: L(
-    'A starting regimen where vancomycin levels cannot be measured: the dose from actual body weight, the interval from your department’s creatinine clearance table.',
-    'نظام جرعات ابتدائي حيث يتعذر قياس مستويات الفانكومايسين: الجرعة من الوزن الفعلي، والفاصل من جدول قسمك حسب تصفية الكرياتينين.',
+    'A starting regimen where vancomycin levels cannot be measured: the dose from actual body weight, the interval from the department’s creatinine clearance table.',
+    'نظام جرعات ابتدائي حيث يتعذر قياس مستويات الفانكومايسين: الجرعة من الوزن الفعلي، والفاصل من جدول القسم حسب تصفية الكرياتينين.',
   ),
-  formulaVersion: '1',
-  citation: `Method set by the department (owner decision 6, 18 October 2026): empiric weight-based dosing, 15–20 mg/kg of actual body weight per dose, with the dosing interval set from creatinine clearance (Cockcroft–Gault) by the department’s own table, whose source is shown with each result. Creatinine clearance: ${crclCg.citation}`,
+  formulaVersion: '2',
+  citation: `Method and table set by the department: owner decision 6 (18 October 2026) — empiric weight-based dosing, 15–20 mg/kg of actual body weight per dose, the interval from Cockcroft–Gault creatinine clearance — and the department’s interval table (owner decision, 19 October 2026). Creatinine clearance: ${crclCg.citation}`,
   formula:
-    'Dose (mg) = dose per kg (15–20 mg/kg) × actual body weight (kg); interval = the band of the department’s table that holds CrCl (Cockcroft–Gault, mL/min, as a whole number); daily dose (mg/24 h) = dose × 24 ÷ interval (h)',
-  requiredInputs: [...crclCg.requiredInputs, MG_PER_KG, NO_RRT, INTERVAL],
-  optionalInputs: crclCg.optionalInputs,
+    'Dose (mg) = dose per kg (15–20 mg/kg) × actual body weight (kg). Interval, by the department’s table (CrCl by Cockcroft–Gault, as a whole number): above 90 mL/min every 8 h; 50–90 every 12 h; 20–49 every 24 h; below 20, or on dialysis, one dose, then dosing by levels. Daily dose (mg/24 h) = dose × 24 ÷ interval (h)',
+  requiredInputs: [AGE, WEIGHT, MG_PER_KG, ON_DIALYSIS, offDialysis(SEX), offDialysis(SCR), offDialysis(WEIGHT_BASIS)],
+  optionalInputs: crclCg.optionalInputs.map((s) => (s.showIf ? s : offDialysis(s))),
   highRisk: true,
   check,
-  fromReference,
-  contextWarnings: crclCg.contextWarnings,
+  contextWarnings: (inputs, current) => (yes(inputs, 'onDialysis') ? [] : (crclCg.contextWarnings?.(inputs, current) ?? [])),
   compute(inputs) {
-    const cg = crclCg.compute(inputs);
-    const crcl = Math.round(cg.value);
+    const dialysis = yes(inputs, 'onDialysis');
+    const cg = dialysis ? undefined : crclCg.compute(inputs);
+    const crcl = cg ? Math.round(cg.value) : undefined;
+    const band = crcl === undefined ? DIALYSIS_BAND : bandFor(crcl);
     const kg = val(inputs, 'weight');
     const perKg = val(inputs, 'mgPerKg');
     const dose = perKg * kg;
-    const tau = val(inputs, 'interval');
-    const daily = (dose * 24) / tau;
-    const band = inputs.interval!.source as Extract<InputSource, { kind: 'reference' }>;
+    const r = band.regimen;
+    const daily = r.kind === 'interval' ? (dose * 24) / r.hours : undefined;
+    const every = r.kind === 'interval' ? show(r.hours, 'h', 0) : '';
     return {
       value: dose,
       unit: 'mg',
       decimals: 0,
-      category: { value: `every_${tau}_h`, label: L(`Every ${show(tau, 'h', 1)} (your department’s table)`, `كل ${show(tau, 'h', 1)} (جدول قسمك)`) },
+      category:
+        r.kind === 'interval'
+          ? { value: `every_${r.hours}_h`, label: L(`Every ${every} (department’s table)`, `كل ${every} (جدول القسم)`) }
+          : { value: 'one_dose_then_levels', label: L('One dose, then dosing by levels (department’s table)', 'جرعة واحدة، ثم الجرعات حسب المستويات (جدول القسم)') },
       secondary: [
-        { key: 'interval', label: L('Dosing interval', 'الفاصل بين الجرعات'), value: tau, unit: 'h', decimals: 1 },
-        { key: 'daily', label: L('Total daily dose', 'الجرعة اليومية الكلية'), value: daily, unit: 'mg/24 h', decimals: 0 },
-        { key: 'crcl', label: L('Creatinine clearance (Cockcroft–Gault)', 'تصفية الكرياتينين (Cockcroft–Gault)'), value: cg.value, unit: 'mL/min', decimals: 0 },
+        ...(r.kind === 'interval' && daily !== undefined
+          ? [
+              { key: 'interval', label: L('Dosing interval', 'الفاصل بين الجرعات'), value: r.hours, unit: 'h', decimals: 0 },
+              { key: 'daily', label: L('Total daily dose', 'الجرعة اليومية الكلية'), value: daily, unit: 'mg/24 h', decimals: 0 },
+            ]
+          : []),
+        ...(cg ? [{ key: 'crcl', label: L('Creatinine clearance (Cockcroft–Gault)', 'تصفية الكرياتينين (Cockcroft–Gault)'), value: cg.value, unit: 'mL/min', decimals: 0 }] : []),
       ],
       assumptions: [
-        ...cg.assumptions,
+        ...(cg?.assumptions ?? []),
         L(
           'Dose on actual body weight: the total body weight recorded in the case, as the department’s method uses.',
           'الجرعة على الوزن الفعلي: وزن الجسم الكلي المسجل في الحالة، كما تستخدمه طريقة القسم.',
         ),
-        L(
-          `Interval from your department’s table (band version ${band.version}): ${band.text.en}. Source: ${band.source}.`,
-          `الفاصل من جدول قسمك (إصدار الفئة ${band.version}): ${band.text.ar}. المصدر: ${band.source}.`,
-        ),
+        L(`Interval from ${DECISION.en}: ${band.text.en}.`, `الفاصل من ${DECISION.ar}: ${band.text.ar}.`),
         L('The dose is not rounded: round it as your hospital does.', 'الجرعة غير مقرّبة: قرّبها كما يفعل مستشفاك.'),
       ],
-      warnings: [...cg.warnings, POPULATION_ESTIMATE],
+      warnings: [...(cg?.warnings ?? []), POPULATION_ESTIMATE, ...(r.kind === 'single' ? [ONE_DOSE_THEN_LEVELS] : [])],
       steps: [
-        ...cg.steps,
-        `CrCl compared with the table as a whole number: ${crcl} mL/min`,
-        `Band of your department’s table (version ${band.version}): ${band.text.en} (source: ${band.source})`,
+        ...(cg ? [...cg.steps, `CrCl compared with the table as a whole number: ${crcl} mL/min`] : ['On dialysis: Cockcroft–Gault is not used']),
+        `Department’s table: ${band.text.en}`,
         given('Dose per kg', inputs.mgPerKg!, 1),
         step(`Dose = ${show(perKg, '', 1)} mg/kg × ${show(kg, '', 1)} kg`, dose, 'mg', 0),
-        step(`Daily dose = ${show(dose, '', 0)} mg × 24 ÷ ${show(tau, '', 1)} h`, daily, 'mg/24 h', 0),
+        ...(r.kind === 'interval' && daily !== undefined ? [step(`Daily dose = ${show(dose, '', 0)} mg × 24 ÷ ${every}`, daily, 'mg/24 h', 0)] : []),
       ],
     };
   },
   limitations: [
     L(
-      'The creatinine clearance bands are your department’s table, entered in More → Reference tables with their source; PRECEPTOR ships none and checks only that one band holds the value.',
-      'فئات تصفية الكرياتينين هي جدول قسمك، تُدخل في المزيد ← الجداول المرجعية مع مصدرها؛ لا يأتي PRECEPTOR بأي فئة، ويتحقق فقط من أن فئة واحدة تشمل القيمة.',
+      'The interval is the department’s table (owner decision, 19 October 2026), for adults: above 90 mL/min every 8 h; 50–90 every 12 h; 20–49 every 24 h; below 20 mL/min, or on dialysis, one dose, then dosing by levels.',
+      'الفاصل من جدول القسم (قرار المالك، 19 أكتوبر 2026)، للبالغين: أعلى من 90 mL/min كل 8 h؛ 50–90 كل 12 h؛ 20–49 كل 24 h؛ أقل من 20 mL/min أو على الغسيل جرعة واحدة، ثم الجرعات حسب المستويات.',
     ),
     POPULATION_ESTIMATE,
     L(
@@ -207,8 +181,8 @@ export const vancomycinEmpiric: CalculatorDef = {
       'لا تُحسب جرعة تحميل ولا يُطبَّق حد أقصى للجرعة الواحدة: اتبع بروتوكول مستشفاك.',
     ),
     L(
-      'Not for patients on dialysis or CRRT, and unreliable when creatinine is changing (acute kidney injury): Cockcroft–Gault does not describe their clearance. Adults only.',
-      'لا يصلح لمرضى الغسيل أو CRRT، ولا يُعتمد عليه حين يتغير الكرياتينين (إصابة كلوية حادة): معادلة Cockcroft–Gault لا تصف تصفيتهم. للبالغين فقط.',
+      'Unreliable when creatinine is changing (acute kidney injury): Cockcroft–Gault assumes a stable creatinine. Adults only.',
+      'لا يُعتمد عليه حين يتغير الكرياتينين (إصابة كلوية حادة): معادلة Cockcroft–Gault تفترض كرياتينيناً مستقراً. للبالغين فقط.',
     ),
   ],
 };
