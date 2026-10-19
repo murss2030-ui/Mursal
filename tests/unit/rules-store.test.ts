@@ -89,4 +89,27 @@ describe('reference tables', () => {
     const ok = await store.saveReference('threshold', undefined, { analyte: 'k', unit: 'mmol/L', low: '2.5', high: '6', source: 'Hospital lab critical values', verifiedBy: 'T', verifiedAt: '2026-10-17' });
     expect(ok).toMatchObject({ analyte: 'k', low: 2.5, high: 6 });
   });
+
+  it('the department’s vancomycin interval table: each band needs a range, an interval or "levels", and its source; versioned and audited', async () => {
+    const { store } = await setup();
+    const meta = { verifiedBy: 'T', verifiedAt: '2026-10-18' };
+    const bad = (values: Record<string, string>) => store.saveReference('vancomycin_interval', undefined, { ...meta, ...values });
+    await expect(bad({ action: 'interval', intervalHours: '12', source: 's' })).rejects.toMatchObject({ errors: { crclFrom: 'required' } });
+    await expect(bad({ crclFrom: '90', crclBelow: '60', action: 'interval', intervalHours: '12', source: 's' })).rejects.toMatchObject({ errors: { crclBelow: 'order' } });
+    await expect(bad({ crclFrom: '60', action: 'interval', source: 's' })).rejects.toMatchObject({ errors: { intervalHours: 'required' } });
+    await expect(bad({ crclFrom: '60', action: 'interval', intervalHours: '200', source: 's' })).rejects.toMatchObject({ errors: { intervalHours: 'range' } });
+    await expect(bad({ crclFrom: '60', action: 'interval', intervalHours: '0', source: 's' })).rejects.toMatchObject({ errors: { intervalHours: 'range' } });
+    await expect(bad({ crclFrom: '60', action: 'sometimes', source: 's' })).rejects.toMatchObject({ errors: { action: 'invalidChoice' } });
+    await expect(bad({ crclFrom: '60', action: 'interval', intervalHours: '12' })).rejects.toMatchObject({ errors: { source: 'required' } });
+    const open = await bad({ crclFrom: '60', action: 'interval', intervalHours: '12', source: 'Department protocol, p. 4' });
+    expect(open).toMatchObject({ crclFrom: 60, action: 'interval', intervalHours: 12, source: 'Department protocol, p. 4', version: 1, status: 'active' });
+    expect(open).not.toHaveProperty('crclBelow');
+    const levels = await bad({ crclBelow: '20', action: 'levels', intervalHours: '48', source: 'Department protocol, p. 4' });
+    expect(levels).toMatchObject({ crclBelow: 20, action: 'levels' });
+    expect(levels).not.toHaveProperty('intervalHours'); // no interval is kept for a "dose by levels" band
+    const v2 = await store.saveReference('vancomycin_interval', open.id, { ...meta, crclFrom: '50', action: 'interval', intervalHours: '12', source: 'Department protocol 2026, p. 4' }, undefined, 'protocol revised');
+    expect(v2).toMatchObject({ version: 2, crclFrom: 50, changeReason: 'protocol revised' });
+    const audit = (await store.listAudit()).filter((e) => e.entity === 'vancomycin_interval').map((e) => e.action).sort();
+    expect(audit).toEqual(['create', 'create', 'update']);
+  });
 });

@@ -9,6 +9,7 @@
  * is named as missing, a value still `extracted_unverified` is refused, and
  * a unit that is not accepted is rejected.
  */
+import type { VancomycinIntervalBand } from '../domain/reference';
 import { compareEntries } from '../domain/timeline';
 import type { Sex, TimelineEntry, VitalKind } from '../domain/types';
 import { isValidHospitalDay, isValidTimeOfDay } from '../domain/dates';
@@ -28,11 +29,17 @@ export interface PendingValue {
   vital?: VitalKind;
 }
 
+/** The trainee's reference tables a calculator can read (all versions' latest state, removed records included). */
+export interface CalcReferences {
+  vancomycinIntervals?: readonly VancomycinIntervalBand[];
+}
+
 export interface GatherContext {
   demographics: CaseFacts;
   /** The effective timeline (current entries, corrections applied). */
   current: readonly TimelineEntry[];
   pending?: readonly PendingValue[];
+  references?: CalcReferences;
 }
 
 export type Answer =
@@ -198,6 +205,7 @@ export function gather(
 
   const one = (spec: InputSpec, isRequired: boolean) => {
     if (!applies(spec, req.answers)) return;
+    if (spec.source.kind === 'reference') return; // chosen after validation (CalculatorDef.fromReference)
     let got: { value?: InputValue; problem?: Problem };
     const s = spec.source;
     if (s.kind === 'case') got = fromCase(spec, ctx.demographics);

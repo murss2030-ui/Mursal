@@ -17,7 +17,7 @@ import { resultCurrency } from '../../calc/currency';
 
 export const CALC_GROUPS: { key: string; ids: CalculatorId[] }[] = [
   { key: 'kidney', ids: ['crcl_cg', 'egfr_ckdepi2021', 'ibw_adjbw', 'bsa_mosteller', 'bmi'] },
-  { key: 'levels', ids: ['vancomycin_auc', 'phenytoin_corrected'] },
+  { key: 'levels', ids: ['vancomycin_auc', 'vancomycin_empiric', 'phenytoin_corrected'] },
   { key: 'liver', ids: ['child_pugh'] },
   { key: 'heart', ids: ['qtc_bazett'] },
   { key: 'blood', ids: ['anion_gap', 'corrected_calcium', 'anc'] },

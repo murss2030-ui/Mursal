@@ -9,7 +9,7 @@ This is the list offered for review by a qualified pharmacist (M2 plan, Section 
 - **independent** — computed by `scripts/calc-crosscheck.py`, a separate Python implementation written from the cited formula (not from the TypeScript code);
 - tests without a number check behaviour: refusals, unit handling, warnings, boundaries.
 
-Validation manifest: generated 2026-10-17T21:59:58.780Z; engine tests passed 61, failed 0. A calculator is shown in the app only with a passing record for its exact formula version and an unchanged engine.
+Validation manifest: generated 2026-10-19T20:14:11.966Z; engine tests passed 64, failed 0. A calculator is shown in the app only with a passing record for its exact formula version and an unchanged engine.
 
 Plausibility ranges are deliberately wide: they catch unit slips and typing errors and are not reference ranges. A value outside one is used only after the trainee confirms it, with the value and unit shown. A value outside the definitional limits is rejected.
 
@@ -146,7 +146,7 @@ Test cases:
 - Formula: ke = ln(C1/C2) ÷ (t2 − t1); Cmax = C1·e^(ke·(t1 − end of infusion)); Cmin = C2·e^(−ke·(next dose − t2)); V = (Dose/tinf)·(1 − e^(−ke·tinf)) ÷ (ke·(Cmax − Cmin·e^(−ke·tinf))); CL = ke·V; AUC₂₄ = (Dose × 24/τ) ÷ CL
 - Citation: Sawchuk RJ, Zaske DE. Pharmacokinetics of dosing regimens which utilize multiple intravenous infusions: gentamicin in burn patients. J Pharmacokinet Biopharm 1976;4(2):183–195. Targets and warnings: Rybak MJ, Le J, Lodise TP, et al. Therapeutic monitoring of vancomycin for serious methicillin-resistant Staphylococcus aureus infections: a revised consensus guideline and review by the American Society of Health-System Pharmacists, the Infectious Diseases Society of America, the Pediatric Infectious Diseases Society, and the Society of Infectious Diseases Pharmacists. Am J Health Syst Pharm 2020;77(11):835–864.
 - Tests: 24 passed, 0 failed (formula version 1) · high-risk calculation: extended tests and an escalation message
-- Limitations shown with every result: Needs two levels in the same dosing interval, both after the end of the infusion, with exact draw times and the exact start of the infusion. Not for patients on dialysis or CRRT, and not before steady state. The no-level estimate for settings where levels cannot be measured is not available yet: it needs a published method chosen by the department.
+- Limitations shown with every result: Needs two levels in the same dosing interval, both after the end of the infusion, with exact draw times and the exact start of the infusion. Not for patients on dialysis or CRRT, and not before steady state. Where levels cannot be measured, use the separate calculator "Vancomycin without levels" (the department’s method).
 
 | Input | Required | Unit (canonical) | Plausible range (confirmation outside) | Definitional limits (rejected outside) |
 |---|---|---|---|---|
@@ -187,12 +187,49 @@ Test cases:
 1. ✓ a level above 100 mg/L needs confirmation; an implausible dose too
 1. ✓ shows every step with substituted values
 
+### Vancomycin without levels (empiric dose and interval) — `vancomycin_empiric@1`
+
+- Formula: Dose (mg) = dose per kg (15–20 mg/kg) × actual body weight (kg); interval = the band of the department’s table that holds CrCl (Cockcroft–Gault, mL/min, as a whole number); daily dose (mg/24 h) = dose × 24 ÷ interval (h)
+- Citation: Method set by the department (owner decision 6, 18 October 2026): empiric weight-based dosing, 15–20 mg/kg of actual body weight per dose, with the dosing interval set from creatinine clearance (Cockcroft–Gault) by the department’s own table, whose source is shown with each result. Creatinine clearance: Cockcroft DW, Gault MH. Prediction of creatinine clearance from serum creatinine. Nephron 1976;16(1):31–41. Ideal body weight: Devine BJ. Gentamicin therapy. Drug Intell Clin Pharm 1974;8:650–655.
+- Tests: 14 passed, 0 failed (formula version 1) · high-risk calculation: extended tests and an escalation message
+- Limitations shown with every result: The creatinine clearance bands are your department’s table, entered in More → Reference tables with their source; PRECEPTOR ships none and checks only that one band holds the value. A population-based starting regimen for a setting where levels cannot be measured, not a patient-specific one. When levels can be measured, use the AUC calculator. No loading dose and no maximum single dose are applied: follow your hospital’s protocol. Not for patients on dialysis or CRRT, and unreliable when creatinine is changing (acute kidney injury): Cockcroft–Gault does not describe their clearance. Adults only.
+
+| Input | Required | Unit (canonical) | Plausible range (confirmation outside) | Definitional limits (rejected outside) |
+|---|---|---|---|---|
+| Age | yes | years | 0 – 120 | 0 – 130 |
+| Sex | yes | — | — | — |
+| Weight (total body weight) | yes | kg | 2 – 300 | 0.2 – 700 |
+| Serum creatinine | yes | mg/dL | 0.2 – 20 | 0.01 – 50 |
+| Weight used in the formula (choice: Total body weight (TBW) / Ideal body weight (IBW, Devine) / Adjusted body weight (AdjBW)) | yes | — | — | — |
+| Dose per kilogram of actual body weight | yes | mg/kg | — | 15 – 20 |
+| Not on dialysis or CRRT | yes | — | — | — |
+| Dosing interval, from your department’s table | yes | h | — | — |
+| Height | optional | cm | 45 – 230 | 1 – 300 |
+| Adjustment factor for adjusted body weight — asked when weightBasis is adjbw | optional | unitless | 0.2 – 0.5 | 0.01 – 1 |
+
+Test cases:
+
+1. ✓ 60 y M, 70 kg, SCr 1, 15 mg/kg → CrCl 77.77777777777777, every 12 h, 1050 mg (2100)
+1. ✓ 30 y M, 80 kg, SCr 0.9, 15 mg/kg → CrCl 135.8024691358025, every 8 h, 1200 mg (3600)
+1. ✓ 75 y M, 65 kg, SCr 1.5, 20 mg/kg → CrCl 39.120370370370374, every 24 h, 1300 mg (1300)
+1. ✓ 45 y F, 60 kg, SCr 0.8, 20 mg/kg → CrCl 84.11458333333333, every 12 h, 1200 mg (2400)
+1. ✓ the dose uses actual (total) body weight even when creatinine clearance uses ideal body weight
+1. ✓ compares creatinine clearance with the table as a whole number, as it is shown (59.6 → 60, 59.4 → 59)
+1. ✓ keeps the band it used with the result: its range, version and source, in the steps and the assumptions
+1. ✓ refuses without the department’s table, naming it
+1. ✓ refuses when no band holds the creatinine clearance, and when two bands do
+1. ✓ a band that sets no fixed interval refuses the calculation, quoting the band and its source
+1. ✓ accepts only the department’s dose range, 15 to 20 mg/kg
+1. ✓ refuses on dialysis or CRRT, in a child, and without a creatinine — before reading the table
+1. ✓ a result goes out of date when the band it used is changed or removed
+1. ✓ a creatinine recorded in µmol/L is converted before Cockcroft–Gault
+
 ### Phenytoin corrected for albumin (Sheiner–Tozer) — `phenytoin_corrected@1`
 
 - Formula: Corrected level = measured level ÷ (0.2 × albumin (g/dL) + 0.1); in severe renal failure: measured level ÷ (0.1 × albumin (g/dL) + 0.1)
 - Citation: Sheiner LB, Tozer TN. Clinical pharmacokinetics: the use of plasma concentrations of drugs. In: Melmon KL, Morrelli HF, eds. Clinical Pharmacology: Basic Principles in Therapeutics. 2nd ed. New York: Macmillan; 1978. Renal-failure form: Liponi DF, Winter ME, Tozer TN. Renal function and therapeutic concentrations of phenytoin. Neurology 1984;34(3):395–397.
 - Tests: 14 passed, 0 failed (formula version 1) · high-risk calculation: extended tests and an escalation message
-- Limitations shown with every result: An estimate. A measured free (unbound) phenytoin level is more reliable whenever it is available. Not valid when another drug displaces phenytoin from albumin (for example valproate): measure a free level. Revised coefficients (for example 0.25 or 0.275 instead of 0.2) and other renal cut-offs have been published; this calculator uses the original equations.
+- Limitations shown with every result: An estimate. A measured free (unbound) phenytoin level is more reliable whenever it is available. Not valid when another drug displaces phenytoin from albumin (for example valproate): measure a free level. Revised coefficients (for example 0.25 or 0.275 instead of 0.2) and other renal cut-offs have been published; this calculator uses the original equations and the department’s renal definition.
 
 | Input | Required | Unit (canonical) | Plausible range (confirmation outside) | Definitional limits (rejected outside) |
 |---|---|---|---|---|
@@ -458,30 +495,79 @@ Test cases:
 1. ✓ says a high score is not by itself a reason to withhold anticoagulation
 1. ✓ refuses when an item is unanswered
 
+### Infusion rate, weight-based (mcg/kg/min → mL/h) — `infusion_rate_weight@1`
+
+- Formula: Rate (mL/h) = dose rate (mcg/kg/min) × weight (kg) × 60 ÷ concentration (mcg/mL)
+- Citation: Formula set by the department (owner decision 9, 18 October 2026): dimensional analysis of a continuous infusion.
+- Tests: 11 passed, 0 failed (formula version 1) · high-risk calculation: extended tests and an escalation message
+- Limitations shown with every result: Checks arithmetic only: the dose rate, the drug, its dilution and concentration come from the order and your hospital’s preparation protocol. Uses the weight recorded in the case; some drugs are dosed on another weight — follow the drug’s reference. Pump programming and the preparation must be independently double-checked before any infusion.
+
+| Input | Required | Unit (canonical) | Plausible range (confirmation outside) | Definitional limits (rejected outside) |
+|---|---|---|---|---|
+| Prescribed dose rate | yes | mcg/kg/min | 0.01 – 100 | 0.0001 – 1000 |
+| Weight (total body weight) | yes | kg | 2 – 300 | 0.2 – 700 |
+| Concentration of the prepared solution | yes | mcg/mL | 1 – 100000 | 0.001 – 1000000 |
+| Age | optional | years | 0 – 120 | 0 – 130 |
+
+Test cases:
+
+1. ✓ 5 mcg/kg/min, 70 kg, 1600 mcg/mL → 13.125 mL/h (hand: 5 × 70 = 350 mcg/min × 60 = 21 000 mcg/h ÷ 1600)
+1. ✓ 0.1 mcg/kg/min, 80 kg, 64 mcg/mL → 7.5 mL/h (hand: 0.1 × 80 = 8 mcg/min × 60 = 480 ÷ 64)
+1. ✓ 10 mcg/kg/min, 60 kg, 4000 mcg/mL → 9 mL/h (hand: 10 × 60 = 600 × 60 = 36 000 ÷ 4000)
+1. ✓ 0.05 mcg/kg/min, 50 kg, 16 mcg/mL → 9.375 mL/h (hand: 0.05 × 50 = 2.5 × 60 = 150 ÷ 16)
+1. ✓ shows the drug delivered per minute and per hour, and every step
+1. ✓ concentration in mg/mL and dose rate in mcg/kg/h give the same result (explicit conversions)
+1. ✓ refuses without a weight, a dose rate or a concentration, naming each
+1. ✓ rejects an unknown unit and an impossible value; an implausible value needs confirmation
+1. ✓ warns about an unusual pump rate (a likely unit slip)
+1. ✓ a child: weight-based dose escalation message (high-risk calculation)
+1. ✓ a weight recorded in pounds is converted before use
+
+### Infusion rate, volume over time (mL/h) — `infusion_rate_volume@1`
+
+- Formula: Rate (mL/h) = volume (mL) ÷ time (h)
+- Citation: Formula set by the department (owner decision 9, 18 October 2026): volume divided by time.
+- Tests: 6 passed, 0 failed (formula version 1)
+- Limitations shown with every result: Checks arithmetic only: the fluid, the volume and the time come from the order. Pump programming and the preparation must be independently double-checked before any infusion.
+
+| Input | Required | Unit (canonical) | Plausible range (confirmation outside) | Definitional limits (rejected outside) |
+|---|---|---|---|---|
+| Volume to give | yes | mL | 5 – 5000 | 0.1 – 20000 |
+| Over this time | yes | h | 0.25 – 48 | 0.016666666666666666 – 168 |
+
+Test cases:
+
+1. ✓ 1000 mL over 8 h → 125 mL/h (hand: 1000 ÷ 8)
+1. ✓ 100 mL over 30 min → 200 mL/h (hand: 100 ÷ 0.5 h)
+1. ✓ 1 L over 4 h → 250 mL/h (hand: 1000 ÷ 4)
+1. ✓ 250 mL over 90 min → 166.66666666666666 mL/h (hand: 250 ÷ 1.5 h)
+1. ✓ refuses without a volume or a time, and rejects zero
+1. ✓ a very short time needs confirmation (5 minutes is outside 15 min – 48 h)
+
 ## Allergy class words
 
 An allergy record that names a class ("penicillin allergy", "sulfa", "NSAIDs") is matched to these FDA Established Pharmacologic Classes (ids as published in RxClass). A word that is also an ingredient name in the singular ("tetracycline", "heparin") is matched as the ingredient; only its plural names the class. This is vocabulary, not clinical judgement; the class names below are read from the installed RxNorm subset.
 
 | Words in the allergy record | FDA EPC classes |
 |---|---|
-| “penicillin”, “penicillins” | Penicillin-class Antibacterial (8 ingredients) — N0000175497 |
-| “cephalosporin”, “cephalosporins” | Cephalosporin Antibacterial (19 ingredients) — N0000175488 |
+| “penicillin”, “penicillins” | Penicillin-class Antibacterial (9 ingredients) — N0000175497 |
+| “cephalosporin”, “cephalosporins” | Cephalosporin Antibacterial (22 ingredients) — N0000175488 |
 | “carbapenem”, “carbapenems” | Penem Antibacterial (3 ingredients) — N0000175496 |
-| “beta-lactam”, “beta-lactams”, “beta lactam”, “beta lactams” | Penicillin-class Antibacterial (8 ingredients) — N0000175497; Cephalosporin Antibacterial (19 ingredients) — N0000175488; Penem Antibacterial (3 ingredients) — N0000175496; Monobactam Antibacterial (1 ingredients) — N0000175493 |
-| “sulfa”, “sulpha”, “sulfonamide”, “sulfonamides”, “sulphonamide”, “sulphonamides” | Sulfonamide Antibacterial (3 ingredients) — N0000175503; Sulfonamide Antimicrobial (4 ingredients) — N0000175504; Methylated Sulfonamide Antibacterial (1 ingredients) — N0000175511 |
+| “beta-lactam”, “beta-lactams”, “beta lactam”, “beta lactams” | Penicillin-class Antibacterial (9 ingredients) — N0000175497; Cephalosporin Antibacterial (22 ingredients) — N0000175488; Penem Antibacterial (3 ingredients) — N0000175496; Monobactam Antibacterial (1 ingredient) — N0000175493 |
+| “sulfa”, “sulpha”, “sulfonamide”, “sulfonamides”, “sulphonamide”, “sulphonamides” | Sulfonamide Antibacterial (3 ingredients) — N0000175503; Sulfonamide Antimicrobial (2 ingredients) — N0000175504; Methylated Sulfonamide Antibacterial (1 ingredient) — N0000175511 |
 | “nsaid”, “nsaids”, “non-steroidal anti-inflammatory”, “nonsteroidal anti-inflammatory” | Nonsteroidal Anti-inflammatory Drug (21 ingredients) — N0000175722 |
-| “opioid”, “opioids”, “opiate”, “opiates” | Opioid Agonist (19 ingredients) — N0000175690; Opioid Agonist/Antagonist (3 ingredients) — N0000175692; Partial Opioid Agonist (1 ingredients) — N0000175689; Partial Opioid Agonist/Antagonist (1 ingredients) — N0000175688; mu-Opioid Receptor Agonist (1 ingredients) — N0000191867 |
-| “macrolide”, “macrolides” | Macrolide (4 ingredients) — N0000175877; Macrolide Antibacterial (1 ingredients) — N0000175431; Macrolide Antimicrobial (3 ingredients) — N0000175935 |
+| “opioid”, “opioids”, “opiate”, “opiates” | Opioid Agonist (18 ingredients) — N0000175690; Opioid Agonist/Antagonist (2 ingredients) — N0000175692; Partial Opioid Agonist (1 ingredient) — N0000175689; Partial Opioid Agonist/Antagonist (1 ingredient) — N0000175688; mu-Opioid Receptor Agonist (1 ingredient) — N0000191867 |
+| “macrolide”, “macrolides” | Macrolide (1 ingredient) — N0000175877; Macrolide Antibacterial (1 ingredient) — N0000175431; Macrolide Antimicrobial (3 ingredients) — N0000175935 |
 | “quinolone”, “quinolones”, “fluoroquinolone”, “fluoroquinolones” | Fluoroquinolone Antibacterial (4 ingredients) — N0000193223; Quinolone Antimicrobial (5 ingredients) — N0000175937 |
-| “tetracyclines” | Tetracycline-class Antibacterial (3 ingredients) — N0000175938; Tetracycline-class Antimicrobial (2 ingredients) — N0000175505; Tetracycline-class Drug (8 ingredients) — N0000175882 |
+| “tetracyclines” | Tetracycline-class Antibacterial (3 ingredients) — N0000175938; Tetracycline-class Antimicrobial (2 ingredients) — N0000175505; Tetracycline-class Drug (3 ingredients) — N0000175882 |
 | “aminoglycoside”, “aminoglycosides” | Aminoglycoside Antibacterial (6 ingredients) — N0000175477 |
-| “glycopeptide”, “glycopeptides” | Glycopeptide Antibacterial (1 ingredients) — N0000175491 |
+| “glycopeptide”, “glycopeptides” | Glycopeptide Antibacterial (1 ingredient) — N0000175491 |
 | “statin”, “statins” | HMG-CoA Reductase Inhibitor (7 ingredients) — N0000175589 |
 | “ace inhibitor”, “ace inhibitors” | Angiotensin Converting Enzyme Inhibitor (16 ingredients) — N0000175562 |
-| “angiotensin receptor blocker”, “angiotensin receptor blockers” | Angiotensin 2 Receptor Blocker (8 ingredients) — N0000175561 |
+| “angiotensin receptor blocker”, “angiotensin receptor blockers” | Angiotensin 2 Receptor Blocker (9 ingredients) — N0000175561 |
 | “benzodiazepine”, “benzodiazepines” | Benzodiazepine (14 ingredients) — N0000175694 |
 | “barbiturate”, “barbiturates” | Barbiturate (2 ingredients) — N0000175693 |
-| “heparins” | Unfractionated Heparin (1 ingredients) — N0000175474; Low Molecular Weight Heparin (2 ingredients) — N0000175586 |
+| “heparins” | Unfractionated Heparin (1 ingredient) — N0000175474; Low Molecular Weight Heparin (2 ingredients) — N0000175586 |
 
 ## Naranjo scoring table
 

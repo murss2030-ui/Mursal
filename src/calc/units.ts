@@ -45,7 +45,8 @@ export type QuantityId =
   | 'factor'
   | 'dose_rate'
   | 'concentration'
-  | 'volume';
+  | 'volume'
+  | 'dose_per_kg';
 
 interface UnitDef {
   unit: string;
@@ -128,6 +129,8 @@ export const QUANTITIES: Readonly<Record<QuantityId, QuantityDef>> = {
   dose_rate: { id: 'dose_rate', canonical: 'mcg/kg/min', units: [same('mcg/kg/min'), factor('mcg/kg/h', 60)] },
   concentration: { id: 'concentration', canonical: 'mcg/mL', units: [same('mcg/mL'), times('mg/mL', 1000)] },
   volume: { id: 'volume', canonical: 'mL', units: [same('mL'), times('L', 1000)] },
+  // A dose per kilogram of body weight (vancomycin without levels).
+  dose_per_kg: { id: 'dose_per_kg', canonical: 'mg/kg', units: [same('mg/kg')] },
 };
 
 /**

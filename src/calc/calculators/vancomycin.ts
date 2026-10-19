@@ -8,8 +8,8 @@
  *   non-invasive infection;
  * - refused without both levels and their exact draw times relative to the dose.
  *
- * The no-level nomogram path of the specification needs a citable source
- * chosen by the owner (M2 plan, decision 6) and is not implemented yet.
+ * The no-level path of the specification is a separate calculator
+ * (vancomycin-empiric.ts, owner decision 6).
  *
  * Equations (one-compartment model, intermittent infusion, steady state):
  *   ke   = ln(C1 ÷ C2) ÷ (t2 − t1)
@@ -290,8 +290,8 @@ export const vancomycinAuc: CalculatorDef = {
     ),
     L('Not for patients on dialysis or CRRT, and not before steady state.', 'لا يصلح لمرضى الغسيل أو CRRT، ولا قبل الحالة المستقرة.'),
     L(
-      'The no-level estimate for settings where levels cannot be measured is not available yet: it needs a published method chosen by the department.',
-      'التقدير دون مستويات للأماكن التي يتعذر فيها القياس غير متاح بعد: يحتاج طريقة منشورة يختارها القسم.',
+      'Where levels cannot be measured, use the separate calculator "Vancomycin without levels" (the department’s method).',
+      'حيث يتعذر قياس المستويات استخدم الحاسبة المنفصلة "الفانكومايسين دون مستويات" (طريقة القسم).',
     ),
   ],
 };

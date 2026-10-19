@@ -17,6 +17,7 @@ import { qtcBazett, qtcFridericia } from './calculators/qtc';
 import { crclCg, egfrCkdEpi2021 } from './calculators/renal';
 import { cha2ds2vasc, curb65, hasBled, qsofa } from './calculators/scores';
 import { vancomycinAuc } from './calculators/vancomycin';
+import { vancomycinEmpiric } from './calculators/vancomycin-empiric';
 import { makeCalculator } from './engine';
 import type { CalcValidationStatus, Calculator, CalculatorDef, CalculatorId } from './types';
 
@@ -28,6 +29,7 @@ export const CALCULATOR_DEFS: readonly CalculatorDef[] = [
   bsaMosteller,
   bmi,
   vancomycinAuc,
+  vancomycinEmpiric,
   phenytoinCorrected,
   childPugh,
   qtcBazett,

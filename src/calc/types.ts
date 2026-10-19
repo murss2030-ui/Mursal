@@ -9,6 +9,7 @@
  */
 import type { L } from '../domain/label';
 import type { ProvenanceState, TimelineEntry, VitalKind } from '../domain/types';
+import type { CalcReferences } from './gather';
 import type { QuantityId } from './units';
 
 export const CALCULATOR_IDS = [
@@ -33,6 +34,8 @@ export const CALCULATOR_IDS = [
   // Owner decision 9 (18 October 2026): infusion rates for Task 9, weight-based and volume over time.
   'infusion_rate_weight',
   'infusion_rate_volume',
+  // Owner decision 6 (18 October 2026): vancomycin without levels, interval from the department's table.
+  'vancomycin_empiric',
 ] as const;
 export type CalculatorId = (typeof CALCULATOR_IDS)[number];
 
@@ -43,7 +46,12 @@ export type InputSourceSpec =
   | { kind: 'vital'; vital: VitalKind; part?: 'systolic' | 'diastolic' }
   | { kind: 'weight' }
   /** Answered by the trainee in the calculator (a finding from the chart, an ECG report value, a dosing time). */
-  | { kind: 'answer' };
+  | { kind: 'answer' }
+  /** Read from one of the trainee's reference tables by the calculator's `fromReference`, once the other inputs are valid. */
+  | { kind: 'reference'; table: ReferenceTableId };
+
+/** Reference tables a calculator can read. */
+export type ReferenceTableId = 'vancomycin_interval';
 
 export interface ChoiceOption {
   value: string;
@@ -80,7 +88,9 @@ export interface InputSpec {
 export type InputSource =
   | { kind: 'entry'; entryId: string; day: number; time?: string; provenance: ProvenanceState }
   | { kind: 'case'; field: 'ageYears' | 'sex' | 'heightCm' }
-  | { kind: 'answer' };
+  | { kind: 'answer' }
+  /** The record of a reference table that was used, at its version, with what it says and its source (kept in the result). */
+  | { kind: 'reference'; table: ReferenceTableId; id: string; version: number; text: L; source: string };
 
 export interface InputValue {
   key: string;
@@ -185,6 +195,13 @@ export interface CalculatorDef {
   optionalInputs: readonly InputSpec[];
   /** Calculator-specific checks (ranges between inputs, populations it is not valid in). */
   check?: (inputs: CalcInputs) => Problem[];
+  /**
+   * The input read from a reference table (an input whose source is
+   * `reference`), chosen with the other inputs once they are all valid — e.g.
+   * the band of the department's table that the patient's creatinine
+   * clearance falls in — or the problem that blocks it.
+   */
+  fromReference?: (inputs: CalcInputs, refs: CalcReferences) => { input: InputValue } | { problem: Problem };
   /** Warnings that need more of the record than the inputs (e.g. whether creatinine is stable). */
   contextWarnings?: (inputs: CalcInputs, current: readonly TimelineEntry[]) => L[];
   compute(inputs: CalcInputs): CalcOutput;

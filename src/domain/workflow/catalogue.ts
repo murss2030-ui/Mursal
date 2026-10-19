@@ -606,16 +606,7 @@ const TASK_LIST: readonly TaskDef[] = [
     needs: ['drug_levels', 'scr', 'weight'],
     registers: ['tdm'],
     panels: ['drug_levels'],
-    calculators: ['vancomycin_auc', 'phenytoin_corrected'],
-    later: [
-      {
-        milestone: 'M2',
-        what: L(
-          'A labelled no-level vancomycin estimate for settings where levels cannot be measured — it needs a published method chosen by the department.',
-          'تقدير موثّق للفانكومايسين دون مستويات للأماكن التي يتعذر فيها القياس — يحتاج طريقة منشورة يختارها القسم.',
-        ),
-      },
-    ],
+    calculators: ['vancomycin_auc', 'vancomycin_empiric', 'phenytoin_corrected'],
   },
 
   // ============================================================ 4 · Safety

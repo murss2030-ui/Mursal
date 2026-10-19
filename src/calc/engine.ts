@@ -27,7 +27,7 @@ import { round, show } from './units';
 export function validateInputs(def: CalculatorDef, inputs: CalcInputs): CalcValidation {
   const problems: Problem[] = [];
   const specs: InputSpec[] = [...def.requiredInputs, ...def.optionalInputs];
-  for (const spec of def.requiredInputs) if (!inputs[spec.key]) problems.push({ kind: 'missing', key: spec.key });
+  for (const spec of def.requiredInputs) if (spec.source.kind !== 'reference' && !inputs[spec.key]) problems.push({ kind: 'missing', key: spec.key });
   for (const spec of specs) {
     const v = inputs[spec.key];
     if (!v) continue;
@@ -101,7 +101,14 @@ export function prepare(def: CalculatorDef, ctx: GatherContext, req: GatherReque
   const g = gather(def.requiredInputs, def.optionalInputs, ctx, req);
   const v = g.problems.length ? { ok: false, problems: [] as Problem[] } : validateInputs(def, g.inputs);
   const problems = [...g.problems, ...v.problems];
-  return { inputs: g.inputs, problems, pendingKeys: g.pendingKeys };
+  let inputs = g.inputs;
+  // An input read from a reference table depends on the others (e.g. the band for a creatinine clearance): only once they are all valid.
+  if (def.fromReference && problems.length === 0) {
+    const r = def.fromReference(inputs, ctx.references ?? {});
+    if ('problem' in r) problems.push(r.problem);
+    else inputs = { ...inputs, [r.input.key]: r.input };
+  }
+  return { inputs, problems, pendingKeys: g.pendingKeys };
 }
 
 function resultDay(inputs: CalcInputs): number | undefined {

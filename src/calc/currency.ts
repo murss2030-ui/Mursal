@@ -35,6 +35,15 @@ export function resultCurrency(result: CalcResult, def: CalculatorDef, ctx: Gath
       if (newer) {
         reasons.push(L(`A newer ${label.en.toLowerCase()} was recorded (Day ${newer.hospitalDay}).`, `سُجّلت قيمة أحدث لـ ${label.ar} (اليوم ${newer.hospitalDay}).`));
       }
+    } else if (s.kind === 'reference') {
+      const now = (ctx.references?.vancomycinIntervals ?? []).find((b) => b.id === s.id);
+      if (!now || now.status !== 'active' || now.version !== s.version)
+        reasons.push(
+          L(
+            'The band of your department’s vancomycin interval table that this result used was changed or removed.',
+            'تغيّرت أو أُزيلت فئة جدول الفواصل لقسمك التي استخدمتها هذه النتيجة.',
+          ),
+        );
     } else if (s.kind === 'case') {
       const now =
         s.field === 'ageYears' ? ctx.demographics.ageYears : s.field === 'sex' ? (ctx.demographics.sex === 'F' ? 1 : 0) : ctx.demographics.heightCm;

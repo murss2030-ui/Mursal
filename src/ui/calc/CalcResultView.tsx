@@ -116,7 +116,13 @@ export function CalcResultView({ r, calc, b, title }: { r: CalcResult; calc: Cal
                     <span className="flex flex-wrap items-center gap-2">
                       <Num>{inputText(v, specs.get(v.key), tl)}</Num>
                       <span className="text-xs text-slate-600">
-                        {s.kind === 'entry' ? `${t('calc.source.entry', { day: s.day })}${s.time ? ` ${s.time}` : ''}` : s.kind === 'case' ? t('calc.source.case') : t('calc.source.answer')}
+                        {s.kind === 'entry'
+                          ? `${t('calc.source.entry', { day: s.day })}${s.time ? ` ${s.time}` : ''}`
+                          : s.kind === 'case'
+                            ? t('calc.source.case')
+                            : s.kind === 'reference'
+                              ? `${t('calc.source.reference', { v: s.version })}: ${tl(s.text)} · ${s.source}`
+                              : t('calc.source.answer')}
                       </span>
                       {s.kind === 'entry' && <ProvenanceBadge state={s.provenance} />}
                     </span>

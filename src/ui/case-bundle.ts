@@ -9,7 +9,8 @@ import { deriveMedCourses, deriveProblems, indexTimeline, type MedCourse, type P
 import type { Attachment, Case, CaseAnalysis, CaseIdentifiers, CausalityAssessment, RegisterId, RegisterItem, TaskRecord, TimelineEntry } from '../domain/types';
 import { analysisStale } from '../store/store';
 import { indexTasks } from '../domain/workflow/tasks';
-import { useAnalyses, useAttachments, useCalcResults, useCausality, useCaseVersions, useEntries, useExtractions, useIdentifiers, useItems, useTasks } from './data';
+import { useAnalyses, useAttachments, useCalcResults, useCausality, useCaseVersions, useEntries, useExtractions, useIdentifiers, useItems, useReference, useTasks } from './data';
+import type { VancomycinIntervalBand } from '../domain/reference';
 import { pendingFromRuns } from '../calc/currency';
 import type { GatherContext } from '../calc/gather';
 import type { CalcResult } from '../calc/types';
@@ -56,9 +57,10 @@ export function useCaseBundle(caseId: string): BundleState {
   const calcs = useCalcResults(caseId);
   const runs = useExtractions(caseId);
   const causality = useCausality(caseId);
+  const vancoBands = useReference<VancomycinIntervalBand>('vancomycin_interval');
   const today = store.today();
   return useMemo((): BundleState => {
-    const all = [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality];
+    const all = [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, vancoBands];
     const err = all.find((x) => x.status === 'error');
     if (err && err.status === 'error') return { status: 'error', error: err.error };
     if (
@@ -71,7 +73,8 @@ export function useCaseBundle(caseId: string): BundleState {
       analyses.status !== 'ready' ||
       calcs.status !== 'ready' ||
       runs.status !== 'ready' ||
-      causality.status !== 'ready'
+      causality.status !== 'ready' ||
+      vancoBands.status !== 'ready'
     ) {
       return { status: 'loading' };
     }
@@ -104,9 +107,14 @@ export function useCaseBundle(caseId: string): BundleState {
         today: c.status === 'active' ? hospitalDayOf(c.admissionDay0, today) : null,
         draftOf: (m) => drafts.get(m),
         calcResults: calcs.data,
-        calcContext: { demographics: c.demographics, current, pending: pendingFromRuns(runs.data, activeIds) },
+        calcContext: {
+          demographics: c.demographics,
+          current,
+          pending: pendingFromRuns(runs.data, activeIds),
+          references: { vancomycinIntervals: vancoBands.data },
+        },
         causalityOf: (itemId) => causality.data.filter((a) => a.itemId === itemId),
       },
     };
-  }, [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, today]);
+  }, [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, vancoBands, today]);
 }

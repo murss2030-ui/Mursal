@@ -10,14 +10,19 @@
  *   An entry says when an adjustment is required and where that is written;
  *   PRECEPTOR never computes or suggests the adjusted dose;
  * - the hospital laboratory's critical thresholds (M2 plan decision 4,
- *   proposed default: none shipped; each entered with its source).
+ *   proposed default: none shipped; each entered with its source);
+ * - the department's vancomycin dosing-interval table (owner decision 6,
+ *   18 October 2026: empiric weight-based dosing with the interval set from
+ *   Cockcroft–Gault creatinine clearance). The decision names the method, not
+ *   the bands, so none are shipped: each band is entered with its source.
  *
  * Every record is versioned and audited; "removed" is a new version with a
  * reason, never a deletion.
  */
 import { isValidISODate } from './dates';
 import { ANALYTE_BY_ID } from './catalogue';
-import { parseDecimal } from './numbers';
+import { L } from './label';
+import { formatNumber, parseDecimal } from './numbers';
 import type { Versioned } from './types';
 
 export type ReferenceStatus = 'active' | 'retracted';
@@ -76,8 +81,21 @@ export interface LabThreshold extends RefBase {
   source: string;
 }
 
-export type ReferenceKind = 'formulary' | 'adjustment' | 'threshold';
-export type RefError = 'required' | 'invalidChoice' | 'number' | 'date' | 'tooLong' | 'order' | 'unit';
+/** One band of the department's vancomycin interval table. */
+export interface VancomycinIntervalBand extends RefBase {
+  /** Creatinine clearance (Cockcroft–Gault, mL/min) from this value, inclusive; no lower end when absent. */
+  crclFrom?: number;
+  /** Up to this value, exclusive; no upper end when absent. */
+  crclBelow?: number;
+  /** `interval`: one dose every `intervalHours`. `levels`: the department sets no fixed interval in this band. */
+  action: 'interval' | 'levels';
+  intervalHours?: number;
+  /** The reference, with page or URL. */
+  source: string;
+}
+
+export type ReferenceKind = 'formulary' | 'adjustment' | 'threshold' | 'vancomycin_interval';
+export type RefError = 'required' | 'invalidChoice' | 'number' | 'date' | 'tooLong' | 'order' | 'unit' | 'range';
 export type RefErrors = Record<string, RefError>;
 export type RefResult<T> = { ok: true; value: T } | { ok: false; errors: RefErrors };
 
@@ -201,4 +219,40 @@ export function normalizeThreshold(v: Readonly<Record<string, string>>): RefResu
     source: c.text('source', true) ?? '',
     ...meta(c),
   });
+}
+
+/** Longest dosing interval a band may give (one week). */
+export const MAX_INTERVAL_HOURS = 168;
+
+export function normalizeVancomycinInterval(v: Readonly<Record<string, string>>): RefResult<Fields<VancomycinIntervalBand> & Pick<RefBase, 'verifiedBy' | 'verifiedAt'>> {
+  const c = new Check(v);
+  const crclFrom = c.num('crclFrom', false);
+  const crclBelow = c.num('crclBelow', false);
+  if (crclFrom === undefined && crclBelow === undefined && !c.errors.crclFrom && !c.errors.crclBelow) c.errors.crclFrom = 'required';
+  if (crclFrom !== undefined && crclBelow !== undefined && crclFrom >= crclBelow) c.errors.crclBelow = 'order';
+  const action = c.choice('action', ['interval', 'levels'] as const);
+  const intervalHours = action === 'interval' ? c.num('intervalHours', true) : undefined;
+  if (intervalHours !== undefined && (intervalHours <= 0 || intervalHours > MAX_INTERVAL_HOURS)) c.errors.intervalHours = 'range';
+  return c.result({
+    ...(crclFrom !== undefined ? { crclFrom } : {}),
+    ...(crclBelow !== undefined ? { crclBelow } : {}),
+    action: action ?? 'interval',
+    ...(intervalHours !== undefined ? { intervalHours } : {}),
+    source: c.text('source', true) ?? '',
+    ...meta(c),
+  });
+}
+
+/** Does this band hold a creatinine clearance (mL/min)? */
+export function bandCovers(b: Pick<VancomycinIntervalBand, 'crclFrom' | 'crclBelow'>, crcl: number): boolean {
+  return (b.crclFrom === undefined || crcl >= b.crclFrom) && (b.crclBelow === undefined || crcl < b.crclBelow);
+}
+
+/** The band's range in words: "50 to below 90 mL/min", "90 mL/min or more", "below 20 mL/min". */
+export function bandRange(b: Pick<VancomycinIntervalBand, 'crclFrom' | 'crclBelow'>): L {
+  const f = formatNumber;
+  if (b.crclFrom !== undefined && b.crclBelow !== undefined)
+    return L(`${f(b.crclFrom)} to below ${f(b.crclBelow)} mL/min`, `من ${f(b.crclFrom)} إلى أقل من ${f(b.crclBelow)} mL/min`);
+  if (b.crclFrom !== undefined) return L(`${f(b.crclFrom)} mL/min or more`, `${f(b.crclFrom)} mL/min أو أكثر`);
+  return L(`below ${f(b.crclBelow ?? 0)} mL/min`, `أقل من ${f(b.crclBelow ?? 0)} mL/min`);
 }

@@ -1,6 +1,6 @@
 # PRECEPTOR — M2 implementation plan (Calculation and rules)
 
-**Status:** plan prepared 13 October 2026, updated 16 October 2026 for M1 Revision 1. M2 was started on the owner's "go ahead" of 17 October 2026 and built on 17–18 October 2026; the decisions of Section 5 were applied as their proposed defaults where the work needed them, pending the owner's confirmation. Results, blockers and the decisions still open: [M2-REPORT.md](M2-REPORT.md).
+**Status:** plan prepared 13 October 2026, updated 16 October 2026 for M1 Revision 1. M2 was started on the owner's "go ahead" of 17 October 2026 and built on 17–19 October 2026. On 18 October 2026 the owner confirmed the proposed defaults for decisions 1, 3, 4, 5 and 7, and decided 6 (vancomycin without levels), 9 (infusion rates) and the phenytoin renal threshold; decision 2 is still open and decision 8 stays deferred to M6. Results, what is still blocked and what is open: [M2-REPORT.md](M2-REPORT.md).
 
 ## 1. Where M2 sits in the whole product
 
@@ -132,4 +132,4 @@ Any AI or model call (M3 onwards); openFDA label text and other live connectors 
 - RxNorm prescribable content: [NLM page](https://www.nlm.nih.gov/research/umls/rxnorm/docs/rxnormfiles.html)
 - RxClass sources: [RxClass introduction](https://rxnav.nlm.nih.gov/RxClassIntro.html), [data.gov entry](https://catalog.data.gov/dataset/rxclass)
 
-The publishers' own pages for DDInter, PMC and NLM could not be opened from this environment (network policy); the findings above come from search results and will be re-checked directly once access is allowed.
+The publishers' own pages for DDInter, PMC and NLM could not be opened from this environment (network policy) when this plan was written; the findings above came from search results. DDInter's site and WHO's IRIS were opened directly on 18 October 2026 and their files used (M2 report, Section 1); PMC still answers with a browser check, and the other literature hosts are still refused.

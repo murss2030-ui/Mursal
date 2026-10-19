@@ -160,6 +160,119 @@ test('vancomycin AUC refuses without two picked levels, then computes from level
   await shot(page, 'm2-05-vancomycin');
 });
 
+test('vancomycin without levels: refused until the department’s table has its bands; then the dose from actual weight and the interval from the band', async ({ page }) => {
+  const w = watchPage(page);
+  const caseId = await newCaseWithData(page); // female, 67 years
+  await addWeight(page, caseId, '60', '0');
+  await addCreatinine(page, caseId, '1.1', '1');
+  const answer = async () => {
+    await page.goto(`/#/cases/${caseId}/task/t10`);
+    await page.getByTestId('task-calc-vancomycin_empiric').locator('summary').click();
+    const panel = page.getByTestId('calc-panel-vancomycin_empiric');
+    await panel.getByTestId('answer-weightBasis').getByRole('radio', { name: 'Total body weight (TBW)' }).click();
+    await panel.locator('[data-input="mgPerKg"]').getByLabel('Value').fill('15');
+    await panel.getByTestId('answer-noRrt').getByRole('radio', { name: 'Yes' }).click();
+    return panel;
+  };
+  let panel = await answer();
+  await expect(panel).toContainText('High-risk calculation');
+  await expect(panel.getByTestId('calc-problems')).toContainText('your department’s vancomycin interval table is empty');
+  await expect(panel.getByTestId('calc-run')).toBeDisabled();
+
+  // The department's bands — here a synthetic test table, not a clinical recommendation — each with its source.
+  const addBand = async (fields: { from?: string; below?: string; hours?: string }) => {
+    await page.goto('/#/reference/vancomycin_interval/new');
+    if (fields.from) await page.getByLabel(/Creatinine clearance from/).fill(fields.from);
+    if (fields.below) await page.getByLabel(/Creatinine clearance below/).fill(fields.below);
+    if (fields.hours) {
+      await page.getByRole('radio', { name: 'One dose at a fixed interval' }).check();
+      await page.getByLabel('Dosing interval (hours)').fill(fields.hours);
+    } else await page.getByRole('radio', { name: 'No fixed interval: dose by levels' }).check();
+    await page.getByLabel('Reference, with page or URL').fill('Synthetic test table (browser test, not a clinical recommendation)');
+    await page.getByLabel('Verified by').fill('Test');
+    await page.getByTestId('ref-save').click();
+    await expect(page).toHaveURL(/#\/reference\/vancomycin_interval$/);
+  };
+  await addBand({ from: '60', hours: '12' });
+  await addBand({ from: '30', below: '60', hours: '24' });
+  await addBand({ below: '30' });
+  await expect(page.getByTestId('ref-row')).toHaveCount(3);
+  await expect(page.getByTestId('ref-row').first()).toContainText('Creatinine clearance below 30 mL/min');
+  await shot(page, 'm2-17-vancomycin-interval-table');
+
+  // CrCl (TBW) = (140 − 67) × 60 ÷ (72 × 1.1) × 0.85 = 47.0 → band "30 to below 60" → every 24 h; dose = 15 × 60 = 900 mg.
+  panel = await answer();
+  await expect(panel.getByTestId('reference-interval')).toContainText('creatinine clearance 30 to below 60 mL/min → every 24 h');
+  await expect(panel.getByTestId('calc-problems')).toHaveCount(0);
+  await panel.getByTestId('calc-run').click();
+  const result = panel.getByTestId('calc-result-vancomycin_empiric');
+  await expect(result.getByTestId('calc-value')).toHaveText('900 mg');
+  await expect(result.getByTestId('calc-category')).toHaveText('Every 24 h (your department’s table)');
+  await expect(result.getByTestId('calc-warnings')).toContainText('A population-based starting regimen for a setting where levels cannot be measured');
+  await result.getByTestId('calc-basis').locator('summary').click();
+  await expect(result.getByTestId('calc-steps')).toContainText('CrCl compared with the table as a whole number: 47 mL/min');
+  await expect(result.getByTestId('calc-steps')).toContainText('Dose = 15 mg/kg × 60 kg = 900 mg');
+  await expect(result.getByTestId('calc-basis')).toContainText('department’s table, version 1: creatinine clearance 30 to below 60 mL/min → every 24 h');
+  await expect(result.getByTestId('calc-basis')).toContainText('owner decision 6');
+  await shot(page, 'm2-18-vancomycin-no-level');
+
+  // A higher creatinine moves the patient into the "dose by levels" band: the old result is out of date, a new one is refused.
+  // CrCl = (140 − 67) × 60 ÷ (72 × 2.0) × 0.85 = 25.9 → 26 mL/min.
+  await addCreatinine(page, caseId, '2.0', '2');
+  await page.goto(`/#/cases/${caseId}/calc/vancomycin_empiric`);
+  await expect(page.getByTestId('calc-result-vancomycin_empiric')).toHaveAttribute('data-current', 'no');
+  await page.getByTestId('answer-weightBasis').getByRole('radio', { name: 'Total body weight (TBW)' }).click();
+  await page.locator('[data-input="mgPerKg"]').getByLabel('Value').fill('15');
+  await page.getByTestId('answer-noRrt').getByRole('radio', { name: 'Yes' }).click();
+  await expect(page.getByTestId('calc-problems')).toContainText(
+    'Your department’s table gives no fixed interval for a creatinine clearance of 26 mL/min (band below 30 mL/min): dose by levels.',
+  );
+  await expect(page.getByTestId('calc-run')).toBeDisabled();
+  expect(w.errors).toEqual([]);
+});
+
+test('infusion rates inside Task 9: weight-based with an explicit unit conversion, and a volume over a time', async ({ page }) => {
+  const w = watchPage(page);
+  const caseId = await newCaseWithData(page); // female, 67 years
+  await addWeight(page, caseId, '70', '0');
+  await page.goto(`/#/cases/${caseId}/task/t09`);
+
+  await page.getByTestId('task-calc-infusion_rate_weight').locator('summary').click();
+  const panel = page.getByTestId('calc-panel-infusion_rate_weight');
+  await expect(panel).toContainText('High-risk calculation');
+  const dose = panel.locator('[data-input="doseRate"]');
+  await dose.getByLabel('Value').fill('5');
+  await dose.getByLabel('Unit').selectOption('mcg/kg/min');
+  const conc = panel.locator('[data-input="concentration"]');
+  await conc.getByLabel('Value').fill('1.6');
+  await conc.getByLabel('Unit').selectOption('mg/mL');
+  await panel.getByTestId('calc-run').click();
+  // 5 mcg/kg/min × 70 kg × 60 ÷ 1600 mcg/mL (1.6 mg/mL × 1000) = 13.125 → 13.1 mL/h
+  const result = panel.getByTestId('calc-result-infusion_rate_weight');
+  await expect(result.getByTestId('calc-value')).toHaveText('13.1 mL/h');
+  await expect(result).toContainText('350 mcg/min');
+  await expect(result).toContainText('21 mg/h');
+  await result.getByTestId('calc-basis').locator('summary').click();
+  await expect(result.getByTestId('calc-basis')).toContainText('Rate (mL/h) = dose rate (mcg/kg/min) × weight (kg) × 60 ÷ concentration (mcg/mL)');
+  await expect(result.getByTestId('calc-basis')).toContainText('owner decision 9');
+  await expect(result.getByTestId('calc-steps')).toContainText('1600 mcg/mL (recorded 1.6 mg/mL, × 1000)');
+  await expect(result.getByTestId('calc-steps')).toContainText('Rate = 5 × 70 × 60 ÷ 1600 = 13.1 mL/h');
+
+  await page.getByTestId('task-calc-infusion_rate_volume').locator('summary').click();
+  const fluid = page.getByTestId('calc-panel-infusion_rate_volume');
+  const volume = fluid.locator('[data-input="volume"]');
+  await volume.getByLabel('Value').fill('1000');
+  await volume.getByLabel('Unit').selectOption('mL');
+  const time = fluid.locator('[data-input="time"]');
+  await time.getByLabel('Value').fill('8');
+  await time.getByLabel('Unit').selectOption('h');
+  await fluid.getByTestId('calc-run').click();
+  // 1000 mL ÷ 8 h = 125 mL/h
+  await expect(fluid.getByTestId('calc-result-infusion_rate_volume').getByTestId('calc-value')).toHaveText('125 mL/h');
+  await shot(page, 'm2-19-infusion-rates');
+  expect(w.errors).toEqual([]);
+});
+
 test('the renal dose review is locked by the Verify gate until its data is recorded', async ({ page }) => {
   const caseId = await newCaseWithData(page);
   await addMedication(page, caseId, { drug: 'enoxaparin' });

@@ -73,7 +73,7 @@ export const PAEDIATRIC_ESCALATE = L(
 export const infusionRateWeight: CalculatorDef = {
   id: 'infusion_rate_weight',
   name: 'Infusion rate, weight-based (mcg/kg/min → mL/h)',
-  nameAr: 'معدل التسريب حسب الوزن (mcg/kg/min ← mL/h)',
+  nameAr: 'معدل التسريب حسب الوزن: من mcg/kg/min إلى mL/h',
   purpose: L('The pump rate that delivers a prescribed weight-based dose rate.', 'معدل المضخة الذي يعطي معدل الجرعة الموصوف حسب الوزن.'),
   formulaVersion: '1',
   citation: DECISION,
