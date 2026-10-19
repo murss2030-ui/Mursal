@@ -26,8 +26,9 @@ PRECEPTOR does not replace a clinical pharmacist. It never makes a clinical deci
 |---|---|
 | M1 — Case and timeline core, with Revision 1 (patient-file intake and the Clinical Modules) | Accepted by the owner on 16 October 2026 ([report](docs/m1/M1-REPORT.md)) |
 | M3 — The patient file read by the model, and AI drafts for the 30 tasks (moved before M2 by the owner's decision of 16 October 2026) | Accepted by the owner on 17 October 2026, after a live run with Google Gemini on a synthetic case ([plan](docs/m3/M3-PLAN.md), [report](docs/m3/M3-REPORT.md), [live run](docs/m3/M3-LIVE-RUN.md)) |
-| M2 — Calculation and rules | Built and tested with the real DDInter and WHO AWaRe 2025 data and the owner's decisions of 18 and 19 October 2026; final report delivered, waiting for the owner's acceptance ([plan](docs/m2/M2-PLAN.md), [report](docs/m2/M2-REPORT.md), [test values for review](docs/m2/CALCULATOR-FIXTURES.md), [dataset mapping](docs/m2/datasets/)) |
-| M4–M9 | Not started (each begins only after the previous one is accepted) |
+| M2 — Calculation and rules | Accepted by the owner on 19 October 2026 ([plan](docs/m2/M2-PLAN.md), [report](docs/m2/M2-REPORT.md), [test values for review](docs/m2/CALCULATOR-FIXTURES.md), [dataset mapping](docs/m2/datasets/)) |
+| M4 — Assessment and DRPs | Approved to start on 19 October 2026; plan prepared, waiting for the owner's answers to its decisions ([plan](docs/m4/M4-PLAN.md)) |
+| M5–M9 | Not started (each begins only after the previous one is accepted) |
 
 What M1 contains: an encrypted local record (AES-GCM, key derived from a passphrase), rotations, Teaching and Clinical Cases, manual entry on an append-only timeline dated by hospital day, correction by supersession, an append-only audit log, the eight provenance states, the department's 11-section form as an on-screen review with missing-data flags, encrypted backup and restore, Arabic and English with right-to-left layout, and an offline-capable installable web app.
 

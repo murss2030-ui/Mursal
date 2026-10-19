@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-19T21:08:52.024Z",
-  "engineHash": "ca4562cf8425e80a685c0af33dd131ed808246f85aa77d087a5ac2e2e1433d01",
+  "generatedAt": "2026-10-19T21:37:10.815Z",
+  "engineHash": "1b17d54abc4f952e3e16ed676fa4d6dde33b3460d1e1d30429a3c14b5b7072ab",
   "engineTests": {
     "passed": 64,
     "failed": 0
@@ -103,8 +103,8 @@
       "failed": 0
     },
     "vancomycin_empiric": {
-      "formulaVersion": "2",
-      "passed": 14,
+      "formulaVersion": "3",
+      "passed": 15,
       "failed": 0
     }
   }

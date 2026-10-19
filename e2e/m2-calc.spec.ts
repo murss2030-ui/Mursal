@@ -160,7 +160,7 @@ test('vancomycin AUC refuses without two picked levels, then computes from level
   await shot(page, 'm2-05-vancomycin');
 });
 
-test('vancomycin without levels: the dose from actual weight and the interval from the department’s table; one dose, then levels, below 20 mL/min', async ({ page }) => {
+test('vancomycin without levels: CRRT refused; the dose from actual weight and the interval from the department’s table; one dose, then levels, below 20 mL/min', async ({ page }) => {
   const w = watchPage(page);
   const caseId = await newCaseWithData(page); // female, 67 years
   await addWeight(page, caseId, '60', '0');
@@ -169,10 +169,16 @@ test('vancomycin without levels: the dose from actual weight and the interval fr
   await page.getByTestId('task-calc-vancomycin_empiric').locator('summary').click();
   const panel = page.getByTestId('calc-panel-vancomycin_empiric');
   await expect(panel).toContainText('High-risk calculation');
+  // The renal replacement therapy is asked first: CRRT is refused with the owner's message.
+  await expect(panel.locator('[data-input="mgPerKg"]')).toHaveCount(0);
+  await panel.getByTestId('answer-rrt').getByRole('radio', { name: 'Continuous renal replacement therapy (CRRT)' }).click();
+  await expect(panel.getByTestId('calc-problems')).toContainText(
+    'Patients on CRRT need the intensive care unit’s own protocol, which sets the dose from the effluent rate: refer to your hospital’s protocol.',
+  );
+  await expect(panel.getByTestId('calc-run')).toBeDisabled();
+  // Not on dialysis: the dose and the creatinine clearance inputs are asked.
+  await panel.getByTestId('answer-rrt').getByRole('radio', { name: 'None (not on dialysis)' }).click();
   await panel.locator('[data-input="mgPerKg"]').getByLabel('Value').fill('15');
-  // The creatinine inputs are asked only once the patient is known not to be on dialysis.
-  await expect(panel.locator('[data-input="weightBasis"]')).toHaveCount(0);
-  await panel.getByTestId('answer-onDialysis').getByRole('radio', { name: 'No' }).click();
   await panel.getByTestId('answer-weightBasis').getByRole('radio', { name: 'Total body weight (TBW)' }).click();
   await panel.getByTestId('calc-run').click();
 
@@ -193,8 +199,8 @@ test('vancomycin without levels: the dose from actual weight and the interval fr
   await addCreatinine(page, caseId, '3.0', '2');
   await page.goto(`/#/cases/${caseId}/calc/vancomycin_empiric`);
   await expect(page.getByTestId('calc-result-vancomycin_empiric')).toHaveAttribute('data-current', 'no');
+  await page.getByTestId('answer-rrt').getByRole('radio', { name: 'None (not on dialysis)' }).click();
   await page.locator('[data-input="mgPerKg"]').getByLabel('Value').fill('15');
-  await page.getByTestId('answer-onDialysis').getByRole('radio', { name: 'No' }).click();
   await page.getByTestId('answer-weightBasis').getByRole('radio', { name: 'Total body weight (TBW)' }).click();
   await page.getByTestId('calc-run').click();
   const single = page.getByTestId('calc-result-vancomycin_empiric').first();

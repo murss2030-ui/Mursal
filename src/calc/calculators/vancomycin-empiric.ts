@@ -9,21 +9,24 @@
  *     CrCl above 90 mL/min ........................ every 8 h
  *     CrCl 50 to 90 mL/min ........................ every 12 h
  *     CrCl 20 to 49 mL/min ........................ every 24 h
- *     CrCl below 20 mL/min, or on dialysis ........ one dose, then dosing by levels.
+ *     CrCl below 20 mL/min, or on intermittent haemodialysis or peritoneal
+ *     dialysis ..................................... one dose, then dosing by levels;
+ * - CRRT (owner decision, 19 October 2026): not calculated — CRRT removes
+ *   vancomycin continuously, and the dose follows the intensive-care protocol
+ *   from the effluent rate.
  *
  * Creatinine clearance is the CrCl calculator's own formula and inputs (the
  * weight basis chosen and recorded), compared with the table as a whole
  * number, as it is shown, so that the bands meet without a gap (49 → 24 h,
- * 50 → 12 h). On dialysis — intermittent haemodialysis, peritoneal dialysis
- * or CRRT — Cockcroft–Gault does not describe the clearance: it is neither
- * asked for nor used, and the table gives one dose.
+ * 50 → 12 h). On renal replacement therapy Cockcroft–Gault does not describe
+ * the clearance: it is neither asked for nor used.
  */
 import { L } from '../../domain/label';
 import { step } from '../engine';
-import { AGE, SCR, SEX, WEIGHT, finding } from '../inputs';
+import { AGE, SCR, SEX, WEIGHT } from '../inputs';
 import type { CalcInputs, CalculatorDef, InputSpec, Problem } from '../types';
 import { show } from '../units';
-import { given, val, yes } from './common';
+import { given, val } from './common';
 import { WEIGHT_BASIS, crclCg } from './renal';
 
 export const DOSE_RANGE: readonly [number, number] = [15, 20];
@@ -53,7 +56,10 @@ export const DEPARTMENT_TABLE: readonly DepartmentBand[] = [
 
 export const DIALYSIS_BAND: DepartmentBand = {
   regimen: { kind: 'single' },
-  text: L('On dialysis → one dose, then dosing by levels', 'على الغسيل الكلوي ← جرعة واحدة، ثم الجرعات حسب المستويات'),
+  text: L(
+    'On intermittent haemodialysis or peritoneal dialysis → one dose, then dosing by levels',
+    'على الغسيل الدموي المتقطع أو الغسيل البريتوني ← جرعة واحدة، ثم الجرعات حسب المستويات',
+  ),
 };
 
 /** The band of the department's table that holds a creatinine clearance (a whole number, mL/min). */
@@ -74,17 +80,33 @@ const MG_PER_KG: InputSpec = {
   hint: L('The department’s range: 15 to 20 mg/kg per dose (owner decision 6).', 'نطاق القسم: من 15 إلى 20 mg/kg للجرعة (قرار المالك 6).'),
 };
 
-const ON_DIALYSIS = finding(
-  'onDialysis',
-  L('On dialysis: intermittent haemodialysis, peritoneal dialysis or CRRT', 'على الغسيل الكلوي: غسيل دموي متقطع أو غسيل بريتوني أو CRRT'),
-  L(
-    'Answer from the record (its renal replacement therapy entry). On dialysis the department’s table gives one dose, then dosing by levels.',
-    'أجب من السجل (إدخال العلاج الكلوي البديل). على الغسيل يعطي جدول القسم جرعة واحدة، ثم الجرعات حسب المستويات.',
-  ),
-);
+/** Renal replacement therapy, with the options of the case's own record (its renal replacement therapy entry). */
+const RRT: InputSpec = {
+  key: 'rrt',
+  label: L('Renal replacement therapy', 'العلاج البديل للكلى'),
+  kind: 'choice',
+  source: { kind: 'answer' },
+  options: [
+    { value: 'none', label: L('None (not on dialysis)', 'لا يوجد (ليس على الغسيل)'), points: 0 },
+    { value: 'intermittent_hd', label: L('Intermittent haemodialysis', 'غسيل دموي متقطع'), points: 1 },
+    { value: 'peritoneal', label: L('Peritoneal dialysis', 'غسيل بريتوني'), points: 2 },
+    { value: 'crrt', label: L('Continuous renal replacement therapy (CRRT)', 'علاج بديل مستمر للكلى (CRRT)'), points: 3 },
+  ],
+  hint: L('Answer from the record (its renal replacement therapy entry).', 'أجب من السجل (إدخال العلاج البديل للكلى).'),
+};
 
-/** Asked, and used, only when the patient is not on dialysis: the inputs of Cockcroft–Gault. */
-const offDialysis = (s: InputSpec): InputSpec => ({ ...s, showIf: { key: 'onDialysis', in: ['no'] } });
+/** Asked, and used, only when the patient is not on renal replacement therapy: the inputs of Cockcroft–Gault. */
+const offDialysis = (s: InputSpec): InputSpec => ({ ...s, showIf: { key: 'rrt', in: ['none'] } });
+/** Not asked on CRRT, which is refused as soon as it is chosen. */
+const notCrrt = (s: InputSpec): InputSpec => ({ ...s, showIf: { key: 'rrt', in: ['none', 'intermittent_hd', 'peritoneal'] } });
+
+const rrtOf = (inputs: CalcInputs) => inputs.rrt?.choice;
+
+/** The owner's message for a patient on CRRT (19 October 2026). */
+export const CRRT_PROTOCOL = L(
+  'Patients on CRRT need the intensive care unit’s own protocol, which sets the dose from the effluent rate: refer to your hospital’s protocol.',
+  'مرضى CRRT يتطلبون بروتوكولاً خاصاً بالعناية المركزة لحساب الجرعة بناءً على معدلات الترشيح (Effluent rates)، يرجى الرجوع لبروتوكول المستشفى.',
+);
 
 export const POPULATION_ESTIMATE = L(
   'A population-based starting regimen for a setting where levels cannot be measured, not a patient-specific one. When levels can be measured, use the AUC calculator.',
@@ -102,8 +124,9 @@ const ADULTS_ONLY = L(
 );
 
 function check(inputs: CalcInputs): Problem[] {
+  if (rrtOf(inputs) === 'crrt') return [{ kind: 'refused', reason: CRRT_PROTOCOL }];
   if (inputs.age && inputs.age.value < 18) return [{ kind: 'refused', reason: ADULTS_ONLY }];
-  return yes(inputs, 'onDialysis') ? [] : (crclCg.check?.(inputs) ?? []);
+  return rrtOf(inputs) === 'none' ? (crclCg.check?.(inputs) ?? []) : [];
 }
 
 export const vancomycinEmpiric: CalculatorDef = {
@@ -114,18 +137,17 @@ export const vancomycinEmpiric: CalculatorDef = {
     'A starting regimen where vancomycin levels cannot be measured: the dose from actual body weight, the interval from the department’s creatinine clearance table.',
     'نظام جرعات ابتدائي حيث يتعذر قياس مستويات الفانكومايسين: الجرعة من الوزن الفعلي، والفاصل من جدول القسم حسب تصفية الكرياتينين.',
   ),
-  formulaVersion: '2',
-  citation: `Method and table set by the department: owner decision 6 (18 October 2026) — empiric weight-based dosing, 15–20 mg/kg of actual body weight per dose, the interval from Cockcroft–Gault creatinine clearance — and the department’s interval table (owner decision, 19 October 2026). Creatinine clearance: ${crclCg.citation}`,
+  formulaVersion: '3',
+  citation: `Method and table set by the department: owner decision 6 (18 October 2026) — empiric weight-based dosing, 15–20 mg/kg of actual body weight per dose, the interval from Cockcroft–Gault creatinine clearance — and the department’s interval table, with CRRT left to the intensive-care protocol (owner decisions, 19 October 2026). Creatinine clearance: ${crclCg.citation}`,
   formula:
-    'Dose (mg) = dose per kg (15–20 mg/kg) × actual body weight (kg). Interval, by the department’s table (CrCl by Cockcroft–Gault, as a whole number): above 90 mL/min every 8 h; 50–90 every 12 h; 20–49 every 24 h; below 20, or on dialysis, one dose, then dosing by levels. Daily dose (mg/24 h) = dose × 24 ÷ interval (h)',
-  requiredInputs: [AGE, WEIGHT, MG_PER_KG, ON_DIALYSIS, offDialysis(SEX), offDialysis(SCR), offDialysis(WEIGHT_BASIS)],
+    'Dose (mg) = dose per kg (15–20 mg/kg) × actual body weight (kg). Interval, by the department’s table (CrCl by Cockcroft–Gault, as a whole number): above 90 mL/min every 8 h; 50–90 every 12 h; 20–49 every 24 h; below 20, or on intermittent haemodialysis or peritoneal dialysis, one dose, then dosing by levels; CRRT is not calculated. Daily dose (mg/24 h) = dose × 24 ÷ interval (h)',
+  requiredInputs: [RRT, AGE, notCrrt(WEIGHT), notCrrt(MG_PER_KG), offDialysis(SEX), offDialysis(SCR), offDialysis(WEIGHT_BASIS)],
   optionalInputs: crclCg.optionalInputs.map((s) => (s.showIf ? s : offDialysis(s))),
   highRisk: true,
   check,
-  contextWarnings: (inputs, current) => (yes(inputs, 'onDialysis') ? [] : (crclCg.contextWarnings?.(inputs, current) ?? [])),
+  contextWarnings: (inputs, current) => (rrtOf(inputs) === 'none' ? (crclCg.contextWarnings?.(inputs, current) ?? []) : []),
   compute(inputs) {
-    const dialysis = yes(inputs, 'onDialysis');
-    const cg = dialysis ? undefined : crclCg.compute(inputs);
+    const cg = rrtOf(inputs) === 'none' ? crclCg.compute(inputs) : undefined;
     const crcl = cg ? Math.round(cg.value) : undefined;
     const band = crcl === undefined ? DIALYSIS_BAND : bandFor(crcl);
     const kg = val(inputs, 'weight');
@@ -172,8 +194,8 @@ export const vancomycinEmpiric: CalculatorDef = {
   },
   limitations: [
     L(
-      'The interval is the department’s table (owner decision, 19 October 2026), for adults: above 90 mL/min every 8 h; 50–90 every 12 h; 20–49 every 24 h; below 20 mL/min, or on dialysis, one dose, then dosing by levels.',
-      'الفاصل من جدول القسم (قرار المالك، 19 أكتوبر 2026)، للبالغين: أعلى من 90 mL/min كل 8 h؛ 50–90 كل 12 h؛ 20–49 كل 24 h؛ أقل من 20 mL/min أو على الغسيل جرعة واحدة، ثم الجرعات حسب المستويات.',
+      'The interval is the department’s table (owner decisions, 19 October 2026), for adults: above 90 mL/min every 8 h; 50–90 every 12 h; 20–49 every 24 h; below 20 mL/min, or on intermittent haemodialysis or peritoneal dialysis, one dose, then dosing by levels. CRRT is not calculated: the intensive-care protocol sets the dose from the effluent rate.',
+      'الفاصل من جدول القسم (قرارات المالك، 19 أكتوبر 2026)، للبالغين: أعلى من 90 mL/min كل 8 h؛ 50–90 كل 12 h؛ 20–49 كل 24 h؛ أقل من 20 mL/min أو على الغسيل الدموي المتقطع أو البريتوني جرعة واحدة، ثم الجرعات حسب المستويات. لا يُحسب CRRT: يحدد بروتوكول العناية المركزة الجرعة من معدل الترشيح.',
     ),
     POPULATION_ESTIMATE,
     L(

@@ -164,9 +164,9 @@ describe('calculations in the store', () => {
 describe('vancomycin without levels, from the store, with the department’s table', () => {
   const req = (onDialysis: boolean) => ({
     answers: {
+      rrt: { kind: 'choice' as const, value: onDialysis ? 'intermittent_hd' : 'none' },
       ...(onDialysis ? {} : { weightBasis: { kind: 'choice' as const, value: 'tbw' } }),
       mgPerKg: { kind: 'number' as const, value: 15, unit: 'mg/kg' },
-      onDialysis: { kind: 'boolean' as const, value: onDialysis },
     },
   });
 

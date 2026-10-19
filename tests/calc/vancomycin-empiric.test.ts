@@ -3,12 +3,14 @@
  * (owner decision 6), the interval from the department's table (owner
  * decision, 19 October 2026): CrCl above 90 mL/min every 8 h; 50–90 every
  * 12 h; 20–49 every 24 h; below 20, or on dialysis, one dose, then dosing by
- * levels. High-risk calculation: extended suite.
+ * levels; CRRT is not calculated (owner decision, 19 October 2026). High-risk
+ * calculation: extended suite.
  * Origins: "hand" = the arithmetic is written out in the test.
  */
 import { describe, expect, it } from 'vitest';
 import type { GatherRequest } from '../../src/calc/gather';
 import {
+  CRRT_PROTOCOL,
   DEPARTMENT_TABLE,
   ONE_DOSE_THEN_LEVELS,
   POPULATION_ESTIMATE,
@@ -16,12 +18,14 @@ import {
   vancomycinEmpiric,
 } from '../../src/calc/calculators/vancomycin-empiric';
 import type { TimelineEntry } from '../../src/domain/types';
-import { ctx, female, lab, male, named, num, ok, pick, refused, secondary, weight, yesA } from './helpers';
+import { ctx, female, lab, male, named, num, ok, pick, refused, secondary, weight } from './helpers';
 
-const req = (mgPerKg: number, basis = 'tbw', onDialysis = false): GatherRequest => ({
-  answers: { weightBasis: pick(basis), mgPerKg: num(mgPerKg, 'mg/kg'), onDialysis: yesA(onDialysis) },
+const req = (mgPerKg: number, basis = 'tbw'): GatherRequest => ({
+  answers: { rrt: pick('none'), weightBasis: pick(basis), mgPerKg: num(mgPerKg, 'mg/kg') },
 });
-const dialysis = (mgPerKg: number): GatherRequest => ({ answers: { mgPerKg: num(mgPerKg, 'mg/kg'), onDialysis: yesA(true) } });
+const dialysis = (mgPerKg: number, kind: 'intermittent_hd' | 'peritoneal' = 'intermittent_hd'): GatherRequest => ({
+  answers: { rrt: pick(kind), mgPerKg: num(mgPerKg, 'mg/kg') },
+});
 
 const scr = (v: number) => lab('scr', v, 'mg/dL');
 const hasSecondary = (r: ReturnType<typeof ok>, key: string) => (r.secondary ?? []).some((s) => s.key === key);
@@ -70,15 +74,18 @@ describe(`calc:${vancomycinEmpiric.id}@${vancomycinEmpiric.formulaVersion}`, () 
     expect(r.steps).toContain('Department’s table: CrCl below 20 mL/min → one dose, then dosing by levels');
   });
 
-  it('on dialysis: one dose, then dosing by levels; Cockcroft–Gault is neither asked for nor used', () => {
+  it('on intermittent haemodialysis or peritoneal dialysis: one dose, then dosing by levels; Cockcroft–Gault is neither asked for nor used', () => {
     // No creatinine in the record, no sex or weight basis asked: not needed on dialysis. hand: 20 × 72 = 1440 mg.
+    for (const kind of ['intermittent_hd', 'peritoneal'] as const) {
+      const r = ok(vancomycinEmpiric, ctx(male(60), [weight(72)]), dialysis(20, kind));
+      expect(r.value).toBeCloseTo(1440, 9);
+      expect(r.category?.value).toBe('one_dose_then_levels');
+      expect(hasSecondary(r, 'crcl')).toBe(false);
+      expect(Object.keys(r.inputs.detail).sort()).toEqual(['age', 'mgPerKg', 'rrt', 'weight']);
+    }
     const r = ok(vancomycinEmpiric, ctx(male(60), [weight(72)]), dialysis(20));
-    expect(r.value).toBeCloseTo(1440, 9);
-    expect(r.category?.value).toBe('one_dose_then_levels');
-    expect(hasSecondary(r, 'crcl')).toBe(false);
-    expect(Object.keys(r.inputs.detail).sort()).toEqual(['age', 'mgPerKg', 'onDialysis', 'weight']);
     expect(r.steps).toContain('On dialysis: Cockcroft–Gault is not used');
-    expect(r.steps).toContain('Department’s table: On dialysis → one dose, then dosing by levels');
+    expect(r.steps).toContain('Department’s table: On intermittent haemodialysis or peritoneal dialysis → one dose, then dosing by levels');
     expect(r.warnings).toContainEqual(ONE_DOSE_THEN_LEVELS);
     // With a creatinine on record, it is still not used on dialysis.
     const withScr = ok(vancomycinEmpiric, ctx(male(60), [weight(72), scr(6.0)]), dialysis(20));
@@ -130,7 +137,7 @@ describe(`calc:${vancomycinEmpiric.id}@${vancomycinEmpiric.formulaVersion}`, () 
     expect(r.assumptions.map((a) => a.en)).toContain('The dose is not rounded: round it as your hospital does.');
     expect(r.warnings).toContainEqual(POPULATION_ESTIMATE);
     expect(r.warnings).not.toContainEqual(ONE_DOSE_THEN_LEVELS);
-    expect(vancomycinEmpiric.citation).toContain('owner decision, 19 October 2026');
+    expect(vancomycinEmpiric.citation).toContain('owner decisions, 19 October 2026');
     expect(vancomycinEmpiric.highRisk).toBe(true);
   });
 
@@ -139,20 +146,30 @@ describe(`calc:${vancomycinEmpiric.id}@${vancomycinEmpiric.formulaVersion}`, () 
       expect(named(refused(vancomycinEmpiric, ctx(male(60), [weight(70), scr(1.0)]), req(perKg)), 'invalid')).toEqual(['mgPerKg']);
     }
     expect(ok(vancomycinEmpiric, ctx(male(60), [weight(70), scr(1.0)]), req(20)).value).toBeCloseTo(1400, 9); // hand: 20 × 70
-    const wrongUnit = { answers: { weightBasis: pick('tbw'), mgPerKg: num(15, 'mg/day'), onDialysis: yesA(false) } };
+    const wrongUnit = { answers: { rrt: pick('none'), weightBasis: pick('tbw'), mgPerKg: num(15, 'mg/day') } };
     expect(named(refused(vancomycinEmpiric, ctx(male(60), [weight(70), scr(1.0)]), wrongUnit), 'unit')).toEqual(['mgPerKg']);
   });
 
   it('names what is missing: the dialysis answer, then (off dialysis) the creatinine and the weight basis; the weight always', () => {
     const noAnswer = refused(vancomycinEmpiric, ctx(male(60), [weight(70), scr(1.0)]), { answers: { mgPerKg: num(15, 'mg/kg') } });
-    expect(named(noAnswer, 'missing')).toEqual(['onDialysis']);
+    expect(named(noAnswer, 'missing')).toEqual(['rrt']);
     const noScr = refused(vancomycinEmpiric, ctx(male(60), [weight(70)]), req(15));
     expect(named(noScr, 'missing')).toEqual(['scr']);
-    const noBasis = refused(vancomycinEmpiric, ctx(male(60), [weight(70), scr(1.0)]), { answers: { mgPerKg: num(15, 'mg/kg'), onDialysis: yesA(false) } });
+    const noBasis = refused(vancomycinEmpiric, ctx(male(60), [weight(70), scr(1.0)]), { answers: { rrt: pick('none'), mgPerKg: num(15, 'mg/kg') } });
     expect(named(noBasis, 'missing')).toEqual(['weightBasis']);
     const noWeight = refused(vancomycinEmpiric, ctx(male(60), [scr(1.0)]), req(15));
     expect(named(noWeight, 'missing')).toEqual(['weight']);
     expect(named(refused(vancomycinEmpiric, ctx(male(60), []), dialysis(15)), 'missing')).toEqual(['weight']);
+  });
+
+  it('CRRT is not calculated: the owner’s message, as soon as CRRT is chosen', () => {
+    const p = refused(vancomycinEmpiric, ctx(male(60), []), { answers: { rrt: pick('crrt') } });
+    expect(p).toHaveLength(1);
+    expect(p[0]).toEqual({ kind: 'refused', reason: CRRT_PROTOCOL });
+    expect(CRRT_PROTOCOL.ar).toBe('مرضى CRRT يتطلبون بروتوكولاً خاصاً بالعناية المركزة لحساب الجرعة بناءً على معدلات الترشيح (Effluent rates)، يرجى الرجوع لبروتوكول المستشفى.');
+    // With everything else recorded, still refused.
+    const full = refused(vancomycinEmpiric, ctx(male(60), [weight(70), scr(1.0)]), { answers: { rrt: pick('crrt'), mgPerKg: num(15, 'mg/kg'), weightBasis: pick('tbw') } });
+    expect(full).toEqual([{ kind: 'refused', reason: CRRT_PROTOCOL }]);
   });
 
   it('refuses a child, on and off dialysis', () => {
