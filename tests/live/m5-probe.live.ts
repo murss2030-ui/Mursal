@@ -6,7 +6,7 @@
  *   PRECEPTOR_LIVE=1 PRECEPTOR_LIVE_DRAFT=<model> PRECEPTOR_LIVE_VERIFY=<model>[,<model>…] \
  *   PRECEPTOR_LIVE_PRICES=<model>:<in>:<out>[,…] [PRECEPTOR_LIVE_BUDGET_USD=3] \
  *   [PRECEPTOR_LIVE_PARTS=bench,cases,reverify] [PRECEPTOR_LIVE_CASES=A,B] [PRECEPTOR_LIVE_FROM=<probe json>] \
- *   [PRECEPTOR_LIVE_SKIP=A:collect,…] [PRECEPTOR_LIVE_ATTEMPTS=3] \
+ *   [PRECEPTOR_LIVE_SKIP=A:collect,…] [PRECEPTOR_LIVE_ATTEMPTS=3] [PRECEPTOR_LIVE_UNCHECKED_ONLY=1] \
  *   [PRECEPTOR_LIVE_KEY_CLASS=paid] NODE_USE_ENV_PROXY=1 \
  *   npx vitest run --config vitest.live.config.ts
  *
@@ -59,6 +59,7 @@ const CASES = new Set((process.env.PRECEPTOR_LIVE_CASES ?? 'A,B').split(','));
 /** Modules already drafted in an earlier run, as `A:collect,A:review` (a free-tier key allows 20 requests per model per day). */
 const SKIP = new Set((process.env.PRECEPTOR_LIVE_SKIP ?? '').split(',').filter(Boolean));
 const ATTEMPTS = Number(process.env.PRECEPTOR_LIVE_ATTEMPTS ?? '3');
+const UNCHECKED_ONLY = process.env.PRECEPTOR_LIVE_UNCHECKED_ONLY === '1';
 const RUN = process.env.PRECEPTOR_LIVE_RUN ?? new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
 const OUT = 'docs/m5/live';
 
@@ -198,6 +199,7 @@ interface SavedClaim {
   id: string;
   text: string;
   sources: string[];
+  verdict?: string;
 }
 interface SavedModule {
   moduleId: string;
@@ -368,8 +370,11 @@ describeLive('M5 live probe (synthetic data only)', () => {
       for (const c of from.cases) {
         const modules: unknown[] = [];
         out.push({ name: c.name, modules });
-        for (const m of c.modules.filter((x) => x.ok)) {
-          const input = savedInput(m, c.name);
+        for (const m of c.modules.filter((x) => x.ok && (!UNCHECKED_ONLY || (x.claims ?? []).some((cl) => cl.verdict === 'not_checked')))) {
+          const all = savedInput(m, c.name);
+          // With PRECEPTOR_LIVE_UNCHECKED_ONLY, only the claims the earlier run could not check (the free tier's daily limit).
+          const keep = UNCHECKED_ONLY ? new Set((m.claims ?? []).filter((cl) => cl.verdict === 'not_checked').map((cl) => cl.id)) : undefined;
+          const input = keep ? { ...all, claims: all.claims.filter((cl) => keep.has(cl.id)) } : all;
           const byModel = await verifyEach(store, k.id, input, deps);
           modules.push({
             moduleId: m.moduleId,

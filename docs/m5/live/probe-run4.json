@@ -1,0 +1,2873 @@
+{
+  "run": "run4",
+  "date": "2026-10-20T19:51:31.360Z",
+  "data": "synthetic Teaching Cases and the synthetic benchmark only",
+  "models": {
+    "draft": "gemini-3.5-flash-lite",
+    "verify": [
+      "gemini-3.1-flash-lite"
+    ]
+  },
+  "pricesUsdPerMillion": "gemini-3.5-flash-lite:0.30:2.50,gemini-3.1-flash-lite:0.25:1.50",
+  "thinking": "analyse=low,verify=low",
+  "budgetCapUsd": 1,
+  "cases": [
+    {
+      "name": "B — atrial fibrillation, heart failure, warfarin with amiodarone",
+      "modules": [
+        {
+          "moduleId": "safety",
+          "draftModel": "gemini-3.5-flash-lite",
+          "ok": true,
+          "errors": [],
+          "usage": {
+            "inputTokens": 2860,
+            "outputTokens": 1444,
+            "costUsd": 0.004468
+          },
+          "dropped": 0,
+          "suggestions": [
+            {
+              "id": "s1",
+              "taskId": "t06",
+              "kind": "note",
+              "noteKind": "summary",
+              "text": "Reviewed active drug pairs, home medications, and potential drug-disease interactions including hypokalaemia and renal impairment.",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s2",
+              "taskId": "t06",
+              "kind": "check",
+              "checkId": "pairs",
+              "answer": "ok",
+              "reason": "All active drug pairs were reviewed for interactions.",
+              "basis": "case_data",
+              "refs": [
+                "amiodarone",
+                "carvedilol",
+                "digoxin",
+                "furosemide",
+                "spironolactone",
+                "warfarin"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s3",
+              "taskId": "t06",
+              "kind": "check",
+              "checkId": "home_otc",
+              "answer": "ok",
+              "reason": "Home medications including warfarin and digoxin were reconciled.",
+              "basis": "case_data",
+              "refs": [
+                "Pre-admission medications (BPMH): warfarin",
+                "Pre-admission medications (BPMH): digoxin",
+                "Pre-admission medications (BPMH): furosemide",
+                "Pre-admission medications (BPMH): carvedilol"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s4",
+              "taskId": "t06",
+              "kind": "check",
+              "checkId": "disease",
+              "answer": "issue",
+              "reason": "Digoxin is used with reduced renal function and electrolyte abnormalities.",
+              "basis": "case_data",
+              "refs": [
+                "Potassium: 3.1 mmol/L",
+                "Serum creatinine: 1.3 mg/dL",
+                "Digoxin level: 2.3 ng/mL",
+                "Creatinine clearance (Cockcroft–Gault)"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s5",
+              "taskId": "t06",
+              "kind": "check",
+              "checkId": "food_khat",
+              "answer": "na",
+              "reason": "No specific food or khat interactions documented in case data.",
+              "basis": "general_knowledge",
+              "refs": [],
+              "checks": [
+                "no_valid_ref"
+              ]
+            },
+            {
+              "id": "s6",
+              "taskId": "t06",
+              "kind": "item",
+              "register": "interaction",
+              "fields": {
+                "kind": "drug_drug",
+                "drugA": "amiodarone",
+                "drugB": "warfarin",
+                "relevance": "relevant"
+              },
+              "reason": "Amiodarone increases the effect of warfarin, raising bleeding risk and INR.",
+              "basis": "case_data",
+              "refs": [
+                "amiodarone",
+                "warfarin",
+                "INR: 3.9"
+              ],
+              "checks": [
+                "incomplete"
+              ]
+            },
+            {
+              "id": "s7",
+              "taskId": "t06",
+              "kind": "note",
+              "noteKind": "question",
+              "text": "Is patient consuming any herbal products or dietary supplements?",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s8",
+              "taskId": "t07",
+              "kind": "note",
+              "noteKind": "summary",
+              "text": "Evaluated elevated INR and worsening serum creatinine in relation to active drug therapy.",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s9",
+              "taskId": "t07",
+              "kind": "check",
+              "checkId": "new_findings",
+              "answer": "ok",
+              "reason": "New lab findings including elevated INR and creatinine were reviewed.",
+              "basis": "case_data",
+              "refs": [
+                "INR: 3.9",
+                "Serum creatinine: 1.5 mg/dL"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s10",
+              "taskId": "t07",
+              "kind": "check",
+              "checkId": "timing",
+              "answer": "ok",
+              "reason": "Timing of lab changes relative to hospital day 2 was assessed.",
+              "basis": "case_data",
+              "refs": [
+                "INR: 3.9",
+                "Serum creatinine: 1.5 mg/dL"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s11",
+              "taskId": "t07",
+              "kind": "check",
+              "checkId": "alternatives",
+              "answer": "ok",
+              "reason": "Alternative causes for elevated INR and renal function changes were considered.",
+              "basis": "case_data",
+              "refs": [
+                "INR: 3.9",
+                "Serum creatinine: 1.5 mg/dL"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s12",
+              "taskId": "t07",
+              "kind": "item",
+              "register": "adr",
+              "fields": {
+                "drug": "warfarin",
+                "reaction": "elevated INR",
+                "onsetDay": "2",
+                "severity": "moderate",
+                "serious": "no"
+              },
+              "reason": "INR increased to 3.9 on hospital day 2.",
+              "basis": "case_data",
+              "refs": [
+                "INR: 3.9",
+                "warfarin"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s13",
+              "taskId": "t07",
+              "kind": "note",
+              "noteKind": "question",
+              "text": "Has the patient experienced any bleeding episodes?",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s14",
+              "taskId": "t26",
+              "kind": "note",
+              "noteKind": "summary",
+              "text": "Checked administration times and medication orders for potential safety issues.",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s15",
+              "taskId": "t26",
+              "kind": "check",
+              "checkId": "lasa",
+              "answer": "na",
+              "reason": "No look-alike sound-alike issues identified in current orders.",
+              "basis": "general_knowledge",
+              "refs": [],
+              "checks": [
+                "no_valid_ref"
+              ]
+            },
+            {
+              "id": "s16",
+              "taskId": "t26",
+              "kind": "check",
+              "checkId": "abbreviations",
+              "answer": "ok",
+              "reason": "No error-prone abbreviations found in prescriptions.",
+              "basis": "general_knowledge",
+              "refs": [],
+              "checks": [
+                "no_valid_ref"
+              ]
+            },
+            {
+              "id": "s17",
+              "taskId": "t26",
+              "kind": "check",
+              "checkId": "timing",
+              "answer": "ok",
+              "reason": "Administration times reviewed.",
+              "basis": "general_knowledge",
+              "refs": [],
+              "checks": [
+                "no_valid_ref"
+              ]
+            },
+            {
+              "id": "s18",
+              "taskId": "t26",
+              "kind": "check",
+              "checkId": "transitions",
+              "answer": "na",
+              "reason": "Patient is currently admitted; no discharge transition orders yet.",
+              "basis": "general_knowledge",
+              "refs": [],
+              "checks": [
+                "no_valid_ref"
+              ]
+            },
+            {
+              "id": "s19",
+              "taskId": "t19",
+              "kind": "note",
+              "noteKind": "summary",
+              "text": "Pharmacovigilance documentation checked for reporting requirements.",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            }
+          ],
+          "verification": {
+            "gemini-3.1-flash-lite": {
+              "calls": [
+                {
+                  "model": "gemini-3.1-flash-lite",
+                  "usage": {
+                    "inputTokens": 1130,
+                    "outputTokens": 762,
+                    "costUsd": 0.0014255
+                  },
+                  "claims": 8
+                }
+              ],
+              "failures": []
+            }
+          },
+          "input": {
+            "claims": [
+              {
+                "id": "V1",
+                "text": "All active drug pairs were reviewed for interactions.",
+                "sourceIds": [
+                  "H",
+                  "S1",
+                  "S2",
+                  "S3",
+                  "S4",
+                  "S5",
+                  "S6"
+                ]
+              },
+              {
+                "id": "V2",
+                "text": "Home medications including warfarin and digoxin were reconciled.",
+                "sourceIds": [
+                  "H",
+                  "S7",
+                  "S8",
+                  "S9",
+                  "S10"
+                ]
+              },
+              {
+                "id": "V3",
+                "text": "Digoxin is used with reduced renal function and electrolyte abnormalities.",
+                "sourceIds": [
+                  "H",
+                  "S11",
+                  "S12",
+                  "S13",
+                  "S14"
+                ]
+              },
+              {
+                "id": "V4",
+                "text": "Amiodarone increases the effect of warfarin, raising bleeding risk and INR.",
+                "sourceIds": [
+                  "H",
+                  "S1",
+                  "S6",
+                  "S15"
+                ]
+              },
+              {
+                "id": "V5",
+                "text": "New lab findings including elevated INR and creatinine were reviewed.",
+                "sourceIds": [
+                  "H",
+                  "S15",
+                  "S16"
+                ]
+              },
+              {
+                "id": "V6",
+                "text": "Timing of lab changes relative to hospital day 2 was assessed.",
+                "sourceIds": [
+                  "H",
+                  "S15",
+                  "S16"
+                ]
+              },
+              {
+                "id": "V7",
+                "text": "Alternative causes for elevated INR and renal function changes were considered.",
+                "sourceIds": [
+                  "H",
+                  "S15",
+                  "S16"
+                ]
+              },
+              {
+                "id": "V8",
+                "text": "INR increased to 3.9 on hospital day 2.",
+                "sourceIds": [
+                  "H",
+                  "S15",
+                  "S6"
+                ]
+              }
+            ],
+            "sources": [
+              {
+                "id": "H",
+                "label": "Case header",
+                "text": "Case: {\"kind\":\"teaching\",\"age\":74,\"sex\":\"F\",\"heightCm\":158,\"status\":\"active\",\"hospitalDayToday\":2}",
+                "context": true
+              },
+              {
+                "id": "S1",
+                "label": "amiodarone",
+                "text": "amiodarone 200 mg PO three times daily from Day 0 active for atrial fibrillation (loading)"
+              },
+              {
+                "id": "S2",
+                "label": "carvedilol",
+                "text": "carvedilol 6.25 mg PO twice daily from Day 0 active for heart failure"
+              },
+              {
+                "id": "S3",
+                "label": "digoxin",
+                "text": "digoxin 0.25 mg PO once daily from Day 0 active for atrial fibrillation rate control"
+              },
+              {
+                "id": "S4",
+                "label": "furosemide",
+                "text": "furosemide 40 mg IV twice daily from Day 0 active for heart failure"
+              },
+              {
+                "id": "S5",
+                "label": "spironolactone",
+                "text": "spironolactone 25 mg PO once daily from Day 0 active for heart failure"
+              },
+              {
+                "id": "S6",
+                "label": "warfarin",
+                "text": "warfarin 5 mg PO once daily from Day 0 active for atrial fibrillation"
+              },
+              {
+                "id": "S7",
+                "label": "Pre-admission medications (BPMH): warfarin",
+                "text": "warfarin 5 mg PO once daily atrial fibrillation patient|prescription"
+              },
+              {
+                "id": "S8",
+                "label": "Pre-admission medications (BPMH): digoxin",
+                "text": "digoxin 0.25 mg PO once daily atrial fibrillation patient|prescription"
+              },
+              {
+                "id": "S9",
+                "label": "Pre-admission medications (BPMH): furosemide",
+                "text": "furosemide 40 mg PO once daily heart failure patient|prescription"
+              },
+              {
+                "id": "S10",
+                "label": "Pre-admission medications (BPMH): carvedilol",
+                "text": "carvedilol 6.25 mg PO twice daily heart failure prescription"
+              },
+              {
+                "id": "S11",
+                "label": "Potassium: 3.1 mmol/L",
+                "text": "Day 0 Potassium: 3.1 mmol/L; ref 3.5–5 mmol/L"
+              },
+              {
+                "id": "S12",
+                "label": "Serum creatinine: 1.3 mg/dL",
+                "text": "Day 0 Serum creatinine: 1.3 mg/dL"
+              },
+              {
+                "id": "S13",
+                "label": "Digoxin level: 2.3 ng/mL",
+                "text": "Day 0 Digoxin level: 2.3 ng/mL; ref 0.5–2 ng/mL"
+              },
+              {
+                "id": "S14",
+                "label": "Creatinine clearance (Cockcroft–Gault)",
+                "text": "Creatinine clearance (Cockcroft–Gault): 32 mL/min — Day 2"
+              },
+              {
+                "id": "S15",
+                "label": "INR: 3.9",
+                "text": "Day 2 INR: 3.9"
+              },
+              {
+                "id": "S16",
+                "label": "Serum creatinine: 1.5 mg/dL",
+                "text": "Day 2 Serum creatinine: 1.5 mg/dL"
+              }
+            ]
+          },
+          "claims": [
+            {
+              "id": "V1",
+              "taskId": "t06",
+              "suggestionId": "s2",
+              "part": "reason",
+              "text": "All active drug pairs were reviewed for interactions.",
+              "sources": [
+                "amiodarone 200 mg PO three times daily from Day 0 active for atrial fibrillation (loading)",
+                "carvedilol 6.25 mg PO twice daily from Day 0 active for heart failure",
+                "digoxin 0.25 mg PO once daily from Day 0 active for atrial fibrillation rate control",
+                "furosemide 40 mg IV twice daily from Day 0 active for heart failure",
+                "spironolactone 25 mg PO once daily from Day 0 active for heart failure",
+                "warfarin 5 mg PO once daily from Day 0 active for atrial fibrillation"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "All active drug pairs were reviewed for interactions."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "All active drug pairs were reviewed for interactions."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V2",
+              "taskId": "t06",
+              "suggestionId": "s3",
+              "part": "reason",
+              "text": "Home medications including warfarin and digoxin were reconciled.",
+              "sources": [
+                "warfarin 5 mg PO once daily atrial fibrillation patient|prescription",
+                "digoxin 0.25 mg PO once daily atrial fibrillation patient|prescription",
+                "furosemide 40 mg PO once daily heart failure patient|prescription",
+                "carvedilol 6.25 mg PO twice daily heart failure prescription"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Home medications including warfarin and digoxin were reconciled."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Home medications including warfarin and digoxin were reconciled."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V3",
+              "taskId": "t06",
+              "suggestionId": "s4",
+              "part": "reason",
+              "text": "Digoxin is used with reduced renal function and electrolyte abnormalities.",
+              "sources": [
+                "Day 0 Potassium: 3.1 mmol/L; ref 3.5–5 mmol/L",
+                "Day 0 Serum creatinine: 1.3 mg/dL",
+                "Day 0 Digoxin level: 2.3 ng/mL; ref 0.5–2 ng/mL",
+                "Creatinine clearance (Cockcroft–Gault): 32 mL/min — Day 2"
+              ],
+              "verdict": "partial",
+              "answered": {
+                "verdict": "partial",
+                "contradicted": false
+              },
+              "quotes": [
+                {
+                  "sourceId": "S11",
+                  "text": "Day 0 Potassium: 3.1 mmol/L"
+                },
+                {
+                  "sourceId": "S14",
+                  "text": "Creatinine clearance (Cockcroft-Gault): 32 mL/min"
+                }
+              ],
+              "unsupportedParts": [
+                "Digoxin is used with"
+              ],
+              "flags": [
+                "quote_from_other_source"
+              ],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "partial",
+                  "answered": {
+                    "verdict": "partial",
+                    "contradicted": false
+                  },
+                  "quotes": [
+                    {
+                      "sourceId": "S11",
+                      "text": "Day 0 Potassium: 3.1 mmol/L"
+                    },
+                    {
+                      "sourceId": "S14",
+                      "text": "Creatinine clearance (Cockcroft-Gault): 32 mL/min"
+                    }
+                  ],
+                  "unsupportedParts": [
+                    "Digoxin is used with"
+                  ],
+                  "flags": [
+                    "quote_from_other_source"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "V4",
+              "taskId": "t06",
+              "suggestionId": "s6",
+              "part": "reason",
+              "text": "Amiodarone increases the effect of warfarin, raising bleeding risk and INR.",
+              "sources": [
+                "amiodarone 200 mg PO three times daily from Day 0 active for atrial fibrillation (loading)",
+                "warfarin 5 mg PO once daily from Day 0 active for atrial fibrillation",
+                "Day 2 INR: 3.9"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Amiodarone increases the effect of warfarin, raising bleeding risk and INR."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Amiodarone increases the effect of warfarin, raising bleeding risk and INR."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V5",
+              "taskId": "t07",
+              "suggestionId": "s9",
+              "part": "reason",
+              "text": "New lab findings including elevated INR and creatinine were reviewed.",
+              "sources": [
+                "Day 2 INR: 3.9",
+                "Day 2 Serum creatinine: 1.5 mg/dL"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "New lab findings including elevated INR and creatinine were reviewed."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "New lab findings including elevated INR and creatinine were reviewed."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V6",
+              "taskId": "t07",
+              "suggestionId": "s10",
+              "part": "reason",
+              "text": "Timing of lab changes relative to hospital day 2 was assessed.",
+              "sources": [
+                "Day 2 INR: 3.9",
+                "Day 2 Serum creatinine: 1.5 mg/dL"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Timing of lab changes relative to hospital day 2 was assessed."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Timing of lab changes relative to hospital day 2 was assessed."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V7",
+              "taskId": "t07",
+              "suggestionId": "s11",
+              "part": "reason",
+              "text": "Alternative causes for elevated INR and renal function changes were considered.",
+              "sources": [
+                "Day 2 INR: 3.9",
+                "Day 2 Serum creatinine: 1.5 mg/dL"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Alternative causes for elevated INR and renal function changes were considered."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Alternative causes for elevated INR and renal function changes were considered."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V8",
+              "taskId": "t07",
+              "suggestionId": "s12",
+              "part": "reason",
+              "text": "INR increased to 3.9 on hospital day 2.",
+              "sources": [
+                "Day 2 INR: 3.9",
+                "warfarin 5 mg PO once daily from Day 0 active for atrial fibrillation"
+              ],
+              "verdict": "supported",
+              "answered": {
+                "verdict": "supported",
+                "contradicted": false
+              },
+              "quotes": [
+                {
+                  "sourceId": "S15",
+                  "text": "Day 2 INR: 3.9"
+                }
+              ],
+              "unsupportedParts": [],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "supported",
+                  "answered": {
+                    "verdict": "supported",
+                    "contradicted": false
+                  },
+                  "quotes": [
+                    {
+                      "sourceId": "S15",
+                      "text": "Day 2 INR: 3.9"
+                    }
+                  ],
+                  "unsupportedParts": [],
+                  "flags": []
+                }
+              }
+            }
+          ]
+        },
+        {
+          "moduleId": "discharge",
+          "draftModel": "gemini-3.5-flash-lite",
+          "ok": true,
+          "errors": [
+            "provider_timeout: The model took longer than 25 seconds, the most this server can wait. Try again; if it keeps happening, choose a faster model or a lower thinking level."
+          ],
+          "usage": {
+            "inputTokens": 2483,
+            "outputTokens": 814,
+            "costUsd": 0.0027799
+          },
+          "dropped": 0,
+          "suggestions": [
+            {
+              "id": "s1",
+              "taskId": "t20",
+              "kind": "note",
+              "noteKind": "summary",
+              "text": "Pre-admission medications are accounted for, but inpatient changes and renal function adjustments need reconciliation.",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s2",
+              "taskId": "t20",
+              "kind": "check",
+              "checkId": "home_accounted",
+              "answer": "ok",
+              "reason": "All pre-admission medications are listed in the register.",
+              "basis": "case_data",
+              "refs": [
+                "Pre-admission medications (BPMH): warfarin",
+                "Pre-admission medications (BPMH): digoxin",
+                "Pre-admission medications (BPMH): furosemide",
+                "Pre-admission medications (BPMH): carvedilol"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s3",
+              "taskId": "t20",
+              "kind": "check",
+              "checkId": "inpatient_decided",
+              "answer": "issue",
+              "reason": "Inpatient changes such as amiodarone loading and IV furosemide need deliberate decisions for discharge.",
+              "basis": "case_data",
+              "refs": [
+                "amiodarone",
+                "furosemide"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s4",
+              "taskId": "t20",
+              "kind": "check",
+              "checkId": "doses_checked",
+              "answer": "issue",
+              "reason": "Renal function is reduced and digoxin level is elevated, requiring dose review.",
+              "basis": "case_data",
+              "refs": [
+                "Creatinine clearance (Cockcroft–Gault)",
+                "Digoxin level: 2.3 ng/mL"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s5",
+              "taskId": "t20",
+              "kind": "check",
+              "checkId": "durations",
+              "answer": "issue",
+              "reason": "Duration for amiodarone loading course is not specified.",
+              "basis": "case_data",
+              "refs": [
+                "amiodarone"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s6",
+              "taskId": "t20",
+              "kind": "item",
+              "register": "home_med",
+              "fields": {
+                "drug": "warfarin",
+                "regimen": "5 mg PO once daily"
+              },
+              "reason": "Pre-admission warfarin reconciliation.",
+              "basis": "case_data",
+              "refs": [
+                "Pre-admission medications (BPMH): warfarin"
+              ],
+              "checks": [
+                "incomplete"
+              ]
+            },
+            {
+              "id": "s7",
+              "taskId": "t20",
+              "kind": "item",
+              "register": "home_med",
+              "fields": {
+                "drug": "digoxin",
+                "regimen": "0.25 mg PO once daily"
+              },
+              "reason": "Pre-admission digoxin reconciliation.",
+              "basis": "case_data",
+              "refs": [
+                "Pre-admission medications (BPMH): digoxin"
+              ],
+              "checks": [
+                "incomplete"
+              ]
+            },
+            {
+              "id": "s8",
+              "taskId": "t20",
+              "kind": "item",
+              "register": "home_med",
+              "fields": {
+                "drug": "furosemide",
+                "regimen": "40 mg PO once daily"
+              },
+              "reason": "Pre-admission furosemide reconciliation.",
+              "basis": "case_data",
+              "refs": [
+                "Pre-admission medications (BPMH): furosemide"
+              ],
+              "checks": [
+                "incomplete"
+              ]
+            },
+            {
+              "id": "s9",
+              "taskId": "t20",
+              "kind": "item",
+              "register": "home_med",
+              "fields": {
+                "drug": "carvedilol",
+                "regimen": "6.25 mg PO twice daily"
+              },
+              "reason": "Pre-admission carvedilol reconciliation.",
+              "basis": "case_data",
+              "refs": [
+                "Pre-admission medications (BPMH): carvedilol"
+              ],
+              "checks": [
+                "incomplete"
+              ]
+            },
+            {
+              "id": "s10",
+              "taskId": "t20",
+              "kind": "note",
+              "noteKind": "missing",
+              "text": "Discharge prescription list",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s11",
+              "taskId": "t20",
+              "kind": "note",
+              "noteKind": "missing",
+              "text": "Planned post-discharge renal function and electrolyte monitoring schedule",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s12",
+              "taskId": "t20",
+              "kind": "note",
+              "noteKind": "question",
+              "text": "What is the planned discharge regimen for furosemide and warfarin given recent lab values?",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s13",
+              "taskId": "t20",
+              "kind": "note",
+              "noteKind": "question",
+              "text": "Is amiodarone intended to be continued long-term after the loading phase?",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s14",
+              "taskId": "t21",
+              "kind": "note",
+              "noteKind": "summary",
+              "text": "Discharge medication plan requires completion regarding doses adjusted for renal function and explicit patient instructions.",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s15",
+              "taskId": "t21",
+              "kind": "check",
+              "checkId": "complete",
+              "answer": "issue",
+              "reason": "Doses and durations for discharge need final verification based on organ function.",
+              "basis": "case_data",
+              "refs": [
+                "Creatinine clearance (Cockcroft–Gault)"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s16",
+              "taskId": "t21",
+              "kind": "check",
+              "checkId": "changes_explained",
+              "answer": "issue",
+              "reason": "Changes from inpatient therapy to home regimen are not fully documented.",
+              "basis": "case_data",
+              "refs": [
+                "amiodarone",
+                "furosemide"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s17",
+              "taskId": "t21",
+              "kind": "check",
+              "checkId": "follow_up",
+              "answer": "issue",
+              "reason": "Follow-up lab tests for potassium, creatinine, and INR are not specified in the plan.",
+              "basis": "case_data",
+              "refs": [
+                "INR: 3.9",
+                "Potassium: 3.4 mmol/L",
+                "Serum creatinine: 1.5 mg/dL"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s18",
+              "taskId": "t21",
+              "kind": "note",
+              "noteKind": "missing",
+              "text": "Final discharge medication orders",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s19",
+              "taskId": "t21",
+              "kind": "note",
+              "noteKind": "missing",
+              "text": "Scheduled outpatient clinic appointments",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s20",
+              "taskId": "t21",
+              "kind": "note",
+              "noteKind": "question",
+              "text": "What follow-up appointments have been booked for repeat blood tests?",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s21",
+              "taskId": "t21",
+              "kind": "note",
+              "noteKind": "question",
+              "text": "Are there any specific dietary or fluid restriction instructions for home?",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s22",
+              "taskId": "t17",
+              "kind": "note",
+              "noteKind": "summary",
+              "text": "Counseling plan needs to address high-risk medications like digoxin and warfarin, and monitoring of symptoms.",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s23",
+              "taskId": "t17",
+              "kind": "note",
+              "noteKind": "missing",
+              "text": "Patient baseline understanding of their disease and medications",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s24",
+              "taskId": "t17",
+              "kind": "note",
+              "noteKind": "missing",
+              "text": "Access to a pill organizer or caregiver support",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s25",
+              "taskId": "t17",
+              "kind": "note",
+              "noteKind": "question",
+              "text": "Does the patient understand the signs of worsening heart failure or digoxin toxicity?",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s26",
+              "taskId": "t17",
+              "kind": "note",
+              "noteKind": "question",
+              "text": "How does the patient manage their daily medication schedule?",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            }
+          ],
+          "verification": {
+            "gemini-3.1-flash-lite": {
+              "calls": [
+                {
+                  "model": "gemini-3.1-flash-lite",
+                  "usage": {
+                    "inputTokens": 1044,
+                    "outputTokens": 952,
+                    "costUsd": 0.001689
+                  },
+                  "claims": 11
+                }
+              ],
+              "failures": []
+            }
+          },
+          "input": {
+            "claims": [
+              {
+                "id": "V1",
+                "text": "All pre-admission medications are listed in the register.",
+                "sourceIds": [
+                  "H",
+                  "S1",
+                  "S2",
+                  "S3",
+                  "S4"
+                ]
+              },
+              {
+                "id": "V2",
+                "text": "Inpatient changes such as amiodarone loading and IV furosemide need deliberate decisions for discharge.",
+                "sourceIds": [
+                  "H",
+                  "S5",
+                  "S6"
+                ]
+              },
+              {
+                "id": "V3",
+                "text": "Renal function is reduced and digoxin level is elevated, requiring dose review.",
+                "sourceIds": [
+                  "H",
+                  "S7",
+                  "S8"
+                ]
+              },
+              {
+                "id": "V4",
+                "text": "Duration for amiodarone loading course is not specified.",
+                "sourceIds": [
+                  "H",
+                  "S5"
+                ]
+              },
+              {
+                "id": "V5",
+                "text": "Pre-admission warfarin reconciliation.",
+                "sourceIds": [
+                  "H",
+                  "S1"
+                ]
+              },
+              {
+                "id": "V6",
+                "text": "Pre-admission digoxin reconciliation.",
+                "sourceIds": [
+                  "H",
+                  "S2"
+                ]
+              },
+              {
+                "id": "V7",
+                "text": "Pre-admission furosemide reconciliation.",
+                "sourceIds": [
+                  "H",
+                  "S3"
+                ]
+              },
+              {
+                "id": "V8",
+                "text": "Pre-admission carvedilol reconciliation.",
+                "sourceIds": [
+                  "H",
+                  "S4"
+                ]
+              },
+              {
+                "id": "V9",
+                "text": "Doses and durations for discharge need final verification based on organ function.",
+                "sourceIds": [
+                  "H",
+                  "S7"
+                ]
+              },
+              {
+                "id": "V10",
+                "text": "Changes from inpatient therapy to home regimen are not fully documented.",
+                "sourceIds": [
+                  "H",
+                  "S5",
+                  "S6"
+                ]
+              },
+              {
+                "id": "V11",
+                "text": "Follow-up lab tests for potassium, creatinine, and INR are not specified in the plan.",
+                "sourceIds": [
+                  "H",
+                  "S9",
+                  "S10",
+                  "S11"
+                ]
+              }
+            ],
+            "sources": [
+              {
+                "id": "H",
+                "label": "Case header",
+                "text": "Case: {\"kind\":\"teaching\",\"age\":74,\"sex\":\"F\",\"heightCm\":158,\"status\":\"active\",\"hospitalDayToday\":2}",
+                "context": true
+              },
+              {
+                "id": "S1",
+                "label": "Pre-admission medications (BPMH): warfarin",
+                "text": "warfarin 5 mg PO once daily atrial fibrillation patient|prescription"
+              },
+              {
+                "id": "S2",
+                "label": "Pre-admission medications (BPMH): digoxin",
+                "text": "digoxin 0.25 mg PO once daily atrial fibrillation patient|prescription"
+              },
+              {
+                "id": "S3",
+                "label": "Pre-admission medications (BPMH): furosemide",
+                "text": "furosemide 40 mg PO once daily heart failure patient|prescription"
+              },
+              {
+                "id": "S4",
+                "label": "Pre-admission medications (BPMH): carvedilol",
+                "text": "carvedilol 6.25 mg PO twice daily heart failure prescription"
+              },
+              {
+                "id": "S5",
+                "label": "amiodarone",
+                "text": "amiodarone 200 mg PO three times daily from Day 0 active for atrial fibrillation (loading)"
+              },
+              {
+                "id": "S6",
+                "label": "furosemide",
+                "text": "furosemide 40 mg IV twice daily from Day 0 active for heart failure"
+              },
+              {
+                "id": "S7",
+                "label": "Creatinine clearance (Cockcroft–Gault)",
+                "text": "Creatinine clearance (Cockcroft–Gault): 32 mL/min — Day 2"
+              },
+              {
+                "id": "S8",
+                "label": "Digoxin level: 2.3 ng/mL",
+                "text": "Day 0 Digoxin level: 2.3 ng/mL; ref 0.5–2 ng/mL"
+              },
+              {
+                "id": "S9",
+                "label": "INR: 3.9",
+                "text": "Day 2 INR: 3.9"
+              },
+              {
+                "id": "S10",
+                "label": "Potassium: 3.4 mmol/L",
+                "text": "Day 2 Potassium: 3.4 mmol/L; ref 3.5–5 mmol/L"
+              },
+              {
+                "id": "S11",
+                "label": "Serum creatinine: 1.5 mg/dL",
+                "text": "Day 2 Serum creatinine: 1.5 mg/dL"
+              }
+            ]
+          },
+          "claims": [
+            {
+              "id": "V1",
+              "taskId": "t20",
+              "suggestionId": "s2",
+              "part": "reason",
+              "text": "All pre-admission medications are listed in the register.",
+              "sources": [
+                "warfarin 5 mg PO once daily atrial fibrillation patient|prescription",
+                "digoxin 0.25 mg PO once daily atrial fibrillation patient|prescription",
+                "furosemide 40 mg PO once daily heart failure patient|prescription",
+                "carvedilol 6.25 mg PO twice daily heart failure prescription"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "All pre-admission medications are listed in the register."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "All pre-admission medications are listed in the register."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V2",
+              "taskId": "t20",
+              "suggestionId": "s3",
+              "part": "reason",
+              "text": "Inpatient changes such as amiodarone loading and IV furosemide need deliberate decisions for discharge.",
+              "sources": [
+                "amiodarone 200 mg PO three times daily from Day 0 active for atrial fibrillation (loading)",
+                "furosemide 40 mg IV twice daily from Day 0 active for heart failure"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Inpatient changes such as amiodarone loading and IV furosemide need deliberate decisions for discharge."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Inpatient changes such as amiodarone loading and IV furosemide need deliberate decisions for discharge."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V3",
+              "taskId": "t20",
+              "suggestionId": "s4",
+              "part": "reason",
+              "text": "Renal function is reduced and digoxin level is elevated, requiring dose review.",
+              "sources": [
+                "Creatinine clearance (Cockcroft–Gault): 32 mL/min — Day 2",
+                "Day 0 Digoxin level: 2.3 ng/mL; ref 0.5–2 ng/mL"
+              ],
+              "verdict": "partial",
+              "answered": {
+                "verdict": "partial",
+                "contradicted": false
+              },
+              "quotes": [
+                {
+                  "sourceId": "S7",
+                  "text": "Creatinine clearance (Cockcroft-Gault): 32 mL/min"
+                },
+                {
+                  "sourceId": "S8",
+                  "text": "Day 0 Digoxin level: 2.3 ng/mL; ref 0.5-2 ng/mL"
+                }
+              ],
+              "unsupportedParts": [
+                "requiring dose review"
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "partial",
+                  "answered": {
+                    "verdict": "partial",
+                    "contradicted": false
+                  },
+                  "quotes": [
+                    {
+                      "sourceId": "S7",
+                      "text": "Creatinine clearance (Cockcroft-Gault): 32 mL/min"
+                    },
+                    {
+                      "sourceId": "S8",
+                      "text": "Day 0 Digoxin level: 2.3 ng/mL; ref 0.5-2 ng/mL"
+                    }
+                  ],
+                  "unsupportedParts": [
+                    "requiring dose review"
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V4",
+              "taskId": "t20",
+              "suggestionId": "s5",
+              "part": "reason",
+              "text": "Duration for amiodarone loading course is not specified.",
+              "sources": [
+                "amiodarone 200 mg PO three times daily from Day 0 active for atrial fibrillation (loading)"
+              ],
+              "verdict": "supported",
+              "answered": {
+                "verdict": "supported",
+                "contradicted": false
+              },
+              "quotes": [
+                {
+                  "sourceId": "S5",
+                  "text": "amiodarone 200 mg PO three times daily from Day 0 active for atrial fibrillation (loading)"
+                }
+              ],
+              "unsupportedParts": [],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "supported",
+                  "answered": {
+                    "verdict": "supported",
+                    "contradicted": false
+                  },
+                  "quotes": [
+                    {
+                      "sourceId": "S5",
+                      "text": "amiodarone 200 mg PO three times daily from Day 0 active for atrial fibrillation (loading)"
+                    }
+                  ],
+                  "unsupportedParts": [],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V5",
+              "taskId": "t20",
+              "suggestionId": "s6",
+              "part": "reason",
+              "text": "Pre-admission warfarin reconciliation.",
+              "sources": [
+                "warfarin 5 mg PO once daily atrial fibrillation patient|prescription"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Pre-admission warfarin reconciliation."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Pre-admission warfarin reconciliation."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V6",
+              "taskId": "t20",
+              "suggestionId": "s7",
+              "part": "reason",
+              "text": "Pre-admission digoxin reconciliation.",
+              "sources": [
+                "digoxin 0.25 mg PO once daily atrial fibrillation patient|prescription"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Pre-admission digoxin reconciliation."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Pre-admission digoxin reconciliation."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V7",
+              "taskId": "t20",
+              "suggestionId": "s8",
+              "part": "reason",
+              "text": "Pre-admission furosemide reconciliation.",
+              "sources": [
+                "furosemide 40 mg PO once daily heart failure patient|prescription"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Pre-admission furosemide reconciliation."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Pre-admission furosemide reconciliation."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V8",
+              "taskId": "t20",
+              "suggestionId": "s9",
+              "part": "reason",
+              "text": "Pre-admission carvedilol reconciliation.",
+              "sources": [
+                "carvedilol 6.25 mg PO twice daily heart failure prescription"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Pre-admission carvedilol reconciliation."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Pre-admission carvedilol reconciliation."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V9",
+              "taskId": "t21",
+              "suggestionId": "s15",
+              "part": "reason",
+              "text": "Doses and durations for discharge need final verification based on organ function.",
+              "sources": [
+                "Creatinine clearance (Cockcroft–Gault): 32 mL/min — Day 2"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Doses and durations for discharge need final verification based on organ function."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Doses and durations for discharge need final verification based on organ function."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V10",
+              "taskId": "t21",
+              "suggestionId": "s16",
+              "part": "reason",
+              "text": "Changes from inpatient therapy to home regimen are not fully documented.",
+              "sources": [
+                "amiodarone 200 mg PO three times daily from Day 0 active for atrial fibrillation (loading)",
+                "furosemide 40 mg IV twice daily from Day 0 active for heart failure"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Changes from inpatient therapy to home regimen are not fully documented."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Changes from inpatient therapy to home regimen are not fully documented."
+                  ],
+                  "flags": []
+                }
+              }
+            },
+            {
+              "id": "V11",
+              "taskId": "t21",
+              "suggestionId": "s17",
+              "part": "reason",
+              "text": "Follow-up lab tests for potassium, creatinine, and INR are not specified in the plan.",
+              "sources": [
+                "Day 2 INR: 3.9",
+                "Day 2 Potassium: 3.4 mmol/L; ref 3.5–5 mmol/L",
+                "Day 2 Serum creatinine: 1.5 mg/dL"
+              ],
+              "verdict": "unsupported",
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "Follow-up lab tests for potassium, creatinine, and INR are not specified in the plan."
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "unsupported",
+                  "answered": {
+                    "verdict": "unsupported",
+                    "contradicted": false
+                  },
+                  "quotes": [],
+                  "unsupportedParts": [
+                    "Follow-up lab tests for potassium, creatinine, and INR are not specified in the plan."
+                  ],
+                  "flags": []
+                }
+              }
+            }
+          ]
+        },
+        {
+          "moduleId": "document",
+          "draftModel": "gemini-3.5-flash-lite",
+          "ok": true,
+          "errors": [
+            "provider_unavailable: UNAVAILABLE: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+          ],
+          "usage": {
+            "inputTokens": 1964,
+            "outputTokens": 321,
+            "costUsd": 0.0013916999999999998
+          },
+          "dropped": 0,
+          "suggestions": [
+            {
+              "id": "s1",
+              "taskId": "t18",
+              "kind": "note",
+              "noteKind": "summary",
+              "text": "Documentation of pharmaceutical care interventions and responses is pending.",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s2",
+              "taskId": "t18",
+              "kind": "check",
+              "checkId": "responses",
+              "answer": "issue",
+              "reason": "Interventions and their responses are not yet documented.",
+              "basis": "general_knowledge",
+              "refs": [],
+              "checks": [
+                "no_valid_ref"
+              ]
+            },
+            {
+              "id": "s3",
+              "taskId": "t18",
+              "kind": "check",
+              "checkId": "outcomes",
+              "answer": "issue",
+              "reason": "Outcomes are not yet recorded.",
+              "basis": "general_knowledge",
+              "refs": [],
+              "checks": [
+                "no_valid_ref"
+              ]
+            },
+            {
+              "id": "s4",
+              "taskId": "t30",
+              "kind": "note",
+              "noteKind": "summary",
+              "text": "Comprehensive care plan integration requires ongoing assessment of active problems and drug-related problems.",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            },
+            {
+              "id": "s5",
+              "taskId": "t30",
+              "kind": "check",
+              "checkId": "problems_assessed",
+              "answer": "ok",
+              "reason": "Active problems have been identified and therapy is noted.",
+              "basis": "case_data",
+              "refs": [
+                "Acute decompensated heart failure with reduced ejection fraction",
+                "Atrial fibrillation with rapid ventricular response",
+                "Hypokalaemia"
+              ],
+              "checks": []
+            },
+            {
+              "id": "s6",
+              "taskId": "t30",
+              "kind": "check",
+              "checkId": "drps_planned",
+              "answer": "issue",
+              "reason": "Drug-related problems need formal planning and status assignment.",
+              "basis": "general_knowledge",
+              "refs": [],
+              "checks": [
+                "no_valid_ref"
+              ]
+            },
+            {
+              "id": "s7",
+              "taskId": "t30",
+              "kind": "check",
+              "checkId": "monitoring",
+              "answer": "issue",
+              "reason": "A complete monitoring plan is not yet defined in the data.",
+              "basis": "general_knowledge",
+              "refs": [],
+              "checks": [
+                "no_valid_ref"
+              ]
+            },
+            {
+              "id": "s8",
+              "taskId": "t30",
+              "kind": "check",
+              "checkId": "discharge",
+              "answer": "issue",
+              "reason": "Discharge plan is not yet prepared.",
+              "basis": "general_knowledge",
+              "refs": [],
+              "checks": [
+                "no_valid_ref"
+              ]
+            },
+            {
+              "id": "s9",
+              "taskId": "t30",
+              "kind": "note",
+              "noteKind": "question",
+              "text": "What is the target therapeutic range for digoxin in this patient?",
+              "reason": "",
+              "basis": "case_data",
+              "refs": [],
+              "checks": []
+            }
+          ],
+          "verification": {
+            "gemini-3.1-flash-lite": {
+              "calls": [
+                {
+                  "model": "gemini-3.1-flash-lite",
+                  "usage": {
+                    "inputTokens": 516,
+                    "outputTokens": 279,
+                    "costUsd": 0.0005475
+                  },
+                  "claims": 1
+                }
+              ],
+              "failures": []
+            }
+          },
+          "input": {
+            "claims": [
+              {
+                "id": "V1",
+                "text": "Active problems have been identified and therapy is noted.",
+                "sourceIds": [
+                  "H",
+                  "S1",
+                  "S2",
+                  "S3"
+                ]
+              }
+            ],
+            "sources": [
+              {
+                "id": "H",
+                "label": "Case header",
+                "text": "Case: {\"kind\":\"teaching\",\"age\":74,\"sex\":\"F\",\"heightCm\":158,\"status\":\"active\",\"hospitalDayToday\":2}",
+                "context": true
+              },
+              {
+                "id": "S1",
+                "label": "Acute decompensated heart failure with reduced ejection fraction",
+                "text": "Acute decompensated heart failure with reduced ejection fraction acute active"
+              },
+              {
+                "id": "S2",
+                "label": "Atrial fibrillation with rapid ventricular response",
+                "text": "Atrial fibrillation with rapid ventricular response chronic active"
+              },
+              {
+                "id": "S3",
+                "label": "Hypokalaemia",
+                "text": "Hypokalaemia acute active"
+              }
+            ]
+          },
+          "claims": [
+            {
+              "id": "V1",
+              "taskId": "t30",
+              "suggestionId": "s5",
+              "part": "reason",
+              "text": "Active problems have been identified and therapy is noted.",
+              "sources": [
+                "Acute decompensated heart failure with reduced ejection fraction acute active",
+                "Atrial fibrillation with rapid ventricular response chronic active",
+                "Hypokalaemia acute active"
+              ],
+              "verdict": "partial",
+              "answered": {
+                "verdict": "partial",
+                "contradicted": false
+              },
+              "quotes": [
+                {
+                  "sourceId": "S1",
+                  "text": "Acute decompensated heart failure with reduced ejection fraction acute active"
+                },
+                {
+                  "sourceId": "S2",
+                  "text": "Atrial fibrillation with rapid ventricular response chronic active"
+                },
+                {
+                  "sourceId": "S3",
+                  "text": "Hypokalaemia acute active"
+                }
+              ],
+              "unsupportedParts": [
+                "and therapy is noted"
+              ],
+              "flags": [],
+              "byModel": {
+                "gemini-3.1-flash-lite": {
+                  "verdict": "partial",
+                  "answered": {
+                    "verdict": "partial",
+                    "contradicted": false
+                  },
+                  "quotes": [
+                    {
+                      "sourceId": "S1",
+                      "text": "Acute decompensated heart failure with reduced ejection fraction acute active"
+                    },
+                    {
+                      "sourceId": "S2",
+                      "text": "Atrial fibrillation with rapid ventricular response chronic active"
+                    },
+                    {
+                      "sourceId": "S3",
+                      "text": "Hypokalaemia acute active"
+                    }
+                  ],
+                  "unsupportedParts": [
+                    "and therapy is noted"
+                  ],
+                  "flags": []
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "reverified": {
+    "from": "run3",
+    "cases": [
+      {
+        "name": "A — pneumonia, AKI on CKD, diabetes",
+        "modules": [
+          {
+            "moduleId": "followup",
+            "input": {
+              "claims": [
+                {
+                  "id": "V1",
+                  "text": "Creatinine, glucose, and potassium trends are available for the first three days.",
+                  "sourceIds": [
+                    "H",
+                    "S1",
+                    "S2",
+                    "S3",
+                    "S4",
+                    "S5",
+                    "S6",
+                    "S7",
+                    "S8"
+                  ]
+                },
+                {
+                  "id": "V2",
+                  "text": "Elevated creatinine, glucose, and potassium levels are noted without a documented interpretation of the AKI severity or the impact of metformin.",
+                  "sourceIds": [
+                    "H",
+                    "S4",
+                    "S5",
+                    "S6",
+                    "S9"
+                  ]
+                },
+                {
+                  "id": "V3",
+                  "text": "Glucose monitoring is required to assess the efficacy of insulin and metformin and the safety of therapy in a patient with diabetes and infection.",
+                  "sourceIds": [
+                    "H",
+                    "S8",
+                    "S10",
+                    "S9"
+                  ]
+                },
+                {
+                  "id": "V4",
+                  "text": "Fever is a primary indicator of the response to antibiotic therapy for pneumonia.",
+                  "sourceIds": [
+                    "H",
+                    "S11",
+                    "S12"
+                  ]
+                },
+                {
+                  "id": "V5",
+                  "text": "The patient has acute kidney injury.",
+                  "sourceIds": [
+                    "H",
+                    "S4"
+                  ]
+                },
+                {
+                  "id": "V6",
+                  "text": "Creatinine clearance is 30 mL/min.",
+                  "sourceIds": [
+                    "H",
+                    "S13"
+                  ]
+                },
+                {
+                  "id": "V7",
+                  "text": "The patient is receiving ibuprofen 400 mg three times daily.",
+                  "sourceIds": [
+                    "H",
+                    "S14"
+                  ]
+                }
+              ],
+              "sources": [
+                {
+                  "id": "H",
+                  "label": "Case header",
+                  "text": "Case: {\"kind\":\"teaching\",\"age\":67,\"sex\":\"M\",\"heightCm\":170,\"status\":\"active\",\"hospitalDayToday\":2}",
+                  "context": true
+                },
+                {
+                  "id": "S1",
+                  "label": "Serum creatinine: 2.1 mg/dL",
+                  "text": "Day 0 Serum creatinine: 2.1 mg/dL"
+                },
+                {
+                  "id": "S2",
+                  "label": "Potassium: 5.4 mmol/L",
+                  "text": "Day 0 Potassium: 5.4 mmol/L; ref 3.5–5 mmol/L"
+                },
+                {
+                  "id": "S3",
+                  "label": "Glucose: 286 mg/dL",
+                  "text": "Day 0 Glucose: 286 mg/dL"
+                },
+                {
+                  "id": "S4",
+                  "label": "Serum creatinine: 2.6 mg/dL",
+                  "text": "Day 1 Serum creatinine: 2.6 mg/dL"
+                },
+                {
+                  "id": "S5",
+                  "label": "Potassium: 5.1 mmol/L",
+                  "text": "Day 1 Potassium: 5.1 mmol/L; ref 3.5–5 mmol/L"
+                },
+                {
+                  "id": "S6",
+                  "label": "Glucose: 248 mg/dL",
+                  "text": "Day 1 Glucose: 248 mg/dL"
+                },
+                {
+                  "id": "S7",
+                  "label": "Serum creatinine: 2.4 mg/dL",
+                  "text": "Day 2 Serum creatinine: 2.4 mg/dL"
+                },
+                {
+                  "id": "S8",
+                  "label": "Glucose: 210 mg/dL",
+                  "text": "Day 2 Glucose: 210 mg/dL"
+                },
+                {
+                  "id": "S9",
+                  "label": "metformin",
+                  "text": "metformin 1000 mg PO twice daily from Day 0 active for type 2 diabetes"
+                },
+                {
+                  "id": "S10",
+                  "label": "insulin regular",
+                  "text": "insulin regular 4 units subcut three times daily from Day 0 active for hyperglycaemia (sliding scale, before meals)"
+                },
+                {
+                  "id": "S11",
+                  "label": "Still febrile (38.4 °C); confusion improving; urine output reduced.",
+                  "text": "Day 1 Still febrile (38.4 °C); confusion improving; urine output reduced."
+                },
+                {
+                  "id": "S12",
+                  "label": "Community-acquired pneumonia",
+                  "text": "Community-acquired pneumonia acute active"
+                },
+                {
+                  "id": "S13",
+                  "label": "Creatinine clearance (Cockcroft–Gault)",
+                  "text": "Creatinine clearance (Cockcroft–Gault): 30 mL/min — Day 2"
+                },
+                {
+                  "id": "S14",
+                  "label": "ibuprofen",
+                  "text": "ibuprofen 400 mg PO three times daily from Day 0 active for fever and pain"
+                }
+              ]
+            },
+            "verification": {
+              "gemini-3.1-flash-lite": {
+                "calls": [
+                  {
+                    "model": "gemini-3.1-flash-lite",
+                    "usage": {
+                      "inputTokens": 1048,
+                      "outputTokens": 1213,
+                      "costUsd": 0.0020815
+                    },
+                    "claims": 7
+                  }
+                ],
+                "failures": [],
+                "errors": [
+                  "provider_timeout: The model took longer than 25 seconds, the most this server can wait. Try again; if it keeps happening, choose a faster model or a lower thinking level."
+                ]
+              }
+            },
+            "claims": [
+              {
+                "id": "V1",
+                "text": "Creatinine, glucose, and potassium trends are available for the first three days.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "partial",
+                    "answered": {
+                      "verdict": "partial",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "S1",
+                        "text": "Day 0 Serum creatinine: 2.1 mg/dL"
+                      },
+                      {
+                        "sourceId": "S4",
+                        "text": "Day 1 Serum creatinine: 2.6 mg/dL"
+                      },
+                      {
+                        "sourceId": "S7",
+                        "text": "Day 2 Serum creatinine: 2.4 mg/dL"
+                      },
+                      {
+                        "sourceId": "S3",
+                        "text": "Day 0 Glucose: 286 mg/dL"
+                      },
+                      {
+                        "sourceId": "S6",
+                        "text": "Day 1 Glucose: 248 mg/dL"
+                      },
+                      {
+                        "sourceId": "S8",
+                        "text": "Day 2 Glucose: 210 mg/dL"
+                      },
+                      {
+                        "sourceId": "S2",
+                        "text": "Day 0 Potassium: 5.4 mmol/L"
+                      },
+                      {
+                        "sourceId": "S5",
+                        "text": "Day 1 Potassium: 5.1 mmol/L"
+                      }
+                    ],
+                    "unsupportedParts": [
+                      "potassium trends are available for the first three days"
+                    ],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V2",
+                "text": "Elevated creatinine, glucose, and potassium levels are noted without a documented interpretation of the AKI severity or the impact of metformin.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "supported",
+                    "answered": {
+                      "verdict": "supported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "S4",
+                        "text": "Day 1 Serum creatinine: 2.6 mg/dL"
+                      },
+                      {
+                        "sourceId": "S5",
+                        "text": "Day 1 Potassium: 5.1 mmol/L"
+                      },
+                      {
+                        "sourceId": "S6",
+                        "text": "Day 1 Glucose: 248 mg/dL"
+                      }
+                    ],
+                    "unsupportedParts": [],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V3",
+                "text": "Glucose monitoring is required to assess the efficacy of insulin and metformin and the safety of therapy in a patient with diabetes and infection.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "unsupported",
+                    "answered": {
+                      "verdict": "unsupported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "H",
+                        "text": "Case: {\"kind\":\"teaching\",\"age\":67,\"sex\":\"M\",\"heightCm\":170,\"status\":\"active\",\"hospitalDayToday\":2}"
+                      }
+                    ],
+                    "unsupportedParts": [
+                      "Glucose monitoring is required to assess the efficacy of insulin and metformin and the safety of therapy in a patient with diabetes and infection."
+                    ],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V4",
+                "text": "Fever is a primary indicator of the response to antibiotic therapy for pneumonia.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "unsupported",
+                    "answered": {
+                      "verdict": "unsupported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "H",
+                        "text": "Case: {\"kind\":\"teaching\",\"age\":67,\"sex\":\"M\",\"heightCm\":170,\"status\":\"active\",\"hospitalDayToday\":2}"
+                      }
+                    ],
+                    "unsupportedParts": [
+                      "Fever is a primary indicator of the response to antibiotic therapy for pneumonia."
+                    ],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V5",
+                "text": "The patient has acute kidney injury.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "unsupported",
+                    "answered": {
+                      "verdict": "unsupported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "H",
+                        "text": "Case: {\"kind\":\"teaching\",\"age\":67,\"sex\":\"M\",\"heightCm\":170,\"status\":\"active\",\"hospitalDayToday\":2}"
+                      }
+                    ],
+                    "unsupportedParts": [
+                      "The patient has acute kidney injury."
+                    ],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V6",
+                "text": "Creatinine clearance is 30 mL/min.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "supported",
+                    "answered": {
+                      "verdict": "supported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "S13",
+                        "text": "Creatinine clearance (Cockcroft-Gault): 30 mL/min - Day 2"
+                      }
+                    ],
+                    "unsupportedParts": [],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V7",
+                "text": "The patient is receiving ibuprofen 400 mg three times daily.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "supported",
+                    "answered": {
+                      "verdict": "supported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "S14",
+                        "text": "ibuprofen 400 mg PO three times daily"
+                      }
+                    ],
+                    "unsupportedParts": [],
+                    "flags": []
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "B — atrial fibrillation, heart failure, warfarin with amiodarone",
+        "modules": [
+          {
+            "moduleId": "collect",
+            "input": {
+              "claims": [
+                {
+                  "id": "V1",
+                  "text": "History for warfarin, digoxin, and furosemide was verified using both patient and prescription sources.",
+                  "sourceIds": [
+                    "H",
+                    "S1",
+                    "S2",
+                    "S3"
+                  ]
+                },
+                {
+                  "id": "V2",
+                  "text": "All home medications listed in the register have been compared with the current inpatient orders.",
+                  "sourceIds": [
+                    "H",
+                    "S4",
+                    "S5",
+                    "S6",
+                    "S7",
+                    "S1",
+                    "S2",
+                    "S3",
+                    "S8"
+                  ]
+                },
+                {
+                  "id": "V3",
+                  "text": "Amiodarone was started for atrial fibrillation loading.",
+                  "sourceIds": [
+                    "H",
+                    "S9"
+                  ]
+                },
+                {
+                  "id": "V4",
+                  "text": "Spironolactone was started for heart failure.",
+                  "sourceIds": [
+                    "H",
+                    "S10"
+                  ]
+                },
+                {
+                  "id": "V5",
+                  "text": "The home regimen matches the inpatient order.",
+                  "sourceIds": [
+                    "H",
+                    "S7",
+                    "S1"
+                  ]
+                },
+                {
+                  "id": "V6",
+                  "text": "The home regimen matches the inpatient order.",
+                  "sourceIds": [
+                    "H",
+                    "S5",
+                    "S2"
+                  ]
+                },
+                {
+                  "id": "V7",
+                  "text": "Dose and route were changed for the management of acute decompensation.",
+                  "sourceIds": [
+                    "H",
+                    "S6",
+                    "S3",
+                    "S11"
+                  ]
+                },
+                {
+                  "id": "V8",
+                  "text": "The home regimen matches the inpatient order.",
+                  "sourceIds": [
+                    "H",
+                    "S4",
+                    "S8"
+                  ]
+                }
+              ],
+              "sources": [
+                {
+                  "id": "H",
+                  "label": "Case header",
+                  "text": "Case: {\"kind\":\"teaching\",\"age\":74,\"sex\":\"F\",\"heightCm\":158,\"status\":\"active\",\"hospitalDayToday\":2}",
+                  "context": true
+                },
+                {
+                  "id": "S1",
+                  "label": "Pre-admission medications (BPMH): warfarin",
+                  "text": "warfarin 5 mg PO once daily atrial fibrillation patient|prescription"
+                },
+                {
+                  "id": "S2",
+                  "label": "Pre-admission medications (BPMH): digoxin",
+                  "text": "digoxin 0.25 mg PO once daily atrial fibrillation patient|prescription"
+                },
+                {
+                  "id": "S3",
+                  "label": "Pre-admission medications (BPMH): furosemide",
+                  "text": "furosemide 40 mg PO once daily heart failure patient|prescription"
+                },
+                {
+                  "id": "S4",
+                  "label": "carvedilol",
+                  "text": "carvedilol 6.25 mg PO twice daily from Day 0 active for heart failure"
+                },
+                {
+                  "id": "S5",
+                  "label": "digoxin",
+                  "text": "digoxin 0.25 mg PO once daily from Day 0 active for atrial fibrillation rate control"
+                },
+                {
+                  "id": "S6",
+                  "label": "furosemide",
+                  "text": "furosemide 40 mg IV twice daily from Day 0 active for heart failure"
+                },
+                {
+                  "id": "S7",
+                  "label": "warfarin",
+                  "text": "warfarin 5 mg PO once daily from Day 0 active for atrial fibrillation"
+                },
+                {
+                  "id": "S8",
+                  "label": "Pre-admission medications (BPMH): carvedilol",
+                  "text": "carvedilol 6.25 mg PO twice daily heart failure prescription"
+                },
+                {
+                  "id": "S9",
+                  "label": "amiodarone",
+                  "text": "amiodarone 200 mg PO three times daily from Day 0 active for atrial fibrillation (loading)"
+                },
+                {
+                  "id": "S10",
+                  "label": "spironolactone",
+                  "text": "spironolactone 25 mg PO once daily from Day 0 active for heart failure"
+                },
+                {
+                  "id": "S11",
+                  "label": "Acute decompensated heart failure with reduced ejection fraction",
+                  "text": "Acute decompensated heart failure with reduced ejection fraction acute active"
+                }
+              ]
+            },
+            "verification": {
+              "gemini-3.1-flash-lite": {
+                "calls": [
+                  {
+                    "model": "gemini-3.1-flash-lite",
+                    "usage": {
+                      "inputTokens": 971,
+                      "outputTokens": 1000,
+                      "costUsd": 0.00174275
+                    },
+                    "claims": 8
+                  }
+                ],
+                "failures": [],
+                "errors": []
+              }
+            },
+            "claims": [
+              {
+                "id": "V1",
+                "text": "History for warfarin, digoxin, and furosemide was verified using both patient and prescription sources.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "unsupported",
+                    "answered": {
+                      "verdict": "unsupported",
+                      "contradicted": false
+                    },
+                    "quotes": [],
+                    "unsupportedParts": [
+                      "History for warfarin, digoxin, and furosemide was verified using both patient and prescription sources."
+                    ],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V2",
+                "text": "All home medications listed in the register have been compared with the current inpatient orders.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "unsupported",
+                    "answered": {
+                      "verdict": "unsupported",
+                      "contradicted": false
+                    },
+                    "quotes": [],
+                    "unsupportedParts": [
+                      "All home medications listed in the register have been compared with the current inpatient orders."
+                    ],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V3",
+                "text": "Amiodarone was started for atrial fibrillation loading.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "supported",
+                    "answered": {
+                      "verdict": "supported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "S9",
+                        "text": "amiodarone 200 mg PO three times daily from Day 0 active for atrial fibrillation (loading)"
+                      }
+                    ],
+                    "unsupportedParts": [],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V4",
+                "text": "Spironolactone was started for heart failure.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "supported",
+                    "answered": {
+                      "verdict": "supported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "S10",
+                        "text": "spironolactone 25 mg PO once daily from Day 0 active for heart failure"
+                      }
+                    ],
+                    "unsupportedParts": [],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V5",
+                "text": "The home regimen matches the inpatient order.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "supported",
+                    "answered": {
+                      "verdict": "supported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "S1",
+                        "text": "warfarin 5 mg PO once daily atrial fibrillation patient|prescription"
+                      },
+                      {
+                        "sourceId": "S7",
+                        "text": "warfarin 5 mg PO once daily from Day 0 active for atrial fibrillation"
+                      }
+                    ],
+                    "unsupportedParts": [],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V6",
+                "text": "The home regimen matches the inpatient order.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "supported",
+                    "answered": {
+                      "verdict": "supported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "S2",
+                        "text": "digoxin 0.25 mg PO once daily atrial fibrillation patient|prescription"
+                      },
+                      {
+                        "sourceId": "S5",
+                        "text": "digoxin 0.25 mg PO once daily from Day 0 active for atrial fibrillation rate control"
+                      }
+                    ],
+                    "unsupportedParts": [],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V7",
+                "text": "Dose and route were changed for the management of acute decompensation.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "supported",
+                    "answered": {
+                      "verdict": "supported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "S3",
+                        "text": "furosemide 40 mg PO once daily heart failure patient|prescription"
+                      },
+                      {
+                        "sourceId": "S6",
+                        "text": "furosemide 40 mg IV twice daily from Day 0 active for heart failure"
+                      },
+                      {
+                        "sourceId": "S11",
+                        "text": "Acute decompensated heart failure with reduced ejection fraction acute active"
+                      }
+                    ],
+                    "unsupportedParts": [],
+                    "flags": []
+                  }
+                }
+              },
+              {
+                "id": "V8",
+                "text": "The home regimen matches the inpatient order.",
+                "byModel": {
+                  "gemini-3.1-flash-lite": {
+                    "verdict": "supported",
+                    "answered": {
+                      "verdict": "supported",
+                      "contradicted": false
+                    },
+                    "quotes": [
+                      {
+                        "sourceId": "S8",
+                        "text": "carvedilol 6.25 mg PO twice daily heart failure prescription"
+                      },
+                      {
+                        "sourceId": "S4",
+                        "text": "carvedilol 6.25 mg PO twice daily from Day 0 active for heart failure"
+                      }
+                    ],
+                    "unsupportedParts": [],
+                    "flags": []
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "relaySpend": {
+    "month": "2026-10",
+    "budgetUsd": 1,
+    "spentUsd": 0.050824,
+    "byTask": {
+      "analyse": 0.030564,
+      "verify": 0.02026
+    },
+    "calls": 10
+  },
+  "calls": [
+    {
+      "task": "analyse",
+      "model": "gemini-3.5-flash-lite",
+      "status": 200,
+      "ms": 17147,
+      "usage": {
+        "prompt": 2860,
+        "output": 1444,
+        "thoughts": 0
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.1-flash-lite",
+      "status": 200,
+      "ms": 5922,
+      "usage": {
+        "prompt": 1130,
+        "output": 661,
+        "thoughts": 101
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.5-flash-lite",
+      "status": 0,
+      "ms": 25002,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.5-flash-lite",
+      "status": 200,
+      "ms": 8522,
+      "usage": {
+        "prompt": 2483,
+        "output": 814,
+        "thoughts": 0
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.1-flash-lite",
+      "status": 503,
+      "ms": 571,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.1-flash-lite",
+      "status": 200,
+      "ms": 7192,
+      "usage": {
+        "prompt": 1044,
+        "output": 849,
+        "thoughts": 103
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.5-flash-lite",
+      "status": 200,
+      "ms": 14460,
+      "usage": {
+        "prompt": 1964,
+        "output": 321,
+        "thoughts": 0
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.1-flash-lite",
+      "status": 503,
+      "ms": 966,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.1-flash-lite",
+      "status": 503,
+      "ms": 707,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.1-flash-lite",
+      "status": 200,
+      "ms": 15015,
+      "usage": {
+        "prompt": 516,
+        "output": 169,
+        "thoughts": 110
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.1-flash-lite",
+      "status": 0,
+      "ms": 25003,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.1-flash-lite",
+      "status": 503,
+      "ms": 4895,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.1-flash-lite",
+      "status": 200,
+      "ms": 4896,
+      "usage": {
+        "prompt": 1048,
+        "output": 1080,
+        "thoughts": 133
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.1-flash-lite",
+      "status": 200,
+      "ms": 15290,
+      "usage": {
+        "prompt": 971,
+        "output": 900,
+        "thoughts": 100
+      },
+      "finishReason": "STOP"
+    }
+  ]
+}
