@@ -219,7 +219,8 @@ function EditorBody({
   const ownCard = !!item && !fromModel(item);
   // D8: editing the content of a stale card is a review on the current data, recorded with its reason.
   const staleCard = !!item && register === 'drp' && !!b.cards.find((c) => c.item.id === item.id)?.staleness.stale;
-  const [withPreceptor, setWithPreceptor] = useState(ownCard);
+  // Never ticked in advance: the trainee states it (owner decision D9).
+  const [withPreceptor, setWithPreceptor] = useState(false);
 
   const prefill: Record<string, string> = {};
   if (!item) for (const f of def.fields) if (query.get(f.id)) prefill[f.id] = query.get(f.id)!;
@@ -253,6 +254,10 @@ function EditorBody({
     const n = normalizeItemFields(register, v);
     if (!n.ok) {
       setErrors(n.errors as Errors);
+      return;
+    }
+    if (reviewEdit && ownCard && !withPreceptor) {
+      setErrors({ withPreceptor: 'confirm' });
       return;
     }
     setBusy(true);
@@ -344,7 +349,16 @@ function EditorBody({
           })}
         </fieldset>
       </Card>
-      {reviewEdit && ownCard && <CheckboxField label={t('cardReview.withPreceptor')} checked={withPreceptor} onChange={setWithPreceptor} name="with-preceptor" />}
+      {reviewEdit && (
+        <CheckboxField
+          label={t('cardReview.withPreceptor')}
+          hint={ownCard ? t('cardReview.withPreceptorRequired') : undefined}
+          checked={withPreceptor}
+          onChange={setWithPreceptor}
+          error={errText(errors.withPreceptor)}
+          name="with-preceptor"
+        />
+      )}
 
       {item && !readOnly && (
         <TextField

@@ -147,10 +147,15 @@ test('a Problem Card written by the trainee: thirteen fields, ranking, staleness
   const reject = page.getByTestId('review-confirm').getByRole('button', { name: 'Record: Rejected' });
   await expect(reject).toBeDisabled();
   await page.getByLabel(/Why you reject it/).fill('The team had already reduced the dose on Day 2');
+  // A card the trainee wrote is decided with the preceptor, which the trainee states: never ticked in advance.
+  await expect(page.getByLabel('Decided with my preceptor')).not.toBeChecked();
+  await expect(reject).toBeDisabled();
+  await page.getByLabel('Decided with my preceptor').check();
   await reject.click();
   await expect(review.locator('[data-review="rejected"]')).toBeVisible();
   await expect(review.getByTestId('review-history').locator('li')).toHaveCount(2);
   await expect(review.getByTestId('review-history')).toContainText('The team had already reduced the dose on Day 2');
+  await expect(review.getByTestId('review-history').locator('[data-decision="rejected"]')).toContainText('with the preceptor');
   await shot(page, 'm4-06-review-history');
 
   // No control anywhere decides several cards at once.

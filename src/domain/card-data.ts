@@ -75,19 +75,23 @@ export function parseClaims(v: string | undefined): CardClaim[] {
   }
 }
 
-function toClaim(x: unknown): { ok: true; claim: CardClaim } | { ok: false; error: 'invalidChoice' | 'tooLong' } {
+type ClaimError = 'invalidChoice' | 'tooLong' | 'required';
+
+function toClaim(x: unknown): { ok: true; claim: CardClaim } | { ok: false; error: ClaimError } {
   if (typeof x !== 'object' || x === null || Array.isArray(x)) return { ok: false, error: 'invalidChoice' };
   const o = x as Record<string, unknown>;
   const text = str(o.text);
   const source = o.source as ClaimSource;
-  if (!text || !(CLAIM_SOURCES as readonly string[]).includes(source)) return { ok: false, error: 'invalidChoice' };
+  if (!(CLAIM_SOURCES as readonly string[]).includes(source)) return { ok: false, error: 'invalidChoice' };
+  // A claim without its statement, or without the source it names, is incomplete: "required", not a wrong choice.
+  if (!text) return { ok: false, error: 'required' };
   if (text.length > MAX_CLAIM_TEXT) return { ok: false, error: 'tooLong' };
   const ref = str(o.ref);
   const title = str(o.title);
   if (ref.length > MAX_REF || title.length > MAX_TITLE) return { ok: false, error: 'tooLong' };
+  if ((source === 'entry' || source === 'calc' || source === 'dataset') && !ref) return { ok: false, error: 'required' };
   if ((source === 'entry' || source === 'calc') && !ID.test(ref)) return { ok: false, error: 'invalidChoice' };
-  if (source === 'dataset' && !ref) return { ok: false, error: 'invalidChoice' };
-  if (source === 'reading' && !title) return { ok: false, error: 'invalidChoice' };
+  if (source === 'reading' && !title) return { ok: false, error: 'required' };
   if (o.by !== undefined && o.by !== 'model') return { ok: false, error: 'invalidChoice' };
   // A fixed key order, so that an unchanged claim list is the same string (an unchanged card writes no new version).
   const claim: CardClaim = {
@@ -102,7 +106,7 @@ function toClaim(x: unknown): { ok: true; claim: CardClaim } | { ok: false; erro
 
 export const claimsValue = (claims: readonly CardClaim[]): string => (claims.length ? JSON.stringify(claims) : '');
 
-export function normalizeClaims(v: string): { ok: true; value: string } | { ok: false; error: 'invalidChoice' | 'tooLong' } {
+export function normalizeClaims(v: string): { ok: true; value: string } | { ok: false; error: ClaimError } {
   let raw: unknown;
   try {
     raw = JSON.parse(v);

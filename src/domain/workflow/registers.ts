@@ -254,10 +254,13 @@ export const cardSection = (n: number): L => L(`${n} · ${CARD_SECTIONS[n - 1]!.
 
 const RATING: readonly Choice[] = [c('high', 'High', 'مرتفع'), c('medium', 'Medium', 'متوسط'), c('low', 'Low', 'منخفض')];
 
-/** The PCNE problem and cause codes as choices: the code and the official English wording (Arabic: PRECEPTOR's explanation). */
+/**
+ * The PCNE problem and cause codes as choices: the code and the official English wording. In Arabic, PRECEPTOR's
+ * explanation follows the official wording, which is always shown (clinical terminology stays in English).
+ */
 const pcneChoice = (x: { code: string; domain: string; label: L }): Choice => ({
   value: x.code,
-  label: L(`${x.code} ${x.label.en}`, `${x.code} ${x.label.ar}`),
+  label: L(`${x.code} ${x.label.en}`, `${x.code} ${x.label.en} — ${x.label.ar}`),
   group: x.domain,
 });
 const CAUSE_GROUPS = [...new Set(PCNE_CAUSES.map((x) => x.domain))].map((id) => {

@@ -110,16 +110,19 @@ function ReviewPanel({ b, card, readOnly }: { b: CaseBundle; card: CardModel; re
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const model = fromModel(card.item);
-  // D9: the trainee's own card is referred for senior review, then decided with the preceptor.
-  const [withPreceptor, setWithPreceptor] = useState(!model);
+  // D9: the trainee's own card is referred for senior review, then decided with the preceptor — which the trainee
+  // states by ticking the box (never ticked in advance, never assumed).
+  const [withPreceptor, setWithPreceptor] = useState(false);
+  const preceptorNeeded = (d: CardDecision) => !model && d !== 'needs_senior_review';
 
   const decide = async (decision: Exclude<CardDecision, 'edited'>) => {
     setBusy(true);
     setError(undefined);
     try {
-      await store.reviewCard(b.case.id, card.item.id, { decision, ...(REASON_DECISIONS.includes(decision) ? { reason } : {}), withPreceptor: model ? withPreceptor : decision !== 'needs_senior_review' });
+      await store.reviewCard(b.case.id, card.item.id, { decision, ...(REASON_DECISIONS.includes(decision) ? { reason } : {}), withPreceptor: decision !== 'needs_senior_review' && withPreceptor });
       setOpen(null);
       setReason('');
+      setWithPreceptor(false);
     } catch (e) {
       setError(e instanceof ValidationError ? t('cardReview.reasonRequired') : (e as Error).message);
     } finally {
@@ -127,7 +130,7 @@ function ReviewPanel({ b, card, readOnly }: { b: CaseBundle; card: CardModel; re
     }
   };
 
-  const editHref = `#/cases/${b.case.id}/item/${card.item.id}?back=card&review=edit${model ? '' : '&preceptor=1'}`;
+  const editHref = `#/cases/${b.case.id}/item/${card.item.id}?back=card&review=edit`;
   const stale = card.staleness.stale;
   const buttons: { d: CardDecision; label: MsgKey; icon: Parameters<typeof Icon>[0]['name'] }[] = [
     { d: 'accepted', label: 'cardReview.accept', icon: 'check' },
@@ -181,11 +184,19 @@ function ReviewPanel({ b, card, readOnly }: { b: CaseBundle; card: CardModel; re
               {REASON_DECISIONS.includes(open) && (
                 <TextField label={t(`cardReview.reason.${open}` as MsgKey)} value={reason} onChange={setReason} name="review-reason" />
               )}
-              {model && open !== 'needs_senior_review' && <CheckboxField label={t('cardReview.withPreceptor')} checked={withPreceptor} onChange={setWithPreceptor} name="with-preceptor" />}
+              {open !== 'needs_senior_review' && (
+                <CheckboxField
+                  label={t('cardReview.withPreceptor')}
+                  hint={preceptorNeeded(open) ? t('cardReview.withPreceptorRequired') : undefined}
+                  checked={withPreceptor}
+                  onChange={setWithPreceptor}
+                  name="with-preceptor"
+                />
+              )}
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant={open === 'rejected' ? 'danger' : 'primary'}
-                  disabled={busy || (REASON_DECISIONS.includes(open) && reason.trim().length < 3)}
+                  disabled={busy || (REASON_DECISIONS.includes(open) && reason.trim().length < 3) || (preceptorNeeded(open) && !withPreceptor)}
                   onClick={() => void decide(open as Exclude<CardDecision, 'edited'>)}
                 >
                   {t('cardReview.confirm', { decision: t(`cardReview.decision.${open}` as MsgKey) })}
@@ -411,9 +422,15 @@ export function CardBody({ b, card, readOnly }: { b: CaseBundle; card: CardModel
 
       <Field status={st(8)}>
         <Text>{f.recommendation}</Text>
-        <span className="inline-flex items-center gap-1 self-start rounded-md border border-dashed border-slate-400 px-1.5 py-0.5 text-xs font-medium text-slate-700" data-drp-state="proposed">
-          {f.recStatus === 'final' ? t('drp.proposedFinal') : t('drp.proposedDraft')}
-        </span>
+        {f.implemented === 'yes' ? (
+          <span className="self-start" data-drp-state="implemented">
+            <ProvenanceBadge state="implemented" detail={f.implementedBy} />
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 self-start rounded-md border border-dashed border-slate-400 px-1.5 py-0.5 text-xs font-medium text-slate-700" data-drp-state="proposed">
+            {f.recStatus === 'final' ? t('drp.proposedFinal') : t('drp.proposedDraft')}
+          </span>
+        )}
       </Field>
 
       <Field status={st(9)}>

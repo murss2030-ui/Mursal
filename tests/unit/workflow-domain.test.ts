@@ -169,7 +169,10 @@ describe('registers (lists shared between tasks)', () => {
       ok: true,
       fields: { ...drp, claims: JSON.stringify([{ text: 'SCr 2.1 mg/dL on Day 3', source: 'entry', ref: 'entry-1' }, { text: 'Renally cleared', source: 'none' }]) },
     });
-    expect(normalizeItemFields('drp', { ...drp, claims: JSON.stringify([{ text: 'x', source: 'reading' }]) })).toMatchObject({ ok: false, errors: { claims: 'invalidChoice' } });
+    // An incomplete claim (no statement, or no source named) is "required", not a wrong choice.
+    expect(normalizeItemFields('drp', { ...drp, claims: JSON.stringify([{ text: 'x', source: 'reading' }]) })).toMatchObject({ ok: false, errors: { claims: 'required' } });
+    expect(normalizeItemFields('drp', { ...drp, claims: JSON.stringify([{ text: ' ', source: 'none' }]) })).toMatchObject({ ok: false, errors: { claims: 'required' } });
+    expect(normalizeItemFields('drp', { ...drp, claims: JSON.stringify([{ text: 'x', source: 'entry' }]) })).toMatchObject({ ok: false, errors: { claims: 'required' } });
     expect(normalizeItemFields('drp', { ...drp, claims: JSON.stringify([{ text: 'x', source: 'guess' }]) })).toMatchObject({ ok: false, errors: { claims: 'invalidChoice' } });
     expect(normalizeItemFields('drp', { ...drp, claims: 'not json' })).toMatchObject({ ok: false, errors: { claims: 'invalidChoice' } });
     expect(normalizeItemFields('drp', { ...drp, claims: '[]' })).toEqual({ ok: true, fields: drp });

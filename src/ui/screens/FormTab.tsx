@@ -255,6 +255,8 @@ function SectionCard({ s, caseId, readOnly, draft }: { s: FormSectionView; caseI
               <p className="text-xs text-slate-600">{t('form.drpTicked')}</p>
             ) : s.checkboxes.state.kind === 'empty' ? (
               <Banner tone="info">{t('form.drpNoneRecorded')}</Banner>
+            ) : s.checkboxes.state.kind === 'missing' && s.checkboxes.state.hint === 'drp_excluded' ? (
+              <Banner tone="warning">{t('form.drpAllExcluded')}</Banner>
             ) : (
               <Banner tone="info">{t('form.drpNotAssessed')}</Banner>
             )}

@@ -186,9 +186,11 @@ function itemFields(
       const links: CardLink[] = [];
       for (const token of v.split(/[\s,;|]+/).filter(Boolean)) {
         const t = payload.refs.get(token);
-        if (t?.kind === 'entry' || t?.kind === 'calc') {
-          if (!links.some((l) => l.id === t.id)) links.push({ kind: t.kind, id: t.id });
-        } else checks.add('unknown_ref_removed');
+        // A medication or a problem is linked through its latest entry on the timeline (its order, its note).
+        const link: CardLink | undefined =
+          t?.kind === 'entry' || t?.kind === 'calc' ? { kind: t.kind, id: t.id } : t?.entryId ? { kind: 'entry', id: t.entryId } : undefined;
+        if (!link) checks.add('unknown_ref_removed');
+        else if (!links.some((l) => l.id === link.id)) links.push(link);
       }
       if (links.length) out[f.id] = linksValue(links);
     } else if (f.kind === 'medRef' || f.kind === 'problemRef' || f.kind === 'entryRef') {

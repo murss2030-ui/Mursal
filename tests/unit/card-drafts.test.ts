@@ -14,10 +14,10 @@ import type { Calculator, CalculatorId } from '../../src/calc/types';
 import { analysisSchema, ANALYSE_PROMPT_VERSION, ANALYSE_SYSTEM, type RawAnalysis, type RawItem } from '../../src/ai/analysis/contract';
 import { buildCasePayload, draftableRegisters, type CasePayload } from '../../src/ai/analysis/payload';
 import { verifyAnalysis } from '../../src/ai/analysis/verify';
-import { validateOutput } from '../../src/ai/schema';
+import { isOutputSchema, validateOutput } from '../../src/ai/schema';
 import { parseClaims, parseLinks } from '../../src/domain/card-data';
 import { cardFields, reviewState } from '../../src/domain/problem-card';
-import { MODULE_BY_ID, TASKS } from '../../src/domain/workflow/catalogue';
+import { MODULE_BY_ID, MODULES, TASKS } from '../../src/domain/workflow/catalogue';
 import { newCase, newSession } from './helpers';
 
 const ALL_VALID: ReadonlyMap<CalculatorId, Calculator> = new Map(CALCULATOR_DEFS.map((d) => [d.id, makeCalculator(d, { validated: true, passed: 1, at: 'test' })]));
@@ -154,6 +154,33 @@ describe('the model drafts Problem Cards: the checks in code', () => {
     expect(claims[1]!.ref).toBe(ctx.crcl.id);
     // The smuggled claims field never passes as a field value.
     expect(claims.some((c) => c.text === 'smuggled')).toBe(false);
+  });
+
+  it('the output schema of every module stays within the relay’s limits (depth, size)', async () => {
+    const ctx = await setup();
+    for (const m of MODULES) {
+      const p = buildCasePayload({
+        case: (await ctx.store.getCase(ctx.c.id))!,
+        entries: await ctx.store.listEntries(ctx.c.id),
+        items: [],
+        tasks: [],
+        module: m,
+        today: '2026-10-16',
+      });
+      if (p.tasks.length) expect(isOutputSchema(analysisSchema(p.tasks)), m.id).toBe(true);
+    }
+  });
+
+  it('a medication or a problem given as supporting data is linked through its entry on the timeline', async () => {
+    const ctx = await setup();
+    const p = await payload(ctx);
+    const med = refOf(p, /enoxaparin/);
+    const raw: RawAnalysis = {
+      tasks: [{ taskId: 't05', summary: '', checks: [], items: [{ register: 'drp', fields: [{ field: 'supporting', value: `${med} R77` }], reason: '', basis: 'case_data', refs: [med] }], missingData: [], questions: [] }],
+    };
+    const sg = verifyAnalysis(raw, p).suggestions[0]!;
+    expect(parseLinks(sg.fields!.supporting)).toEqual([{ kind: 'entry', id: p.refs.get(med)!.entryId }]);
+    expect(sg.checks).toContain('unknown_ref_removed');
   });
 
   it('a dose the model takes from a cited calculation result is kept (Section 12)', async () => {
