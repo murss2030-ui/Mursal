@@ -5,14 +5,18 @@
  *
  *   PRECEPTOR_LIVE=1 PRECEPTOR_LIVE_DRAFT=<model> PRECEPTOR_LIVE_VERIFY=<model>[,<model>…] \
  *   PRECEPTOR_LIVE_PRICES=<model>:<in>:<out>[,…] [PRECEPTOR_LIVE_BUDGET_USD=3] \
- *   [PRECEPTOR_LIVE_PARTS=bench,cases] [PRECEPTOR_LIVE_CASES=A,B] [PRECEPTOR_LIVE_KEY_CLASS=paid] NODE_USE_ENV_PROXY=1 \
+ *   [PRECEPTOR_LIVE_PARTS=bench,cases,reverify] [PRECEPTOR_LIVE_CASES=A,B] [PRECEPTOR_LIVE_FROM=<probe json>] \
+ *   [PRECEPTOR_LIVE_KEY_CLASS=paid] NODE_USE_ENV_PROXY=1 \
  *   npx vitest run --config vitest.live.config.ts
  *
  * 1. The semantic benchmark (tests/fixtures/semantic-benchmark.ts): each
  *    verifier model, twice, against the expected verdicts.
  * 2. The 30 tasks: two synthetic cases drafted module by module with the
  *    app's own code (payload, prompt analyse-v3, checks in code), then every
- *    statement that rests on case data verified against the data it cites.
+ *    statement that rests on case data verified against the data it cites,
+ *    by every verifier model of the run.
+ * 3. The claims of an earlier run (PRECEPTOR_LIVE_FROM), through every
+ *    verifier model again, without drafting anything.
  *
  * The path is the deployed one without the browser: the app's modules →
  * callModel → the relay code (allow-list, spending cap, rate limits) → the
@@ -21,7 +25,7 @@
  * spending cap (PRECEPTOR_LIVE_BUDGET_USD at the configured prices) stops the
  * run. Results: docs/m5/live/.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { makeCalculator } from '../../src/calc/engine';
 import { CALCULATOR_DEFS } from '../../src/calc/registry';
@@ -160,6 +164,68 @@ async function verifyWithRetry(store: Store, caseId: string, input: VerifyInput,
   return { run, errors };
 }
 
+/** The same claims through every verifier model of the run. */
+async function verifyEach(store: Store, caseId: string, input: VerifyInput, deps: CallDeps) {
+  const out: Record<string, { run?: VerifyRun; errors: string[] }> = {};
+  for (const model of VERIFY) {
+    await store.updateAiSettings({ models: { analyse: DRAFT, verify: model } });
+    out[model] = input.claims.length ? await verifyWithRetry(store, caseId, input, deps) : { errors: [] };
+  }
+  await store.updateAiSettings({ models: { analyse: DRAFT, verify: VERIFY[0]! } });
+  return out;
+}
+
+function claimByModel(byModel: Record<string, { run?: VerifyRun }>, claimId: string) {
+  return Object.fromEntries(
+    Object.entries(byModel).map(([model, x]) => {
+      const r = x.run?.verdicts.find((v) => v.claimId === claimId);
+      return [model, r ? { verdict: r.verdict, answered: r.answered, quotes: r.quotes, unsupportedParts: r.unsupportedParts, flags: r.flags } : null];
+    }),
+  );
+}
+
+/** The header every claim of a case may use, for results saved before the probe kept each module's input. */
+const HEADERS: Record<string, string> = {
+  A: 'Case: {"kind":"teaching","age":67,"sex":"M","heightCm":170,"status":"active","hospitalDayToday":2}',
+  B: 'Case: {"kind":"teaching","age":74,"sex":"F","heightCm":158,"status":"active","hospitalDayToday":2}',
+};
+
+interface SavedClaim {
+  id: string;
+  text: string;
+  sources: string[];
+}
+interface SavedModule {
+  moduleId: string;
+  ok: boolean;
+  input?: VerifyInput;
+  claims?: SavedClaim[];
+}
+
+/** A saved module's claims as the verifier received them (rebuilt from the saved texts when the input was not kept). */
+function savedInput(m: SavedModule, caseName: string): VerifyInput {
+  if (m.input) return m.input;
+  const sources: VerifyInput['sources'] = [{ id: 'H', label: 'Case header', text: HEADERS[caseName.slice(0, 1)]!, context: true }];
+  const idOf = new Map<string, string>();
+  const claims = (m.claims ?? []).map((c) => ({
+    id: c.id,
+    text: c.text,
+    sourceIds: [
+      'H',
+      ...c.sources.map((t) => {
+        let id = idOf.get(t);
+        if (!id) {
+          id = `S${sources.length}`;
+          idOf.set(t, id);
+          sources.push({ id, label: id, text: t });
+        }
+        return id;
+      }),
+    ],
+  }));
+  return { claims, sources };
+}
+
 const describeLive = LIVE && DRAFT && VERIFY.length && PRICES ? describe : describe.skip;
 
 describeLive('M5 live probe (synthetic data only)', () => {
@@ -240,13 +306,14 @@ describeLive('M5 live probe (synthetic data only)', () => {
             calcOutOfDate: cards.calcOutOfDate,
           });
           const { input, origin } = claimsFromSuggestions(analysis.suggestions, payload);
-          const v = input.claims.length ? await verifyWithRetry(store, k.caseId, input, deps) : { run: undefined, errors: [] as string[] };
-          const verdict = new Map<string, ClaimVerdict>((v.run?.verdicts ?? []).map((x) => [x.claimId, x]));
+          const byModel = await verifyEach(store, k.caseId, input, deps);
+          const first = byModel[VERIFY[0]!]!;
+          const verdict = new Map<string, ClaimVerdict>((first.run?.verdicts ?? []).map((x) => [x.claimId, x]));
           const sourceText = new Map(input.sources.map((s) => [s.id, s]));
           modules.push({
             moduleId: m.id,
             ok: true,
-            errors: [...errors, ...v.errors],
+            errors: [...errors, ...Object.values(byModel).flatMap((x) => x.errors)],
             usage: analysis.usage,
             dropped: analysis.dropped,
             suggestions: analysis.suggestions.map((s: Suggestion) => ({
@@ -261,7 +328,8 @@ describeLive('M5 live probe (synthetic data only)', () => {
               refs: s.refs.map((r) => r.label),
               checks: s.checks,
             })),
-            verification: { calls: v.run?.calls ?? [] },
+            verification: Object.fromEntries(Object.entries(byModel).map(([model, x]) => [model, { calls: x.run?.calls ?? [], failures: x.run?.failures ?? [] }])),
+            input,
             claims: input.claims.map((cl) => {
               const o = origin.get(cl.id)!;
               const r = verdict.get(cl.id);
@@ -277,8 +345,32 @@ describeLive('M5 live probe (synthetic data only)', () => {
                 quotes: r?.quotes,
                 unsupportedParts: r?.unsupportedParts,
                 flags: r?.flags,
+                byModel: claimByModel(byModel, cl.id),
               };
             }),
+          });
+          await save();
+        }
+      }
+    }
+    // ---------------------------------------------------------------- 3. the claims of an earlier run, through every verifier model
+    if (PARTS.has('reverify')) {
+      const from = JSON.parse(readFileSync(process.env.PRECEPTOR_LIVE_FROM!, 'utf8')) as { run: string; cases: { name: string; modules: SavedModule[] }[] };
+      const rot = await store.createRotation({ department: 'internal_medicine', startDate: '2026-10-01', endDate: '2026-10-31', competencies: ['direct_patient_care'] });
+      const k = await store.createCase({ kind: 'teaching', rotationId: rot.id, ageYears: 67, sex: 'M', admissionDay0: '2026-10-11', syntheticDataAttested: true });
+      const out: unknown[] = [];
+      results.reverified = { from: from.run, cases: out };
+      for (const c of from.cases) {
+        const modules: unknown[] = [];
+        out.push({ name: c.name, modules });
+        for (const m of c.modules.filter((x) => x.ok)) {
+          const input = savedInput(m, c.name);
+          const byModel = await verifyEach(store, k.id, input, deps);
+          modules.push({
+            moduleId: m.moduleId,
+            input,
+            verification: Object.fromEntries(Object.entries(byModel).map(([model, x]) => [model, { calls: x.run?.calls ?? [], failures: x.run?.failures ?? [], errors: x.errors }])),
+            claims: input.claims.map((cl) => ({ id: cl.id, text: cl.text, byModel: claimByModel(byModel, cl.id) })),
           });
           await save();
         }

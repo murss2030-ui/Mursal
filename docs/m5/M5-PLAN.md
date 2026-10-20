@@ -2,10 +2,17 @@
 
 **Status:** plan prepared on 20 October 2026, after the owner accepted M4 and asked to start preparing M5 — with the paid model tried on the 30 tasks and the **meaning** of claims checked, not only their numbers. Nothing of M5 is visible in the app yet. Two things were prepared ahead of the build, because the owner asked for them and they inform the decisions below:
 
-1. **The verifier pass** (Section 12, check 4) as a tested module, not yet connected to any screen: `src/ai/verification/` (prompt `verify-v1`), with 14 unit tests and a 37-item semantic benchmark (`tests/fixtures/semantic-benchmark.ts`).
+1. **The verifier pass** (Section 12, check 4) as a tested module, not yet connected to any screen: `src/ai/verification/` (prompt `verify-v1`), with 15 unit tests and a 37-item semantic benchmark (`tests/fixtures/semantic-benchmark.ts`).
 2. **A live probe** of the real models on synthetic cases: the benchmark, and the 30 tasks drafted and then verified claim by claim. Results: [M5-LIVE-PROBE.md](M5-LIVE-PROBE.md).
 
-The build starts when you approve the decisions in Section 5.
+**The owner's decisions (20 October 2026):** decisions 1–10 approved, with these choices:
+
+- **Network:** the five open-source hosts were allowed by the owner; all five answered on 20 October 2026.
+- **Guideline editions (decision 2):** community-acquired pneumonia — the **2019 ATS/IDSA** guideline as the primary document, the **2025 ATS** update as a secondary reference; heart failure — the **2022 AHA/ACC/HFSA** guideline as the primary document, **ESC 2021** (with its **2023** focused update) as a reference; acute kidney injury — **KDIGO 2012 only**, the published guideline; the 2026 draft is not used, since it is not final.
+- **Licence (decision 3):** the default, *local search only*, until the trainee confirms a document's licence allows sending its text to the AI service.
+- **The verdict gate (decision 6):** a statement enters the official form only with the verdict *supported* and its literal quote.
+
+Decision 11 (the paid key) is the owner's to act on. The build follows the owner's review of the live probe's final results.
 
 ## 1. What M5 must deliver
 
@@ -69,6 +76,8 @@ Each has a proposed default; you can approve them all at once or change any.
    | IDSA/SHEA antimicrobial stewardship | The core guideline is **2016**; a 2026 multi-society document covers the skills of stewardship leaders, not the programme guideline. | The 2016 guideline will carry the five-year warning. |
 
    The trainee obtains the PDFs lawfully and uploads them in the app; they never enter the repository. My tests use synthetic documents only.
+
+   **The owner's choice (20 October 2026):** pneumonia — 2019 ATS/IDSA primary, 2025 ATS secondary; heart failure — 2022 AHA/ACC/HFSA primary, ESC 2021 with its 2023 update as a reference; acute kidney injury — KDIGO 2012 only (the 2026 draft is not used). The library records each document's role (primary or reference), and a citation from a reference document says so.
 3. **Licence gate for sending library text to a model (proposed).** Uploading a document for personal search is one thing; sending its text to an AI service (to embed it, or as a passage for the drafting model and the verifier) is another, and some publishers forbid it. Proposed: each document records its licence and one choice — **"may be sent to the AI service"** (only when its licence allows it — for example the WHO AWaRe book's CC BY-NC-SA) or **"local search only"** (lexical search; passages shown to the trainee; never sent to any model). The default is *local search only* until the trainee confirms the licence allows it.
 4. **Embeddings (proposed).** A Gemini embedding model chosen in Settings like the other tasks; vectors are computed once per document (a guideline of about 100 pages is roughly 60,000 tokens — a few US cents at published embedding prices, to be confirmed on Google's page). Local-only documents stay lexical-only.
 5. **Which models (proposed from the probe).** Drafting stays on the fast tier; **verification on the cheapest tier**, which agreed with the expected verdict on every benchmark item it answered. Details and costs in [M5-LIVE-PROBE.md](M5-LIVE-PROBE.md). The models remain configuration that you can change without a rebuild.
