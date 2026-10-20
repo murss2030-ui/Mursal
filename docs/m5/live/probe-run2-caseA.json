@@ -2113,6 +2113,36 @@
               "flags": []
             }
           ]
+        },
+        {
+          "moduleId": "plan",
+          "ok": false,
+          "errors": [
+            "provider_unavailable: UNAVAILABLE: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+            "provider_unavailable: UNAVAILABLE: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+            "provider_unavailable: UNAVAILABLE: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+          ]
+        },
+        {
+          "moduleId": "followup",
+          "ok": false,
+          "errors": [
+            "provider_quota_exhausted: RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To m..."
+          ]
+        },
+        {
+          "moduleId": "discharge",
+          "ok": false,
+          "errors": [
+            "provider_quota_exhausted: RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To m..."
+          ]
+        },
+        {
+          "moduleId": "document",
+          "ok": false,
+          "errors": [
+            "provider_quota_exhausted: RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To m..."
+          ]
         }
       ]
     }
@@ -2310,6 +2340,76 @@
         "thoughts": 0
       },
       "finishReason": "STOP"
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 503,
+      "ms": 663,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 503,
+      "ms": 4307,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 503,
+      "ms": 1128,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 503,
+      "ms": 794,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 503,
+      "ms": 1119,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 503,
+      "ms": 579,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 503,
+      "ms": 2749,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 429,
+      "ms": 229,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativel"
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 429,
+      "ms": 231,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativel"
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 429,
+      "ms": 218,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativel"
     }
   ]
 }
