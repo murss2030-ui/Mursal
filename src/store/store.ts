@@ -35,8 +35,13 @@ import type {
   AlertAck,
   AlertFiring,
   CausalityAssessment,
+  CardDecision,
+  CardReview,
 } from '../domain/types';
-import { REGISTER_IDS, SOURCE_DOC_TYPES } from '../domain/types';
+import { CARD_DECISIONS, DECISIONS_NEEDING_REASON, REGISTER_IDS, SOURCE_DOC_TYPES } from '../domain/types';
+import { parseClaims, parseLinks } from '../domain/card-data';
+import { cardStaleness, contentHash, fromModel, type CardContext } from '../domain/problem-card';
+import { resultCurrency } from '../calc/currency';
 import { normalizeItemFields, REGISTERS } from '../domain/workflow/registers';
 import { normalizeTaskInput, type TaskInput } from '../domain/workflow/tasks';
 export type { TaskInput } from '../domain/workflow/tasks';
@@ -138,6 +143,28 @@ export type SuggestionDecisionInput =
   | { kind: 'accept' }
   | { kind: 'edit'; fields?: Record<string, string>; text?: string }
   | { kind: 'reject'; reason: string };
+
+/** One decision on one Problem Card. "Edited" is recorded with the edit itself (updateItem). */
+export interface CardReviewInput {
+  decision: Exclude<CardDecision, 'edited'>;
+  reason?: string;
+  /** Decided together with the preceptor: required for the trainee's own cards, except to ask for senior review (owner decision D9). */
+  withPreceptor?: boolean;
+}
+
+const REVIEW_ACTION: Record<CardDecision, AuditEvent['action']> = {
+  accepted: 'accept',
+  edited: 'edit',
+  rejected: 'reject',
+  needs_evidence: 'request_evidence',
+  needs_senior_review: 'escalate',
+};
+
+/** The timeline entries and calculation results a field cites, as `entry:<id>` / `calc:<id>`. */
+function citedRefs(kind: 'links' | 'claims', v: string | undefined): string[] {
+  if (kind === 'links') return parseLinks(v).map((l) => `${l.kind}:${l.id}`);
+  return parseClaims(v).flatMap((c) => ((c.source === 'entry' || c.source === 'calc') && c.ref ? [`${c.source}:${c.ref}`] : []));
+}
 
 /**
  * Stale when the record differs from what was sent: an entry added,
@@ -933,14 +960,34 @@ export class Store {
     return this.history<RegisterItem>('items', itemId);
   }
 
-  /** Checks medication, problem and entry references against the case's current record. */
-  private async checkItemRefs(caseId: string, register: RegisterId, fields: Record<string, string>): Promise<void> {
-    const refs = REGISTERS[register].fields.filter((f) => fields[f.id] !== undefined && (f.kind === 'medRef' || f.kind === 'problemRef' || f.kind === 'entryRef'));
+  /**
+   * Checks medication, problem and entry references against the case's
+   * current record, and the timeline entries and calculation results a
+   * Problem Card links or cites. Of those, only what this save adds is
+   * checked: a link kept from an earlier version may point to data corrected
+   * since — the card is then shown as stale, not refused.
+   */
+  private async checkItemRefs(caseId: string, register: RegisterId, fields: Record<string, string>, prev?: Readonly<Record<string, string>>): Promise<void> {
+    const kinds = new Set(['medRef', 'problemRef', 'entryRef', 'links', 'claims']);
+    const refs = REGISTERS[register].fields.filter((f) => fields[f.id] !== undefined && kinds.has(f.kind));
     if (!refs.length) return;
-    const current = indexTimeline(await this.listEntries(caseId)).current;
+    const ctx = refs.some((f) => f.kind === 'links' || f.kind === 'claims') ? await this.cardContext(caseId) : undefined;
+    const current = indexTimeline(ctx?.entries ?? (await this.listEntries(caseId))).current;
     const e: Errors = {};
     for (const f of refs) {
       const v = fields[f.id]!;
+      if (f.kind === 'links' || f.kind === 'claims') {
+        const before = new Set(citedRefs(f.kind, prev?.[f.id]));
+        const ok = citedRefs(f.kind, v)
+          .filter((r) => !before.has(r))
+          .every((r) => {
+            const [kind, id] = [r.slice(0, r.indexOf(':')), r.slice(r.indexOf(':') + 1)];
+            // A result must be current when it is cited: one already out of date would make the card stale at once.
+            return kind === 'entry' ? current.some((x) => x.id === id) : ctx!.calcResults.some((x) => x.id === id) && !ctx!.calcOutOfDate.has(id);
+          });
+        if (!ok) e[f.id] = 'invalidChoice';
+        continue;
+      }
       const ok =
         f.kind === 'medRef'
           ? deriveMedCourses(current).some((m) => m.medId === v)
@@ -968,22 +1015,51 @@ export class Store {
     );
   }
 
-  /** Edit a row: a new version; the previous one stays readable. Saving unchanged values writes nothing. */
-  async updateItem(caseId: string, itemId: string, input: Record<string, string>, reason?: string): Promise<RegisterItem> {
+  /**
+   * Edit a row: a new version; the previous one stays readable. Saving
+   * unchanged values writes nothing. With `decision: 'edited'` (a Problem
+   * Card under review, Section 8), the edit is also recorded as the "Edit"
+   * decision on the new version, in the same transaction.
+   */
+  async updateItem(
+    caseId: string,
+    itemId: string,
+    input: Record<string, string>,
+    reason?: string,
+    opts: { decision?: 'edited'; withPreceptor?: boolean } = {},
+  ): Promise<RegisterItem> {
     await this.writableCase(caseId);
     const prev = await this.latest<RegisterItem>('items', itemId);
     if (!prev || prev.caseId !== caseId) throw new IntegrityError('That record does not exist in this case.');
     if (prev.status !== 'active') throw new IntegrityError('That record was retracted and cannot be edited.');
+    if (opts.decision && prev.register !== 'drp') throw new IntegrityError('Only a Problem Card is reviewed.');
     const n = normalizeItemFields(prev.register, input);
     if (!n.ok) throw new ValidationError(n.errors);
-    await this.checkItemRefs(caseId, prev.register, n.fields);
-    if (sameStrings(prev.fields, n.fields)) return prev;
+    await this.checkItemRefs(caseId, prev.register, n.fields, prev.fields);
+    if (sameStrings(prev.fields, n.fields)) {
+      if (opts.decision) throw new IntegrityError('Nothing was changed. To keep the card as it is, choose Accept.');
+      return prev;
+    }
+    const version = prev.version + 1;
+    let also: { tables: EncryptedTableName[]; run: () => Promise<void> } | undefined;
+    const extraAudit: EncryptedRow[] = [];
+    if (opts.decision) {
+      const ctx = await this.cardContext(caseId);
+      const next: RegisterItem = { ...prev, fields: n.fields, version, versionCreatedAt: this.nowIso() };
+      if (cardStaleness(next, ctx).stale) throw new IntegrityError('The card still cites data that was corrected or is out of date: link the current values before accepting it.');
+      const review = this.newReview(caseId, next, 'edited', reason, opts.withPreceptor);
+      const row = await this.sealRow('cardReviews', { id: review.id, caseId }, review);
+      extraAudit.push(await this.reviewAudit(review));
+      also = { tables: ['cardReviews'], run: async () => void (await this.db.cardReviews.add(row)) };
+    }
     return this.writeVersion<RegisterItem>(
       'items',
       itemId,
-      (p, version, at) => {
+      (p, v, at) => {
         if (!p || p.status !== 'active') throw new IntegrityError('That record was retracted and cannot be edited.');
-        return { ...p, fields: n.fields, version, versionCreatedAt: at, changeReason: reason?.trim() || undefined };
+        // The decision names this version: if another tab saved first, the decision would name the wrong one.
+        if (opts.decision && v !== version) throw new IntegrityError('The card was changed in the meantime. Reopen it and decide again.');
+        return { ...p, fields: n.fields, version: v, versionCreatedAt: at, changeReason: reason?.trim() || undefined };
       },
       (p, next) => ({
         entity: 'item',
@@ -992,7 +1068,7 @@ export class Store {
         action: 'update',
         diff: { register: prev.register, reason: reason?.trim() || undefined, changed: changedKeys(p?.fields ?? {}, next.fields), before: p?.fields, after: next.fields },
       }),
-      { caseId },
+      { caseId, extraAudit, also },
     );
   }
 
@@ -1011,6 +1087,139 @@ export class Store {
         return { ...p, status: 'retracted', version, versionCreatedAt: at, changeReason: reason.trim() };
       },
       () => ({ entity: 'item', entityId: itemId, caseId, action: 'retract', diff: { register: prev.register, reason: reason.trim() } }),
+      { caseId },
+    );
+  }
+
+  // ------------------------------------------------------------------ M4: Problem Cards — decisions (Section 8, Review) and staleness
+
+  rawCardReviews(caseId: string): Promise<EncryptedRow[]> {
+    return this.db.cardReviews.where('caseId').equals(caseId).toArray();
+  }
+
+  async decodeCardReviews(rows: EncryptedRow[]): Promise<CardReview[]> {
+    return (await this.openRows<CardReview>('cardReviews', rows)).sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : 1));
+  }
+
+  async listCardReviews(caseId: string): Promise<CardReview[]> {
+    return this.decodeCardReviews(await this.rawCardReviews(caseId));
+  }
+
+  /** What a Problem Card's staleness and checks read: every entry, every calculation result and which are out of date, every decision. */
+  async cardContext(caseId: string): Promise<CardContext> {
+    const c = await this.getCase(caseId);
+    if (!c) throw new IntegrityError(`Case ${caseId} does not exist.`);
+    const [entries, calcResults, reviews] = await Promise.all([this.listEntries(caseId), this.listCalcResults(caseId), this.listCardReviews(caseId)]);
+    const ctx = { demographics: c.demographics, current: indexTimeline(entries).current };
+    const calcOutOfDate = new Set(
+      calcResults
+        .filter((r) => {
+          const def = this.calculators.get(r.calc);
+          return def ? !resultCurrency(r, def, ctx).current : false;
+        })
+        .map((r) => r.id),
+    );
+    const calcName = (id: string) => {
+      const def = this.calculators.get(id as CalculatorId);
+      return def ? { en: def.name, ar: def.nameAr } : undefined;
+    };
+    return { entries, calcResults, calcOutOfDate, reviews, calcName };
+  }
+
+  /**
+   * Owner decision D9: the trainee's own card shows "written by you"; it can
+   * be referred for senior review, and is then decided with the preceptor.
+   */
+  private newReview(caseId: string, item: RegisterItem, decision: CardDecision, reason: string | undefined, withPreceptor: boolean | undefined): CardReview {
+    const r = reason?.trim() ?? '';
+    if (DECISIONS_NEEDING_REASON.has(decision) && r.length < 3) throw new ValidationError({ reason: 'required' });
+    if (r.length > 1000) throw new ValidationError({ reason: 'tooLong' });
+    if (!fromModel(item) && decision !== 'needs_senior_review' && !withPreceptor) {
+      throw new IntegrityError('A card you wrote yourself is decided with your preceptor: refer it for senior review, or record the decision taken with your preceptor.');
+    }
+    return stripUndefined({
+      id: this.uuid(),
+      caseId,
+      itemId: item.id,
+      itemVersion: item.version,
+      contentHash: contentHash(item.fields),
+      decision,
+      reason: r || undefined,
+      withPreceptor: withPreceptor ? (true as const) : undefined,
+      at: this.nowIso(),
+    });
+  }
+
+  private reviewAudit(review: CardReview): Promise<EncryptedRow> {
+    return this.auditRow({
+      entity: 'card_review',
+      entityId: review.itemId,
+      caseId: review.caseId,
+      action: REVIEW_ACTION[review.decision],
+      diff: stripUndefined({ decision: review.decision, reason: review.reason, itemVersion: review.itemVersion, withPreceptor: review.withPreceptor, fromSuggestion: review.fromSuggestion }),
+    });
+  }
+
+  /**
+   * One decision on one Problem Card — there is no operation on several
+   * cards, and no default decision. Reject, request more evidence and senior
+   * review need their reason. A later change of mind is a new decision; the
+   * earlier ones stay. A card whose data changed is not accepted until it has
+   * been reviewed again on the current data.
+   */
+  async reviewCard(caseId: string, itemId: string, input: CardReviewInput): Promise<CardReview> {
+    await this.writableCase(caseId);
+    if (!(CARD_DECISIONS as readonly string[]).includes(input.decision) || (input.decision as string) === 'edited') throw new ValidationError({ decision: 'invalidChoice' });
+    const item = await this.latest<RegisterItem>('items', itemId);
+    if (!item || item.caseId !== caseId || item.register !== 'drp') throw new IntegrityError('That Problem Card does not exist in this case.');
+    if (item.status !== 'active') throw new IntegrityError('That Problem Card was retracted.');
+    const review = this.newReview(caseId, item, input.decision, input.reason, input.withPreceptor);
+    if (input.decision === 'accepted' && cardStaleness(item, await this.cardContext(caseId)).stale) {
+      throw new IntegrityError('The data this card rests on changed. Review it again on the current data before accepting it.');
+    }
+    const row = await this.sealRow('cardReviews', { id: review.id, caseId }, review);
+    const audit = await this.reviewAudit(review);
+    await this.db.transaction('rw', [this.db.cardReviews, this.db.audit], async () => {
+      await this.db.cardReviews.add(row);
+      await this.db.audit.add(audit);
+    });
+    return review;
+  }
+
+  /**
+   * A stale card reviewed again on the current data and found still valid
+   * (owner decision D8): saved as version n+1 with the reason, unchanged
+   * otherwise. A card that cites data corrected since, or a result out of
+   * date, is edited instead, so that it links the current values.
+   */
+  async reconfirmCard(caseId: string, itemId: string, reason: string): Promise<RegisterItem> {
+    await this.writableCase(caseId);
+    const r = reason.trim();
+    if (r.length < 3) throw new ValidationError({ reason: 'required' });
+    if (r.length > 1000) throw new ValidationError({ reason: 'tooLong' });
+    const prev = await this.latest<RegisterItem>('items', itemId);
+    if (!prev || prev.caseId !== caseId || prev.register !== 'drp') throw new IntegrityError('That Problem Card does not exist in this case.');
+    if (prev.status !== 'active') throw new IntegrityError('That Problem Card was retracted.');
+    const ctx = await this.cardContext(caseId);
+    const before = cardStaleness(prev, ctx);
+    if (!before.stale) throw new IntegrityError('This card is current: there is nothing to review again.');
+    if (cardStaleness({ ...prev, versionCreatedAt: this.nowIso() }, ctx).stale) {
+      throw new IntegrityError('The card cites data that was corrected or a result that is out of date: edit it and link the current values.');
+    }
+    return this.writeVersion<RegisterItem>(
+      'items',
+      itemId,
+      (p, version, at) => {
+        if (!p || p.status !== 'active') throw new IntegrityError('That Problem Card was retracted.');
+        return { ...p, version, versionCreatedAt: at, changeReason: r };
+      },
+      (_p, next) => ({
+        entity: 'item',
+        entityId: itemId,
+        caseId,
+        action: 'reconfirm',
+        diff: { register: 'drp', version: next.version, reason: r, staleBecause: before.reasons.map((x) => x.en) },
+      }),
       { caseId },
     );
   }
@@ -1262,6 +1471,19 @@ export class Store {
         extraAudit.push(await this.auditRow({ entity: 'item', entityId: id, caseId, action: 'create', diff: { register: item.register, after: n.fields, origin: item.origin } }));
         applied = { kind: 'item', itemId: id };
         also = { tables: ['items'], run: async () => void (await this.db.items.add(row)) };
+        if (item.register === 'drp') {
+          // A Problem Card's review history starts with this decision on the model's draft (Section 8, Review).
+          const review: CardReview = { ...this.newReview(caseId, item, d.kind === 'accept' ? 'accepted' : 'edited', undefined, false), fromSuggestion: { analysisId, suggestionId } };
+          const reviewRow = await this.sealRow('cardReviews', { id: review.id, caseId }, review);
+          extraAudit.push(await this.reviewAudit(review));
+          also = {
+            tables: ['items', 'cardReviews'],
+            run: async () => {
+              await this.db.items.add(row);
+              await this.db.cardReviews.add(reviewRow);
+            },
+          };
+        }
       } else {
         // A checklist answer or a note goes onto the task worksheet as its next version.
         const entityId = `${caseId}:${sg.taskId}`;

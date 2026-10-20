@@ -2,6 +2,7 @@ import type {
   AlertAck,
   Attachment,
   AuditEvent,
+  CardReview,
   Case,
   CaseAnalysis,
   CaseIdentifiers,
@@ -152,6 +153,14 @@ export const useAlertAcks = (caseId: string) =>
   useLiveDecoded(
     (s) => s.rawAlertAcks(caseId),
     (s, rows): Promise<AlertAck[]> => s.decodeAlertAcks(rows),
+    [caseId],
+  );
+
+/** M4: every decision on the case's Problem Cards, oldest first (append-only). */
+export const useCardReviews = (caseId: string) =>
+  useLiveDecoded(
+    (s) => s.rawCardReviews(caseId),
+    (s, rows): Promise<CardReview[]> => s.decodeCardReviews(rows),
     [caseId],
   );
 

@@ -1,17 +1,20 @@
 /**
  * Everything the Clinical Modules need about one case, decrypted and derived
  * once: the effective timeline, medication courses, problems, worksheets,
- * register rows and source documents.
+ * register rows, source documents, calculations and the Problem Cards.
  */
 import { useMemo } from 'react';
 import { hospitalDayOf } from '../domain/dates';
+import { L } from '../domain/label';
 import { deriveMedCourses, deriveProblems, indexTimeline, type MedCourse, type ProblemThread } from '../domain/timeline';
-import type { Attachment, Case, CaseAnalysis, CaseIdentifiers, CausalityAssessment, RegisterId, RegisterItem, TaskRecord, TimelineEntry } from '../domain/types';
+import type { Attachment, CardReview, Case, CaseAnalysis, CaseIdentifiers, CausalityAssessment, RegisterId, RegisterItem, TaskRecord, TimelineEntry } from '../domain/types';
 import { analysisStale } from '../store/store';
 import { indexTasks } from '../domain/workflow/tasks';
-import { useAnalyses, useAttachments, useCalcResults, useCausality, useCaseVersions, useEntries, useExtractions, useIdentifiers, useItems, useTasks } from './data';
-import { pendingFromRuns } from '../calc/currency';
+import { buildCard, rankCards, type CardContext, type CardModel } from '../domain/problem-card';
+import { useAnalyses, useAttachments, useCalcResults, useCardReviews, useCausality, useCaseVersions, useEntries, useExtractions, useIdentifiers, useItems, useTasks } from './data';
+import { pendingFromRuns, resultCurrency } from '../calc/currency';
 import type { GatherContext } from '../calc/gather';
+import { CALC_BY_ID } from '../calc/registry';
 import type { CalcResult } from '../calc/types';
 import { useSession } from './session-context';
 
@@ -38,11 +41,23 @@ export interface CaseBundle {
   /** M2: every calculation result, oldest first, and what the calculators read. */
   calcResults: CalcResult[];
   calcContext: GatherContext;
+  /** Ids of results whose inputs changed since they were computed. */
+  calcOutOfDate: ReadonlySet<string>;
   /** M2: the latest Naranjo and WHO-UMC assessment of each suspected ADR. */
   causalityOf: (itemId: string) => CausalityAssessment[];
+  /** M4: every decision on the Problem Cards, and what a card's checks and staleness read. */
+  reviews: CardReview[];
+  cardContext: CardContext;
+  /** M4: the active Problem Cards, ranked (owner decision D5). */
+  cards: CardModel[];
 }
 
 export type BundleState = { status: 'loading' } | { status: 'error'; error: Error } | { status: 'missing' } | { status: 'ready'; b: CaseBundle };
+
+const calcName = (id: string) => {
+  const c = CALC_BY_ID.get(id as never);
+  return c ? L(c.name, c.nameAr) : undefined;
+};
 
 export function useCaseBundle(caseId: string): BundleState {
   const { store } = useSession();
@@ -56,9 +71,10 @@ export function useCaseBundle(caseId: string): BundleState {
   const calcs = useCalcResults(caseId);
   const runs = useExtractions(caseId);
   const causality = useCausality(caseId);
+  const reviews = useCardReviews(caseId);
   const today = store.today();
   return useMemo((): BundleState => {
-    const all = [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality];
+    const all = [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, reviews];
     const err = all.find((x) => x.status === 'error');
     if (err && err.status === 'error') return { status: 'error', error: err.error };
     if (
@@ -71,7 +87,8 @@ export function useCaseBundle(caseId: string): BundleState {
       analyses.status !== 'ready' ||
       calcs.status !== 'ready' ||
       runs.status !== 'ready' ||
-      causality.status !== 'ready'
+      causality.status !== 'ready' ||
+      reviews.status !== 'ready'
     ) {
       return { status: 'loading' };
     }
@@ -84,6 +101,16 @@ export function useCaseBundle(caseId: string): BundleState {
     for (const a of analyses.data) latest.set(a.moduleId, a); // oldest first, so the last one wins
     const drafts = new Map([...latest].map(([m, a]) => [m, { analysis: a, stale: analysisStale(a, entries.data, items.data) }]));
     const activeIds = new Set(atts.data.filter((a) => a.status === 'active').map((a) => a.id));
+    const calcContext: GatherContext = { demographics: c.demographics, current, pending: pendingFromRuns(runs.data, activeIds) };
+    const calcOutOfDate = new Set(
+      calcs.data
+        .filter((r) => {
+          const def = CALC_BY_ID.get(r.calc);
+          return def ? !resultCurrency(r, def, calcContext).current : false;
+        })
+        .map((r) => r.id),
+    );
+    const cardContext: CardContext = { entries: entries.data, calcResults: calcs.data, calcOutOfDate, reviews: reviews.data, calcName };
     return {
       status: 'ready',
       b: {
@@ -104,9 +131,13 @@ export function useCaseBundle(caseId: string): BundleState {
         today: c.status === 'active' ? hospitalDayOf(c.admissionDay0, today) : null,
         draftOf: (m) => drafts.get(m),
         calcResults: calcs.data,
-        calcContext: { demographics: c.demographics, current, pending: pendingFromRuns(runs.data, activeIds) },
+        calcContext,
+        calcOutOfDate,
         causalityOf: (itemId) => causality.data.filter((a) => a.itemId === itemId),
+        reviews: reviews.data,
+        cardContext,
+        cards: rankCards(active.filter((i) => i.register === 'drp')).map((i) => buildCard(i, cardContext)),
       },
     };
-  }, [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, today]);
+  }, [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, reviews, today]);
 }

@@ -12,6 +12,7 @@ import { dateOfHospitalDay, hospitalDayOf } from '../dates';
 import { formatNumber } from '../numbers';
 import { compareEntries, deriveMedCourses, deriveProblems, indexTimeline, regimenText, unitText } from '../timeline';
 import type {
+  CardReview,
   Case,
   CaseIdentifiers,
   EntryOf,
@@ -28,6 +29,8 @@ import type {
   TraineeSettings,
 } from '../types';
 import { choiceLabel, DRP_CATEGORIES } from '../workflow/registers';
+import { cardBoxes, cardFormStatus, cardPcne, rankCards, type CardContext, type FormExclusion } from '../problem-card';
+import { PCNE_MAPS_APPROVED } from '../pcne-maps';
 import type { CalcResult } from '../../calc/types';
 import { show } from '../../calc/units';
 import { DRP_CHECKBOXES, FIELD_LABELS, FORM_DEPENDENCIES, SECTION_TITLES, type FieldKey, type FormLabel } from './spec';
@@ -63,11 +66,22 @@ export type MissingCode =
   | 'no_discharge_decision'
   /** Section 9: DRPs exist but no recommendation is marked final. */
   | 'no_final_recommendation'
+  /** Section 8 (M4): Problem Cards exist, but every one is left out (stale, rejected, waiting for evidence or a senior review). */
+  | 'drp_excluded'
   /** Section 10: a monitoring parameter without a next review day. */
   | 'no_next_review'
   /** Section 1 (M2): BMI or CrCl/eGFR has not been calculated yet. */
   | 'no_calculation';
-export type FormNote = 'case_id_replaces_identifier' | 'room_withheld' | 'nkda_conflict' | 'interpretation_needs_rereview' | 'calc_out_of_date';
+export type FormNote =
+  | 'case_id_replaces_identifier'
+  | 'room_withheld'
+  | 'nkda_conflict'
+  | 'interpretation_needs_rereview'
+  | 'calc_out_of_date'
+  /** Section 8 (M4): the boxes come from the PCNE map, still a draft for the department's approval. */
+  | 'pcne_map_draft'
+  /** Section 8 (M4): the trainee changed the boxes the PCNE codes ticked, with a reason. */
+  | 'boxes_adjusted';
 
 export type FieldState =
   | { kind: 'value'; items: FieldItem[]; missingParts?: MissingCode[]; notes?: FormNote[] }
@@ -118,6 +132,8 @@ export interface FormSectionView {
   automatic?: { checked: false; reason: string } | { checked: true; source: string; rows: FormRowView[]; gaps: string[] };
   /** `ticked` is present only when the state is a value: an unticked box then means "not recorded", never "no problem". */
   checkboxes?: { labels: readonly FormLabel[]; state: FieldState; ticked?: readonly boolean[] };
+  /** Sections 8 and 9 (M4): Problem Cards left out of the section, each with why (a stale card never enters the form). */
+  excluded?: { itemId: string; problem: string; reason: FormExclusion; day?: number }[];
 }
 
 export interface MissingItem {
@@ -148,6 +164,8 @@ export interface FormContext {
   /** M2: calculation results (BMI, CrCl, eGFR for Section 1), oldest first, and which are out of date. */
   calcResults?: readonly CalcResult[];
   calcOutOfDate?: ReadonlySet<string>;
+  /** M4: the decisions on the Problem Cards (Sections 8 and 9 take only cards that are current and not disputed). */
+  reviews?: readonly CardReview[];
   /**
    * M2: the rules engine's interaction check for Section 7, kept apart from
    * the trainee's rows. `checked: false` when no interaction dataset is
@@ -674,10 +692,33 @@ function section7(ctx: FormContext): FormSectionView {
   };
 }
 
+/** Every active Problem Card, ranked, with whether it may enter Sections 8 and 9 (problem-card.ts). */
+function cardsForForm(ctx: FormContext) {
+  const cardCtx: CardContext = { entries: ctx.entries, calcResults: ctx.calcResults ?? [], calcOutOfDate: ctx.calcOutOfDate ?? new Set(), reviews: ctx.reviews ?? [] };
+  return rankCards(activeItems(ctx, 'drp')).map((item) => ({ item, status: cardFormStatus(item, cardCtx) }));
+}
+
+function excludedList(cards: ReturnType<typeof cardsForForm>, which: 'section8' | 'section9'): NonNullable<FormSectionView['excluded']> {
+  return cards.flatMap(({ item, status }) => {
+    const reason = status[which];
+    if (!reason) return [];
+    return [{ itemId: item.id, problem: item.fields.problem ?? '', reason, ...(reason === 'stale' && status.staleness.day !== undefined ? { day: status.staleness.day } : {}) }];
+  });
+}
+
+/** One line per card: the problem, its PCNE codes (the stored classification) and the medicines. */
+function cardLine(fl: Readonly<Record<string, string>>): string {
+  const p = cardPcne(fl);
+  const drugs = fl.drugs ? ` (${fl.drugs})` : '';
+  if (!p.problem) return `${fl.problem} — ${choiceEn('drp', 'category', fl.category) ?? 'not classified'} (no PCNE code)${drugs}`;
+  const causes = p.causes.map((x) => x.code).join(', ');
+  return `${fl.problem} — PCNE ${p.problem.code}${causes ? `; causes ${causes}` : ''}${drugs}`;
+}
+
 function section8(ctx: FormContext): FormSectionView {
-  const drps = activeItems(ctx, 'drp');
+  const cards = cardsForForm(ctx);
   const toTask = { kind: 'task', taskId: 't05' } as const;
-  if (!drps.length) {
+  if (!cards.length) {
     const done = taskDone(ctx, 't05');
     return {
       number: 8,
@@ -686,23 +727,54 @@ function section8(ctx: FormContext): FormSectionView {
       checkboxes: { labels: DRP_CHECKBOXES, state: done ? EMPTY : missing() },
     };
   }
-  const cats = new Set(drps.map((d) => d.fields.category));
-  const items = drps.map((d) => fromItem(`${d.fields.problem} — ${choiceEn('drp', 'category', d.fields.category)}${d.fields.drugs ? ` (${d.fields.drugs})` : ''}`));
+  const excluded = excludedList(cards, 'section8');
+  const included = cards.filter((c) => !c.status.section8);
+  if (!included.length) {
+    return {
+      number: 8,
+      title: SECTION_TITLES[8]!,
+      fields: [f('s8.explanation', missing('drp_excluded'), toTask)],
+      checkboxes: { labels: DRP_CHECKBOXES, state: missing('drp_excluded') },
+      excluded,
+    };
+  }
+  const ticked = new Set<string>();
+  const items: FieldItem[] = [];
+  let mapped = false;
+  let adjusted = false;
+  for (const { item } of included) {
+    const boxes = cardBoxes(item.fields);
+    for (const b of boxes.boxes) ticked.add(b);
+    mapped ||= boxes.source === 'pcne' || boxes.source === 'adjusted';
+    adjusted ||= boxes.source === 'adjusted';
+    items.push(fromItem(cardLine(item.fields)));
+    // A code without a clean box ticks "other" and writes its PCNE wording here (Section 15).
+    for (const text of boxes.otherText) items.push(fromItem(`Other: ${text}`));
+    if (boxes.source === 'adjusted' && boxes.reason) items.push(fromItem(`Boxes adjusted by the trainee: ${boxes.reason}`));
+  }
+  const notes: FormNote[] = [...(mapped && !PCNE_MAPS_APPROVED ? (['pcne_map_draft'] as const) : []), ...(adjusted ? (['boxes_adjusted'] as const) : [])];
   return {
     number: 8,
     title: SECTION_TITLES[8]!,
-    fields: [f('s8.explanation', value(items), toTask)],
-    // The category IS the box (no mapping); PCNE codes and their tested map arrive in M4.
-    checkboxes: { labels: DRP_CHECKBOXES, state: value([]), ticked: DRP_CATEGORIES.map((c) => cats.has(c.value)) },
+    fields: [f('s8.explanation', value(items, { notes }), toTask)],
+    // Pre-ticked from the PCNE codes through the map (pcne-maps.ts); the PCNE codes are the record.
+    checkboxes: { labels: DRP_CHECKBOXES, state: value([], { notes }), ticked: DRP_CATEGORIES.map((c) => ticked.has(c.value)) },
+    ...(excluded.length ? { excluded } : {}),
   };
 }
 
 function section9(ctx: FormContext): FormSectionView {
-  const drps = activeItems(ctx, 'drp');
-  const finals = drps.filter((d) => d.fields.recStatus === 'final' && d.fields.recommendation);
+  const cards = cardsForForm(ctx);
+  const finals = cards.filter((c) => !c.status.section9).map((c) => c.item);
+  const excluded = excludedList(cards, 'section9');
   const toTask = { kind: 'task', taskId: 't13' } as const;
   if (!finals.length) {
-    return { number: 9, title: SECTION_TITLES[9]!, fields: [f('s9.text', drps.length ? missing('no_final_recommendation') : missing(), toTask)] };
+    return {
+      number: 9,
+      title: SECTION_TITLES[9]!,
+      fields: [f('s9.text', cards.length ? missing('no_final_recommendation') : missing(), toTask)],
+      ...(excluded.length ? { excluded } : {}),
+    };
   }
   const items: FieldItem[] = [];
   for (const d of finals) {
@@ -715,7 +787,7 @@ function section9(ctx: FormContext): FormSectionView {
       items.push(fromItem(`Outcome: ${fl.outcome} — ${choiceEn('drp', 'goalMet', fl.goalMet)}`, 'outcome_documented', dayNum(fl.outcomeDay)));
     }
   }
-  return { number: 9, title: SECTION_TITLES[9]!, fields: [f('s9.text', value(items), toTask)] };
+  return { number: 9, title: SECTION_TITLES[9]!, fields: [f('s9.text', value(items), toTask)], ...(excluded.length ? { excluded } : {}) };
 }
 
 function section10(ctx: FormContext): FormSectionView {

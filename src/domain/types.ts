@@ -580,6 +580,36 @@ export interface CaseAnalysis extends Versioned {
   usage: { inputTokens: number; outputTokens: number; costUsd: number };
 }
 
+// ---------------------------------------------------------------- M4: review of Problem Cards (Section 8, Review)
+
+/** The five decisions on a Problem Card's recommendation (Section 8): accept, edit, reject, request more evidence, needs senior review. */
+export const CARD_DECISIONS = ['accepted', 'edited', 'rejected', 'needs_evidence', 'needs_senior_review'] as const;
+export type CardDecision = (typeof CARD_DECISIONS)[number];
+/** Decisions that are refused without their reason: what is wrong, what evidence is needed, why a senior should review. */
+export const DECISIONS_NEEDING_REASON: ReadonlySet<CardDecision> = new Set<CardDecision>(['rejected', 'needs_evidence', 'needs_senior_review']);
+
+/**
+ * One decision on one Problem Card. Append-only: a later change of mind is a
+ * new decision with its reason, never an overwrite. There is no decision on
+ * several cards at once.
+ */
+export interface CardReview {
+  id: string;
+  caseId: string;
+  itemId: string;
+  /** The card version the decision was taken on. */
+  itemVersion: number;
+  /** Fingerprint of the card's clinical content when decided, to show whether it changed since. */
+  contentHash: string;
+  decision: CardDecision;
+  reason?: string;
+  /** Decided together with the preceptor (owner decision D9, for the trainee's own cards). */
+  withPreceptor?: true;
+  /** The decision on the model's draft that created the card. */
+  fromSuggestion?: { analysisId: string; suggestionId: string };
+  at: string;
+}
+
 // ---------------------------------------------------------------- M2: rules engine records
 
 /** The first time an alert (one key, one data hash) was shown in a case. Append-only; counts firings per rule. */
@@ -653,7 +683,8 @@ export type AuditEntity =
   | 'threshold'
   | 'onc'
   | 'alert'
-  | 'causality';
+  | 'causality'
+  | 'card_review';
 
 export type AuditAction =
   | 'create'
@@ -669,7 +700,11 @@ export type AuditAction =
   | 'confirm'
   | 'reject'
   | 'accept'
-  | 'edit';
+  | 'edit'
+  | 'request_evidence'
+  | 'escalate'
+  /** A stale Problem Card reviewed again on the current data and confirmed as a new version. */
+  | 'reconfirm';
 
 export interface AuditEvent {
   // append-only, never pruned

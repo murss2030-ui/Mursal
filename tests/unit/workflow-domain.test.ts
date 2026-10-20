@@ -146,8 +146,33 @@ describe('registers (lists shared between tasks)', () => {
       fields: { drug: 'x', regimen: 'y', sources: 'patient', discrepancy: 'none' },
     });
 
-    const drp = { problem: 'Dose too high for renal function', category: 'dose_high', evidence: 'SCr 2.1 mg/dL on Day 3', priority: 'important' };
+    const drp = { problem: 'Dose too high for renal function', evidence: 'SCr 2.1 mg/dL on Day 3', pcneProblem: 'P2.1', pcneType: 'potential', pcneCauses: 'C3.2', priority: 'important' };
     expect(normalizeItemFields('drp', drp).ok).toBe(true);
+    // M4: the PCNE problem, its type and at least one cause are required; codes outside the stored list are refused.
+    const { pcneProblem: _p, pcneType: _t, pcneCauses: _c, ...unclassified } = drp;
+    expect(normalizeItemFields('drp', unclassified)).toMatchObject({ ok: false, errors: { pcneProblem: 'required', pcneType: 'required', pcneCauses: 'required' } });
+    expect(normalizeItemFields('drp', { ...drp, pcneProblem: 'P4.1', pcneCauses: 'C3.2|C10.1' })).toMatchObject({ ok: false, errors: { pcneProblem: 'invalidChoice', pcneCauses: 'invalidChoice' } });
+    // The department category of a row saved before M4 is read, never shown, and dropped on the next save.
+    expect(normalizeItemFields('drp', { ...drp, category: 'dose_high' })).toEqual({ ok: true, fields: drp });
+    // Supporting data: linked values, or words — one of the two.
+    const { evidence: _e, ...noEvidence } = drp;
+    expect(normalizeItemFields('drp', noEvidence)).toMatchObject({ ok: false, errors: { evidence: 'required' } });
+    expect(normalizeItemFields('drp', { ...noEvidence, supporting: 'e:entry-1|c:calc-1' })).toEqual({ ok: true, fields: { ...noEvidence, supporting: 'e:entry-1|c:calc-1' } });
+    expect(normalizeItemFields('drp', { ...drp, supporting: 'e:entry-1|e:entry-1' })).toMatchObject({ ok: false, errors: { supporting: 'invalidChoice' } });
+    expect(normalizeItemFields('drp', { ...drp, supporting: 'x:entry-1' })).toMatchObject({ ok: false, errors: { supporting: 'invalidChoice' } });
+    // Adjusting the form's boxes needs its reason.
+    expect(normalizeItemFields('drp', { ...drp, boxes: 'dose_high|other' })).toMatchObject({ ok: false, errors: { boxesReason: 'required' } });
+    expect(normalizeItemFields('drp', { ...drp, boxes: 'dose_high|other', boxesReason: 'Department asks for "other" too' }).ok).toBe(true);
+    // Claims: each with a source; stored in one canonical form.
+    const claims = JSON.stringify([{ source: 'entry', ref: 'entry-1', text: ' SCr 2.1 mg/dL on Day 3 ' }, { text: 'Renally cleared', source: 'none', ref: 'ignored' }]);
+    expect(normalizeItemFields('drp', { ...drp, claims })).toEqual({
+      ok: true,
+      fields: { ...drp, claims: JSON.stringify([{ text: 'SCr 2.1 mg/dL on Day 3', source: 'entry', ref: 'entry-1' }, { text: 'Renally cleared', source: 'none' }]) },
+    });
+    expect(normalizeItemFields('drp', { ...drp, claims: JSON.stringify([{ text: 'x', source: 'reading' }]) })).toMatchObject({ ok: false, errors: { claims: 'invalidChoice' } });
+    expect(normalizeItemFields('drp', { ...drp, claims: JSON.stringify([{ text: 'x', source: 'guess' }]) })).toMatchObject({ ok: false, errors: { claims: 'invalidChoice' } });
+    expect(normalizeItemFields('drp', { ...drp, claims: 'not json' })).toMatchObject({ ok: false, errors: { claims: 'invalidChoice' } });
+    expect(normalizeItemFields('drp', { ...drp, claims: '[]' })).toEqual({ ok: true, fields: drp });
     // "Implemented" requires who and when; a measured outcome requires the measurement and its day.
     expect(normalizeItemFields('drp', { ...drp, implemented: 'yes' })).toMatchObject({ ok: false, errors: { implementedBy: 'required', implementedDay: 'required' } });
     expect(normalizeItemFields('drp', { ...drp, goalMet: 'yes' })).toMatchObject({ ok: false, errors: { outcome: 'required', outcomeDay: 'required' } });

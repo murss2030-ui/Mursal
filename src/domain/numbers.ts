@@ -54,3 +54,28 @@ export function formatNumber(v: number): string {
   const s = Number(v.toFixed(6)).toString();
   return s.startsWith('.') ? `0${s}` : s.startsWith('-.') ? `-0${s.slice(1)}` : s;
 }
+
+/**
+ * Standalone numbers in a text, normalised ("2.10" → "2.1"). A number joined
+ * to letters is part of a name, not a value: CYP3A4, q12h, x10^9.
+ */
+const STANDALONE = /(?<![\p{L}\p{N}.\-/])\d+(?:\.\d+)?(?![\p{L}\p{N}]|\.\d)/gu;
+export function numbersInText(s: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of normaliseDigits(s).matchAll(STANDALONE)) out.add(String(Number(m[0])));
+  return out;
+}
+
+/** A number followed by a dose unit ("30 mg", "1 g", "5 units/kg"): the unit, for Section 12's rule on doses. */
+export const DOSE_UNIT_AFTER = /^\s*(?:mg\/kg\/day|mg\/kg|mcg\/kg|units\/kg|mg\/h|ml\/h|mg\/day|mg|g|mcg|µg|ug|units?|iu|ml|mmol|meq|tablets?|tabs?|capsules?|puffs?|drops?)(?![\w/])/i;
+
+/** The numbers of a text that are doses: each followed by a dose unit. */
+export function doseNumbersInText(s: string): { number: string; text: string }[] {
+  const t = normaliseDigits(s);
+  const out: { number: string; text: string }[] = [];
+  for (const m of t.matchAll(STANDALONE)) {
+    const unit = DOSE_UNIT_AFTER.exec(t.slice(m.index! + m[0].length));
+    if (unit) out.push({ number: String(Number(m[0])), text: `${m[0]}${unit[0]}`.trim() });
+  }
+  return out;
+}

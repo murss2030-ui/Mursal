@@ -49,6 +49,7 @@ export const APPEND_ONLY_TABLES = [
   'alertFirings',
   'alertAcks',
   'causality',
+  'cardReviews',
 ] as const;
 /**
  * Source-document content. Rows can be added and, only to purge a document
@@ -136,6 +137,7 @@ export class PreceptorDB extends Dexie {
   alertFirings!: Table<EncryptedRow, string>;
   alertAcks!: Table<EncryptedRow, string>;
   causality!: Table<EncryptedRow, string>;
+  cardReviews!: Table<EncryptedRow, string>;
 
   constructor(name = 'preceptor') {
     super(name);
@@ -186,6 +188,10 @@ export class PreceptorDB extends Dexie {
     // M2, owner decision of 19 October 2026: the ONC high-priority interaction list, entered by the administrator.
     this.version(6).stores({
       oncPairs: 'id, entityId',
+    });
+    // M4: the decisions on each Problem Card (accept, edit, reject, request evidence, senior review), append-only.
+    this.version(7).stores({
+      cardReviews: 'id, caseId',
     });
     this.use(appendOnlyMiddleware);
   }

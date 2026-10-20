@@ -68,6 +68,13 @@ export const FIELD_LIMITS: Partial<Record<RegisterId, Readonly<Record<string, Fi
   home_med: { lastDose: 'never', adherence: 'never', resolution: 'never', action: 'never', dischargeDecision: 'never', dischargeNote: 'never' },
   drp: {
     recStatus: ['draft'],
+    // M4: the department category before PCNE (kept only to read old rows), and the trainee's adjustment of the form boxes.
+    category: 'never',
+    boxes: 'never',
+    boxesReason: 'never',
+    // M4: links and claims are drafted with their own checks (M4f); until then the model does not propose them.
+    supporting: 'never',
+    claims: 'never',
     references: 'never',
     response: 'never',
     communicatedTo: 'never',

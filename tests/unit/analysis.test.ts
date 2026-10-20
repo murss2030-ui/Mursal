@@ -265,7 +265,11 @@ describe('what only the trainee can record (Section 24) — never drafted by the
               register: 'drp',
               fields: [
                 { field: 'problem', value: 'Vancomycin with rising creatinine' },
+                // The department category before M4: no longer drafted, the PCNE codes are.
                 { field: 'category', value: 'monitoring' },
+                { field: 'pcneProblem', value: 'P2.1' },
+                { field: 'pcneType', value: 'potential' },
+                { field: 'pcneCauses', value: 'C9.1' },
                 { field: 'evidence', value: 'Creatinine 2.1 mg/dL on Day 1.' },
                 { field: 'priority', value: 'important' },
                 { field: 'recStatus', value: 'final' },
@@ -283,7 +287,9 @@ describe('what only the trainee can record (Section 24) — never drafted by the
               register: 'drp',
               fields: [
                 { field: 'problem', value: 'Vancomycin needs a monitoring plan' },
-                { field: 'category', value: 'monitoring' },
+                { field: 'pcneProblem', value: 'P2.1' },
+                { field: 'pcneType', value: 'potential' },
+                { field: 'pcneCauses', value: 'C9.1' },
                 { field: 'evidence', value: 'Creatinine 2.1 mg/dL on Day 1.' },
                 { field: 'priority', value: 'important' },
                 { field: 'recStatus', value: 'draft' },
@@ -303,7 +309,7 @@ describe('what only the trainee can record (Section 24) — never drafted by the
     const { suggestions, dropped } = verifyAnalysis(raw, p);
     expect(dropped).toBe(3); // both checks of t13, and the whole of t25
     const [first, second] = suggestions.filter((x) => x.kind === 'item');
-    expect(Object.keys(first!.fields ?? {}).sort()).toEqual(['category', 'evidence', 'priority', 'problem']);
+    expect(Object.keys(first!.fields ?? {}).sort()).toEqual(['evidence', 'pcneCauses', 'pcneProblem', 'pcneType', 'priority', 'problem']);
     expect(first!.checks).toContain('trainee_only_removed');
     expect(first!.checks).not.toContain('incomplete');
     expect(second!.fields?.recStatus).toBe('draft');

@@ -144,7 +144,7 @@ describe('task worksheets', () => {
 });
 
 describe('register rows', () => {
-  const drp = { problem: 'Enoxaparin dose too high for renal function', category: 'dose_high', evidence: 'SCr 2.4 mg/dL on Day 2', priority: 'critical' };
+  const drp = { problem: 'Enoxaparin dose too high for renal function', evidence: 'SCr 2.4 mg/dL on Day 2', pcneProblem: 'P2.1', pcneType: 'potential', pcneCauses: 'C3.2', priority: 'critical' };
 
   it('creates, versions and retracts rows without ever overwriting, encrypted at rest', async () => {
     const { store, db, c } = await withCase();
@@ -202,7 +202,7 @@ describe('backup of the patient file and the clinical modules', () => {
     const item = await store.addItem(c.id, 'drp', drpFields());
     const { json } = await createBackup(session);
     expect(json).not.toContain('Zanthoxylum');
-    expect(JSON.parse(json).formatVersion).toBe(4);
+    expect(JSON.parse(json).formatVersion).toBe(5);
 
     const target = new Session(new PreceptorDB(`test-${crypto.randomUUID()}`), {}, FAST_ITERATIONS);
     await target.acknowledgeIntendedUse();
@@ -228,5 +228,5 @@ describe('backup of the patient file and the clinical modules', () => {
 });
 
 function drpFields() {
-  return { problem: 'No VTE prophylaxis despite immobility', category: 'additional_therapy', evidence: 'Bed-bound since Day 0', priority: 'important' };
+  return { problem: 'No VTE prophylaxis despite immobility', evidence: 'Bed-bound since Day 0', pcneProblem: 'P1.3', pcneType: 'potential', pcneCauses: 'C1.5', priority: 'important' };
 }

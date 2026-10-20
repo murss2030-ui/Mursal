@@ -7,6 +7,7 @@
  * reference (E1, M1, P1, R1) so the model can say what each statement rests
  * on, and the code can check that it exists.
  */
+import { parseClaims, parseLinks } from '../../domain/card-data';
 import { hospitalDayOf } from '../../domain/dates';
 import { REGISTERS } from '../../domain/workflow/registers';
 import { TASKS, type ModuleDef, type ScopedSection, type TaskDef } from '../../domain/workflow/catalogue';
@@ -122,6 +123,15 @@ export function buildCasePayload(input: {
       return { ref, day: e.hospitalDay, ...(e.timeOfDay ? { time: e.timeOfDay } : {}), type: e.type, text };
     });
 
+  /** Links and claims of a Problem Card, with the references of this payload in place of internal ids (calculation results are not sent yet). */
+  const cardValue = (kind: 'links' | 'claims', v: string): string => {
+    if (kind === 'links') return parseLinks(v).flatMap((l) => (l.kind === 'entry' && entryRef.has(l.id) ? [entryRef.get(l.id)!] : [])).join(', ');
+    const SOURCE = { entry: 'case data', calc: 'a calculation', dataset: 'the offline interaction check', reading: 'a source the trainee read', none: 'general knowledge' } as const;
+    return parseClaims(v)
+      .map((c) => `${c.text} [${c.source === 'entry' && c.ref && entryRef.has(c.ref) ? entryRef.get(c.ref) : SOURCE[c.source]}]`)
+      .join(' | ');
+  };
+
   const rows = input.items
     .filter((r) => r.status === 'active')
     .map((r, i) => {
@@ -132,7 +142,16 @@ export function buildCasePayload(input: {
         const v = r.fields[f.id];
         if (v === undefined || f.kind === 'confirm') continue;
         // References inside rows are given as the references of this payload, never as internal ids.
-        fields[f.id] = f.kind === 'medRef' ? medRef.get(v) ?? '' : f.kind === 'problemRef' ? probRef.get(v) ?? '' : f.kind === 'entryRef' ? entryRef.get(v) ?? '' : v;
+        fields[f.id] =
+          f.kind === 'medRef'
+            ? medRef.get(v) ?? ''
+            : f.kind === 'problemRef'
+              ? probRef.get(v) ?? ''
+              : f.kind === 'entryRef'
+                ? entryRef.get(v) ?? ''
+                : f.kind === 'links' || f.kind === 'claims'
+                  ? cardValue(f.kind, v)
+                  : v;
       }
       refs.set(ref, { kind: 'item', id: r.id, label: `${def.title.en}: ${r.fields[def.titleField] ?? ''}`, text: Object.values(fields).join(' ') });
       return { ref, register: r.register, fields };

@@ -11,9 +11,11 @@
  * Nothing here is computed or suggested by the application. Every value is
  * the trainee's own entry (provenance: user_entered).
  */
+import { normalizeClaims, normalizeLinks } from '../card-data';
 import { isValidHospitalDay, isValidTimeOfDay } from '../dates';
 import { DRP_CHECKBOXES } from '../form/spec';
 import { L } from '../label';
+import { PCNE_CAUSES, PCNE_DOMAIN, PCNE_PROBLEMS } from '../pcne';
 import type { RegisterId } from '../types';
 
 export type FieldKind =
@@ -30,11 +32,17 @@ export type FieldKind =
   /** The id of one of the case's problems. */
   | 'problemRef'
   /** The id of a timeline entry (e.g. a drug-level result). */
-  | 'entryRef';
+  | 'entryRef'
+  /** M4: timeline entries and calculation results, stored as `e:<entry id>|c:<result id>`. */
+  | 'links'
+  /** M4: the Problem Card's claims, each with its source (see problem-card.ts), stored as JSON. */
+  | 'claims';
 
 export interface Choice {
   value: string;
   label: L;
+  /** For long lists shown in groups (the PCNE cause domains). */
+  group?: string;
 }
 
 export interface Condition {
@@ -50,9 +58,19 @@ export interface FieldDef {
   required?: boolean;
   /** Required only when another field has one of the listed values. */
   requiredIf?: Condition;
+  /** Required unless the named field has a value (one of the two must be given). */
+  requiredUnless?: string;
+  /** Required when the named field has a value (e.g. the reason for an adjustment). */
+  requiredWhenSet?: string;
   /** Shown only when another field has one of the listed values. Hidden values are dropped on save. */
   showIf?: Condition;
+  /** Kept only to read rows saved before a change of the register: never shown, dropped on the next save. */
+  legacy?: true;
+  /** Heading under which the field is shown (the Problem Card's numbered fields). */
+  group?: L;
   options?: readonly Choice[];
+  /** Labels of the option groups, in order. */
+  groups?: readonly { id: string; label: L }[];
 }
 
 export interface RegisterDef {
@@ -193,7 +211,7 @@ const HOME_MED: RegisterDef = {
   ],
 };
 
-// ---------------------------------------------------------------- drug-related problems (manual Problem Card)
+// ---------------------------------------------------------------- drug-related problems: the Clinical Problem Card (Section 14)
 
 const DRP_CATEGORY_IDS = [
   'unnecessary',
@@ -213,74 +231,206 @@ export const DRP_CATEGORIES: readonly Choice[] = DRP_CATEGORY_IDS.map((id, i) =>
 
 const MEASURED = ['yes', 'partly', 'no'] as const;
 
+/** The thirteen fields of the Clinical Problem Card (Section 14), in order. */
+export const CARD_SECTIONS: readonly L[] = [
+  L('Clinical problem', 'المشكلة السريرية'),
+  L('Supporting data', 'البيانات الداعمة'),
+  L('Missing information', 'المعلومات الناقصة'),
+  L('Clinical assessment', 'التقييم السريري'),
+  L('Drug-related problem (PCNE V9.1)', 'المشكلة الدوائية (تصنيف PCNE V9.1)'),
+  L('Priority and urgency', 'الأولوية والإلحاح'),
+  L('Evidence and references', 'الأدلة والمراجع'),
+  L('Recommendation', 'التوصية'),
+  L('Monitoring plan', 'خطة المراقبة'),
+  L('Human review', 'المراجعة البشرية'),
+  L('Implementation status', 'حالة التنفيذ'),
+  L('Follow-up outcome', 'نتيجة المتابعة'),
+  L('Teaching explanation', 'الشرح التعليمي'),
+];
+/** "5 · Drug-related problem (PCNE V9.1)": the heading of card field n (1–13). */
+export const cardSection = (n: number): L => L(`${n} · ${CARD_SECTIONS[n - 1]!.en}`, `${n} · ${CARD_SECTIONS[n - 1]!.ar}`);
+
+const RATING: readonly Choice[] = [c('high', 'High', 'مرتفع'), c('medium', 'Medium', 'متوسط'), c('low', 'Low', 'منخفض')];
+
+/** The PCNE problem and cause codes as choices: the code and the official English wording (Arabic: PRECEPTOR's explanation). */
+const pcneChoice = (x: { code: string; domain: string; label: L }): Choice => ({
+  value: x.code,
+  label: L(`${x.code} ${x.label.en}`, `${x.code} ${x.label.ar}`),
+  group: x.domain,
+});
+const CAUSE_GROUPS = [...new Set(PCNE_CAUSES.map((x) => x.domain))].map((id) => {
+  const d = PCNE_DOMAIN.get(id)!;
+  return { id, label: L(`${id} ${d.label.en}`, `${id} ${d.label.ar}`) };
+});
+
+/** Fields that record what happened after the decision (communication, implementation, outcome); every other field is the card's clinical content. */
+export const DRP_RECORD_FIELDS: ReadonlySet<string> = new Set([
+  'response',
+  'communicatedTo',
+  'communicatedDay',
+  'declineReason',
+  'implemented',
+  'implementedBy',
+  'implementedDay',
+  'goalMet',
+  'outcome',
+  'outcomeDay',
+  'preceptorReviewed',
+]);
+
 const DRP: RegisterDef = {
   id: 'drp',
-  title: L('Drug-related problems and interventions', 'المشكلات المتعلقة بالعلاج الدوائي والتدخلات'),
+  title: L('Drug-related problems (Problem Cards)', 'المشكلات المتعلقة بالعلاج الدوائي (بطاقات المشكلات)'),
   noun: L('drug-related problem', 'مشكلة دوائية'),
   titleField: 'problem',
   subtitleFields: ['drugs', 'recommendation'],
-  chipFields: ['priority', 'category', 'response'],
+  chipFields: ['priority', 'response'],
   fields: [
-    { id: 'problem', kind: 'text', required: true, label: L('Clinical problem, in one sentence', 'المشكلة السريرية في جملة واحدة') },
-    { id: 'drugs', kind: 'text', label: L('Medication(s) involved', 'الدواء أو الأدوية المعنية') },
-    { id: 'linkedProblemId', kind: 'problemRef', label: L('Related diagnosis', 'التشخيص المرتبط') },
+    { id: 'problem', kind: 'text', required: true, group: cardSection(1), label: L('Clinical problem, in one sentence', 'المشكلة السريرية في جملة واحدة') },
+    { id: 'drugs', kind: 'text', group: cardSection(1), label: L('Medication(s) involved', 'الدواء أو الأدوية المعنية') },
+    { id: 'linkedProblemId', kind: 'problemRef', group: cardSection(1), label: L('Related diagnosis', 'التشخيص المرتبط') },
     {
-      id: 'category',
-      kind: 'choice',
-      required: true,
-      label: L('Category (department form, Section 8)', 'الفئة (القسم 8 من النموذج)'),
+      id: 'supporting',
+      kind: 'links',
+      group: cardSection(2),
+      label: L('Values from the timeline and calculation results', 'قيم من الخط الزمني ونتائج الحسابات'),
       hint: L(
-        'The PCNE V9.1 problem and cause codes are added in M4.',
-        'تُضاف رموز المشكلة والسبب وفق تصنيف PCNE V9.1 في المرحلة M4.',
+        'Pick each value this problem rests on: it is shown with its day, and the card is marked for re-analysis when a newer one of the same kind is recorded.',
+        'اختر كل قيمة تستند إليها المشكلة: تُعرض مع يومها، وتُعلَّم البطاقة لإعادة التحليل عند تسجيل قيمة أحدث من النوع نفسه.',
       ),
-      options: DRP_CATEGORIES,
     },
     {
       id: 'evidence',
       kind: 'longtext',
-      required: true,
-      label: L('Supporting data from this patient', 'البيانات الداعمة من حالة هذا المريض'),
-      hint: L('Each value with its hospital day, e.g. "SCr 2.1 mg/dL on Day 3".', 'كل قيمة مع يومها، مثل "SCr 2.1 mg/dL في اليوم 3".'),
+      requiredUnless: 'supporting',
+      group: cardSection(2),
+      label: L('Other supporting data, in words', 'بيانات داعمة أخرى، بالكلمات'),
+      hint: L(
+        'Each value with its hospital day, e.g. "SCr 2.1 mg/dL on Day 3". Required unless you pick values above.',
+        'كل قيمة مع يومها، مثل "SCr 2.1 mg/dL في اليوم 3". مطلوب ما لم تختر قيماً أعلاه.',
+      ),
     },
     {
       id: 'missing',
       kind: 'longtext',
+      group: cardSection(3),
       label: L('Information still missing', 'المعلومات التي ما زالت ناقصة'),
-      hint: L('Name it — never leave it blank to look complete.', 'سمّها بوضوح — لا تتركها فارغة لتبدو الحالة مكتملة.'),
+      hint: L(
+        'Name it, or write "Nothing missing" — never leave it blank to look complete.',
+        'سمّها بوضوح، أو اكتب "لا شيء ناقص" — لا تتركها فارغة لتبدو الحالة مكتملة.',
+      ),
     },
-    { id: 'assessment', kind: 'longtext', label: L('Assessment and alternative explanations', 'التقييم والتفسيرات البديلة') },
+    {
+      id: 'assessment',
+      kind: 'longtext',
+      group: cardSection(4),
+      label: L('Assessment and the alternative explanations you considered', 'التقييم والتفسيرات البديلة التي فكّرت فيها'),
+    },
+    {
+      id: 'pcneProblem',
+      kind: 'choice',
+      required: true,
+      group: cardSection(5),
+      label: L('PCNE problem', 'المشكلة وفق PCNE'),
+      hint: L(
+        'PCNE V9.1 separates the problem from its cause. The official English wording is kept; the Arabic is an explanation.',
+        'يفصل تصنيف PCNE V9.1 المشكلة عن سببها. تبقى الصياغة الإنجليزية الرسمية كما هي، والعربية شرح لها.',
+      ),
+      options: PCNE_PROBLEMS.map(pcneChoice),
+    },
+    {
+      id: 'pcneType',
+      kind: 'choice',
+      required: true,
+      group: cardSection(5),
+      label: L('Potential or manifest', 'محتملة أم قائمة'),
+      options: [c('potential', 'Potential problem', 'مشكلة محتملة'), c('manifest', 'Manifest problem', 'مشكلة قائمة')],
+    },
+    {
+      id: 'pcneCauses',
+      kind: 'multi',
+      required: true,
+      group: cardSection(5),
+      label: L('PCNE causes', 'الأسباب وفق PCNE'),
+      hint: L('Every cause that applies. If there is none, choose C9.3 No obvious cause.', 'كل سبب ينطبق. إن لم يوجد سبب فاختر C9.3 No obvious cause.'),
+      options: PCNE_CAUSES.map(pcneChoice),
+      groups: CAUSE_GROUPS,
+    },
+    {
+      id: 'boxes',
+      kind: 'multi',
+      group: cardSection(5),
+      label: L('Department form boxes — your adjustment', 'مربعات نموذج القسم — تعديلك'),
+      hint: L(
+        'The boxes are ticked from the PCNE codes. Change them only if the department’s form needs it, and say why.',
+        'تُعلَّم المربعات من رموز PCNE. لا تغيّرها إلا إذا تطلّب نموذج القسم ذلك، واذكر السبب.',
+      ),
+      options: DRP_CATEGORIES,
+    },
+    {
+      id: 'boxesReason',
+      kind: 'text',
+      requiredWhenSet: 'boxes',
+      group: cardSection(5),
+      label: L('Why you changed the boxes', 'سبب تغيير المربعات'),
+    },
+    // Before M4 the trainee chose the form box directly. Kept to read those rows; the next save replaces it with the PCNE codes.
+    { id: 'category', kind: 'choice', legacy: true, label: L('Category (department form, Section 8)', 'الفئة (القسم 8 من النموذج)'), options: DRP_CATEGORIES },
     {
       id: 'priority',
       kind: 'choice',
       required: true,
+      group: cardSection(6),
       label: L('Priority', 'الأولوية'),
       options: [c('critical', 'Critical', 'حرجة'), c('important', 'Important', 'مهمة'), c('informational', 'Informational', 'للعلم')],
     },
-    { id: 'priorityReason', kind: 'text', label: L('Why this priority', 'سبب هذه الأولوية') },
+    { id: 'priorityReason', kind: 'text', group: cardSection(6), label: L('Why this priority', 'سبب هذه الأولوية') },
+    { id: 'urgency', kind: 'choice', group: cardSection(6), label: L('Urgency: how soon it must be acted on', 'الإلحاح: مدى سرعة التصرف المطلوب'), options: RATING },
+    { id: 'significance', kind: 'choice', group: cardSection(6), label: L('Clinical significance', 'الأهمية السريرية'), options: RATING },
+    { id: 'impact', kind: 'choice', group: cardSection(6), label: L('Potential impact on the patient', 'الأثر المحتمل على المريض'), options: RATING },
+    {
+      id: 'claims',
+      kind: 'claims',
+      group: cardSection(7),
+      label: L('Claims, each with its source', 'الادعاءات، كلٌّ مع مصدره'),
+      hint: L(
+        'One statement per claim. Its source: a value on the timeline, a calculation, PRECEPTOR’s offline interaction check, a source you read yourself, or none (general knowledge — unverified).',
+        'عبارة واحدة لكل ادعاء. مصدره: قيمة في الخط الزمني، أو حساب، أو فحص التداخلات المحلي في PRECEPTOR، أو مصدر قرأته بنفسك، أو لا مصدر (معرفة عامة — غير متحقق منها).',
+      ),
+    },
+    { id: 'references', kind: 'text', group: cardSection(7), label: L('References you read yourself', 'مراجع قرأتها بنفسك') },
     {
       id: 'recommendation',
       kind: 'longtext',
+      group: cardSection(8),
       label: L('Recommendation and rationale', 'التوصية ومبرراتها'),
       hint: L(
-        'If it includes a dose, state where the dose comes from (a calculation or a reference you read).',
-        'إن تضمنت جرعة فاذكر مصدرها (حساب أو مرجع قرأته).',
+        'A dose, route or duration only with its source: a calculation you cite, or a source you read (add it as a claim).',
+        'لا جرعة أو طريقة إعطاء أو مدة إلا مع مصدرها: حساب تستشهد به أو مصدر قرأته (أضفه كادعاء).',
       ),
     },
-    { id: 'monitoring', kind: 'longtext', label: L('Monitoring: parameter, target, when', 'المراقبة: المؤشر والهدف والتوقيت') },
-    { id: 'references', kind: 'text', label: L('References you read yourself', 'مراجع قرأتها بنفسك') },
     {
       id: 'recStatus',
       kind: 'choice',
+      group: cardSection(8),
       label: L('Recommendation status', 'حالة التوصية'),
       hint: L(
-        'Only final recommendations appear in Section 9 of the department form.',
-        'التوصيات النهائية فقط تظهر في القسم 9 من النموذج.',
+        'Only final recommendations of current, undisputed cards appear in Section 9 of the department form.',
+        'لا تظهر في القسم 9 من النموذج إلا التوصيات النهائية للبطاقات الحالية غير المعترض عليها.',
       ),
       options: [c('draft', 'Draft — still working on it', 'مسودة — ما زلت أعمل عليها'), c('final', 'Final — ready to discuss', 'نهائية — جاهزة للنقاش')],
     },
     {
+      id: 'monitoring',
+      kind: 'longtext',
+      group: cardSection(9),
+      label: L('Monitoring: what, target, how often, and what would trigger re-assessment', 'المراقبة: ماذا، والهدف، وكم مرة، وما الذي يستدعي إعادة التقييم'),
+    },
+    { id: 'preceptorReviewed', kind: 'choice', group: cardSection(10), label: L('Discussed with my preceptor', 'نوقشت مع المشرف'), options: YES_NO },
+    {
       id: 'response',
       kind: 'choice',
+      group: cardSection(11),
       label: L('Team response', 'رد الفريق الطبي'),
       hint: L(
         'PRECEPTOR never sends anything to the team. Communicate in person or in the chart, then record it here.',
@@ -297,6 +447,7 @@ const DRP: RegisterDef = {
     {
       id: 'communicatedTo',
       kind: 'choice',
+      group: cardSection(11),
       label: L('Communicated to', 'أُبلغت إلى'),
       showIf: { field: 'response', in: ['awaiting', 'accepted', 'modified', 'declined'] },
       options: [
@@ -311,12 +462,14 @@ const DRP: RegisterDef = {
     {
       id: 'communicatedDay',
       kind: 'day',
+      group: cardSection(11),
       label: L('Communicated on (hospital day)', 'تاريخ الإبلاغ (اليوم)'),
       showIf: { field: 'response', in: ['awaiting', 'accepted', 'modified', 'declined'] },
     },
     {
       id: 'declineReason',
       kind: 'text',
+      group: cardSection(11),
       label: L('Reason given for declining', 'سبب الرفض'),
       showIf: { field: 'response', in: ['declined'] },
       requiredIf: { field: 'response', in: ['declined'] },
@@ -324,6 +477,7 @@ const DRP: RegisterDef = {
     {
       id: 'implemented',
       kind: 'choice',
+      group: cardSection(11),
       label: L('Implementation', 'التنفيذ'),
       hint: L('Implemented means it was actually carried out — record who and when.', 'التنفيذ يعني أنه طُبّق فعلاً — سجّل من نفّذه ومتى.'),
       options: [c('no', 'Not implemented', 'لم يُنفّذ'), c('yes', 'Implemented', 'نُفّذ')],
@@ -331,6 +485,7 @@ const DRP: RegisterDef = {
     {
       id: 'implementedBy',
       kind: 'text',
+      group: cardSection(11),
       label: L('Implemented by (role)', 'نفّذه (الصفة)'),
       showIf: { field: 'implemented', in: ['yes'] },
       requiredIf: { field: 'implemented', in: ['yes'] },
@@ -338,6 +493,7 @@ const DRP: RegisterDef = {
     {
       id: 'implementedDay',
       kind: 'day',
+      group: cardSection(11),
       label: L('Implemented on (hospital day)', 'تاريخ التنفيذ (اليوم)'),
       showIf: { field: 'implemented', in: ['yes'] },
       requiredIf: { field: 'implemented', in: ['yes'] },
@@ -345,6 +501,7 @@ const DRP: RegisterDef = {
     {
       id: 'goalMet',
       kind: 'choice',
+      group: cardSection(12),
       label: L('Follow-up outcome', 'نتيجة المتابعة'),
       options: [
         c('not_measured', 'Not measured yet', 'لم تُقَس بعد'),
@@ -356,6 +513,7 @@ const DRP: RegisterDef = {
     {
       id: 'outcome',
       kind: 'longtext',
+      group: cardSection(12),
       label: L('What was measured', 'ما الذي تم قياسه'),
       showIf: { field: 'goalMet', in: MEASURED },
       requiredIf: { field: 'goalMet', in: MEASURED },
@@ -363,6 +521,7 @@ const DRP: RegisterDef = {
     {
       id: 'outcomeDay',
       kind: 'day',
+      group: cardSection(12),
       label: L('Measured on (hospital day)', 'تاريخ القياس (اليوم)'),
       showIf: { field: 'goalMet', in: MEASURED },
       requiredIf: { field: 'goalMet', in: MEASURED },
@@ -370,9 +529,9 @@ const DRP: RegisterDef = {
     {
       id: 'teaching',
       kind: 'longtext',
+      group: cardSection(13),
       label: L('Teaching point: what question does this problem teach you to ask?', 'النقطة التعليمية: ما السؤال الذي تعلّمك هذه المشكلة أن تطرحه؟'),
     },
-    { id: 'preceptorReviewed', kind: 'choice', label: L('Discussed with my preceptor', 'نوقشت مع المشرف'), options: YES_NO },
   ],
 };
 
@@ -985,7 +1144,15 @@ function matches(cond: Condition | undefined, values: Record<string, string>): b
 
 /** Whether a field is currently shown, given the other values. */
 export function isFieldVisible(def: FieldDef, values: Record<string, string>): boolean {
-  return matches(def.showIf, values);
+  return !def.legacy && matches(def.showIf, values);
+}
+
+/** Whether a field must have a value, given the other values. */
+export function isFieldRequired(def: FieldDef, values: Record<string, string>): boolean {
+  if (def.required) return true;
+  if (def.requiredIf && matches(def.requiredIf, values)) return true;
+  if (def.requiredUnless && !values[def.requiredUnless]) return true;
+  return !!def.requiredWhenSet && !!values[def.requiredWhenSet];
 }
 
 /**
@@ -1011,9 +1178,9 @@ export function normalizeItemFields(
   }
   const out: Record<string, string> = {};
   for (const f of def.fields) {
-    const v = raw[f.id];
+    let v = raw[f.id];
     const visible = isFieldVisible(f, raw);
-    const required = f.required || (f.requiredIf ? matches(f.requiredIf, raw) : false);
+    const required = isFieldRequired(f, raw);
     if (!visible) continue; // hidden values are dropped
     if (v === undefined) {
       if (required) errors[f.id] = f.kind === 'confirm' ? 'confirm' : 'required';
@@ -1052,8 +1219,16 @@ export function normalizeItemFields(
       case 'entryRef':
         if (v.length > 100) errors[f.id] = 'tooLong';
         break;
+      case 'links':
+      case 'claims': {
+        const n = f.kind === 'links' ? normalizeLinks(v) : normalizeClaims(v);
+        if (!n.ok) errors[f.id] = n.error;
+        else v = n.value;
+        break;
+      }
     }
-    out[f.id] = v;
+    if (v) out[f.id] = v;
+    else if (required) errors[f.id] = 'required';
   }
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, fields: out };
 }
