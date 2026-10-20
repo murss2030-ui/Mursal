@@ -12,10 +12,11 @@ import { AuditList } from './AuditPage';
 import { DetailsTab } from './DetailsTab';
 import { FormTab } from './FormTab';
 import { ModulesHub } from './ModulesHub';
+import { ProblemsTab } from './ProblemsTab';
 import { SourcesTab } from './SourcesTab';
 import { TimelineTab } from './TimelineTab';
 
-const TABS = ['modules', 'timeline', 'sources', 'form', 'details', 'audit'] as const;
+const TABS = ['modules', 'problems', 'timeline', 'sources', 'form', 'details', 'audit'] as const;
 type Tab = (typeof TABS)[number];
 
 export function CaseHero({ c }: { c: Case }) {
@@ -116,6 +117,7 @@ export function CaseView({ caseId, tab }: { caseId: string; tab: string }) {
       </nav>
 
       {active === 'modules' && <ModulesHub caseId={c.id} />}
+      {active === 'problems' && <ProblemsTab c={c} />}
       {active === 'timeline' && <TimelineTab c={c} />}
       {active === 'sources' && <SourcesTab c={c} />}
       {active === 'form' && <FormTab c={c} />}

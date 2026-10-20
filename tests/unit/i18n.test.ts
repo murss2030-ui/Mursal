@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ALLERGY_KINDS, CULTURE_STATUSES, EVENT_CATEGORIES, HABIT_STATUSES, NOTE_CATEGORIES, PROBLEM_STATUSES, SEVERITIES, WEIGHT_METHODS, type FieldError } from '../../src/domain/entries';
 import type { FormNote, MissingCode } from '../../src/domain/form/derive';
-import { COMPETENCY_AREAS, DEPARTMENTS, ENTRY_TYPES } from '../../src/domain/types';
+import { CARD_DECISIONS, COMPETENCY_AREAS, DECISIONS_NEEDING_REASON, DEPARTMENTS, ENTRY_TYPES } from '../../src/domain/types';
+import { CLAIM_SOURCES } from '../../src/domain/card-data';
+import { CARD_STAGES, type FormExclusion } from '../../src/domain/problem-card';
 import { ar } from '../../src/i18n/ar';
 import { en, type MsgKey } from '../../src/i18n/en';
 import { TERMS } from '../../src/i18n/terms';
@@ -52,6 +54,18 @@ describe('bilingual completeness', () => {
       ...['timeline', 'form', 'details', 'audit'].map((x) => `caseView.tab.${x}`),
       ...['user', 'system', 'model'].map((x) => `audit.actor.${x}`),
       ...['M', 'F'].map((x) => `sex.${x}`),
+      // M4: the Problem Card.
+      ...CARD_STAGES.map((x) => `card.stage.${x}`),
+      ...['calc_or_dataset', 'case_data', 'no_source'].map((x) => `card.evidence.${x}`),
+      ...CARD_DECISIONS.map((x) => `cardReview.decision.${x}`),
+      ...[...DECISIONS_NEEDING_REASON].map((x) => `cardReview.reason.${x}`),
+      ...CLAIM_SOURCES.flatMap((x) => [`claims.kind.${x}`, `claims.from.${x}`]),
+      ...['numbers_found', 'numbers_not_found', 'source_changed', 'source_missing'].map((x) => `claims.check.${x}`),
+      ...['reading', 'none', 'dataset'].map((x) => `claims.check.not_checked.${x}`),
+      ...(['stale', 'rejected', 'needs_evidence', 'needs_senior_review', 'undecided', 'no_recommendation', 'not_final', 'untraced_dose'] satisfies FormExclusion[]).map((x) => `form.excluded.${x}`),
+      ...(['pcne_map_draft', 'boxes_adjusted'] satisfies FormNote[]).map((x) => `form.note.${x}`),
+      ...(['drp_excluded', 'no_final_recommendation'] satisfies MissingCode[]).map((x) => `form.missing.${x}`),
+      'caseView.tab.problems',
     ];
     const absent = keys.filter((k) => !(k in en));
     expect(absent).toEqual([]);

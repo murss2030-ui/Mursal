@@ -4,9 +4,9 @@ import { useI18n } from '../../i18n/i18n';
 import { useL } from '../bilingual';
 import type { CaseBundle } from '../case-bundle';
 import { Icon } from '../components/Icon';
-import { ProvenanceBadge } from '../components/ProvenanceBadge';
 import { DayLabel, LinkButton } from '../components/ui';
 import { CausalityChips } from '../rules/Causality';
+import { CardSummary } from './ProblemsTab';
 
 const CHIP_TONE: Record<string, string> = {
   critical: 'bg-rose-100 text-rose-900 border-rose-300',
@@ -41,32 +41,13 @@ function MonitoringDue({ i, today }: { i: RegisterItem; today: number | null }) 
   );
 }
 
-/** Proposed, implemented and measured never render alike (Section 7). */
-function DrpState({ i }: { i: RegisterItem }) {
-  const { t } = useI18n();
-  const f = i.fields;
-  return (
-    <span className="flex flex-wrap items-center gap-1.5">
-      {f.implemented === 'yes' ? (
-        <ProvenanceBadge state="implemented" detail={f.implementedBy} />
-      ) : (
-        <span className="inline-flex items-center gap-1 rounded-md border border-dashed border-slate-400 px-1.5 py-0.5 text-xs font-medium text-slate-700" data-drp-state="proposed">
-          {f.recStatus === 'final' ? t('drp.proposedFinal') : t('drp.proposedDraft')}
-        </span>
-      )}
-      {f.goalMet && f.goalMet !== 'not_measured' ? (
-        <ProvenanceBadge state="outcome_documented" />
-      ) : f.implemented === 'yes' ? (
-        <span className="text-xs text-slate-600">{t('drp.notMeasured')}</span>
-      ) : null}
-    </span>
-  );
-}
-
 export function ItemCard({ i, b, taskId }: { i: RegisterItem; b: CaseBundle; taskId?: string }) {
   const tl = useL();
   const { t } = useI18n();
   const def = REGISTERS[i.register];
+  // A drug-related problem is a Problem Card: one view of it everywhere (Section 14).
+  const card = i.register === 'drp' ? b.cards.find((c) => c.item.id === i.id) : undefined;
+  if (card) return <CardSummary b={b} card={card} taskId={taskId} />;
   const href = `#/cases/${b.case.id}/item/${i.id}${taskId ? `?task=${taskId}` : ''}`;
   const subtitle = def.subtitleFields
     .filter((k) => !(i.register === 'interaction' && k === 'drugB'))
@@ -111,7 +92,6 @@ export function ItemCard({ i, b, taskId }: { i: RegisterItem; b: CaseBundle; tas
           </span>
         )}
       </div>
-      {i.register === 'drp' && <DrpState i={i} />}
     </a>
   );
 }
@@ -120,7 +100,8 @@ export function RegisterList({ b, register, taskId, readOnly }: { b: CaseBundle;
   const { t } = useI18n();
   const tl = useL();
   const def = REGISTERS[register];
-  const active = b.itemsOf(register);
+  // Problem Cards in their rank (owner decision D5), the other lists in the order recorded.
+  const active = register === 'drp' ? b.cards.map((c) => c.item) : b.itemsOf(register);
   const retracted = b.allItems.filter((i) => i.register === register && i.status === 'retracted');
   return (
     <section className="surface flex flex-col gap-3 p-4" data-testid={`register-${register}`}>
@@ -149,7 +130,7 @@ export function RegisterList({ b, register, taskId, readOnly }: { b: CaseBundle;
           <ul className="flex flex-col gap-1">
             {retracted.map((i) => (
               <li key={i.id}>
-                <a href={`#/cases/${b.case.id}/item/${i.id}${taskId ? `?task=${taskId}` : ''}`} className="text-slate-600 line-through" dir="auto">
+                <a href={`#/cases/${b.case.id}/${register === 'drp' ? 'card' : 'item'}/${i.id}${taskId ? `?task=${taskId}` : ''}`} className="text-slate-600 line-through" dir="auto">
                   {itemTitle(i)}
                 </a>
                 {i.changeReason && <span className="ms-2 text-xs text-slate-600">— {i.changeReason}</span>}

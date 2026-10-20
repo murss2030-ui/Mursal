@@ -7,7 +7,8 @@ import type { EntryOf, ExtractedField, RegisterId, RegisterItem, Suggestion } fr
 import { REGISTER_IDS } from '../../domain/types';
 import { ValidationError } from '../../domain/validation';
 import { TASKS } from '../../domain/workflow/catalogue';
-import { isFieldVisible, normalizeItemFields, REGISTERS, type FieldDef } from '../../domain/workflow/registers';
+import { isFieldRequired, isFieldVisible, normalizeItemFields, REGISTERS, type FieldDef } from '../../domain/workflow/registers';
+import { fromModel } from '../../domain/problem-card';
 import { useI18n } from '../../i18n/i18n';
 import { Bi, useL } from '../bilingual';
 import { useCaseBundle, type CaseBundle } from '../case-bundle';
@@ -21,6 +22,7 @@ import { ChoicePills, MultiPills } from './choice-controls';
 import { SourcePeek } from './SourceViewer';
 import { itemTitle } from './RegisterList';
 import { CausalityPanel } from '../rules/Causality';
+import { BoxesControl, ClaimsEditor, LinksPicker } from './card-parts';
 
 type Mode =
   | { kind: 'new'; register: string }
@@ -32,12 +34,30 @@ type Mode =
 
 export type ItemEditorMode = Mode;
 
-function FieldControl({ f, value, set, error, b, register }: { f: FieldDef; value: string; set: (v: string) => void; error?: string; b: CaseBundle; register: RegisterId }) {
+function FieldControl({
+  f,
+  value,
+  values,
+  set,
+  error,
+  b,
+  register,
+}: {
+  f: FieldDef;
+  value: string;
+  /** Every value of the row, for controls that depend on others (the form boxes follow the PCNE codes). */
+  values: Record<string, string>;
+  set: (v: string) => void;
+  error?: string;
+  b: CaseBundle;
+  register: RegisterId;
+}) {
   const tl = useL();
   const { t } = useI18n();
   const label = tl(f.label);
   const hint = f.hint ? tl(f.hint) : undefined;
-  const optional = !f.required && !f.requiredIf;
+  const optional = !isFieldRequired(f, values);
+  if (register === 'drp' && f.id === 'boxes') return <BoxesControl values={values} label={label} hint={hint} value={value} onChange={set} error={error} />;
   switch (f.kind) {
     case 'text':
       return <TextField label={label} hint={hint} value={value} onChange={set} error={error} optional={optional} name={f.id} />;
@@ -45,12 +65,25 @@ function FieldControl({ f, value, set, error, b, register }: { f: FieldDef; valu
       return <TextAreaField label={label} hint={hint} value={value} onChange={set} error={error} optional={optional} name={f.id} />;
     case 'choice':
       return (f.options?.length ?? 0) <= 6 ? (
-        <ChoicePills label={label} hint={hint} options={f.options ?? []} value={value} onChange={set} error={error} testId={`field-${f.id}`} />
+        <ChoicePills
+          label={label}
+          hint={hint}
+          options={f.options ?? []}
+          value={value}
+          onChange={set}
+          error={error}
+          testId={`field-${f.id}`}
+          stacked={(f.options ?? []).some((o) => o.label.en.length > 40)}
+        />
       ) : (
         <SelectField label={label} hint={hint} value={value} onChange={set} error={error} optional={optional} name={f.id} options={(f.options ?? []).map((o) => ({ value: o.value, label: tl(o.label) }))} />
       );
     case 'multi':
-      return <MultiPills label={label} hint={hint} options={f.options ?? []} value={value} onChange={set} error={error} />;
+      return <MultiPills label={label} hint={hint} options={f.options ?? []} groups={f.groups} value={value} onChange={set} error={error} testId={`field-${f.id}`} />;
+    case 'links':
+      return <LinksPicker b={b} label={label} hint={hint} value={value} onChange={set} error={error} />;
+    case 'claims':
+      return <ClaimsEditor b={b} label={label} hint={hint} value={value} onChange={set} error={error} />;
     case 'day':
       return (
         <div className="flex items-end gap-2">
@@ -117,7 +150,7 @@ function FieldControl({ f, value, set, error, b, register }: { f: FieldDef; valu
   }
 }
 
-function History({ itemId }: { itemId: string }) {
+export function ItemHistory({ itemId }: { itemId: string }) {
   const { t, when } = useI18n();
   const h = useItemHistory(itemId);
   if (h.status !== 'ready' || h.data.length <= 1) return null;
@@ -169,7 +202,22 @@ function EditorBody({
   const def = REGISTERS[register];
   const returnTask = query.get('task');
   const fromTask = query.get('from');
-  const back = extracted ? extracted.back : suggested ? suggested.back : returnTask && TASKS.has(returnTask) ? `/cases/${b.case.id}/task/${returnTask}` : `/cases/${b.case.id}/modules`;
+  const backTo = query.get('back');
+  const back = extracted
+    ? extracted.back
+    : suggested
+      ? suggested.back
+      : item && backTo === 'card'
+        ? `/cases/${b.case.id}/card/${item.id}${returnTask && TASKS.has(returnTask) ? `?task=${returnTask}` : ''}`
+        : backTo === 'problems'
+          ? `/cases/${b.case.id}/problems`
+          : returnTask && TASKS.has(returnTask)
+            ? `/cases/${b.case.id}/task/${returnTask}`
+            : `/cases/${b.case.id}/modules`;
+  // Section 8, Review: "Edit" on a Problem Card is the edit itself, recorded as the decision on the new version.
+  const reviewEdit = !!item && register === 'drp' && query.get('review') === 'edit';
+  const ownCard = !!item && !fromModel(item);
+  const [withPreceptor, setWithPreceptor] = useState(ownCard);
 
   const prefill: Record<string, string> = {};
   if (!item) for (const f of def.fields) if (query.get(f.id)) prefill[f.id] = query.get(f.id)!;
@@ -210,7 +258,7 @@ function EditorBody({
     try {
       if (extracted) await store.decideExtractedField(b.case.id, extracted.runId, extracted.field.id, { kind: 'correct', values: v });
       else if (suggested) await store.decideSuggestion(b.case.id, suggested.analysisId, suggested.suggestion.id, { kind: 'edit', fields: v });
-      else if (item) await store.updateItem(b.case.id, item.id, v, reason);
+      else if (item) await store.updateItem(b.case.id, item.id, v, reason, reviewEdit ? { decision: 'edited', withPreceptor } : {});
       else await store.addItem(b.case.id, register, v);
       await draft.clear();
       if (window.location.hash === here) navigate(back);
@@ -265,14 +313,31 @@ function EditorBody({
       )}
       {draft.restored && <Banner tone="info">{t('ed.restored')}</Banner>}
       {register === 'drp' && <Banner tone="info">{t('item.drpTeaching')}</Banner>}
+      {reviewEdit && (
+        <Banner tone="info">
+          <span data-testid="review-edit-banner">{t('cardReview.editBanner')}</span>
+        </Banner>
+      )}
 
       <Card>
         <fieldset disabled={readOnly} className="flex flex-col gap-4">
-          {visible.map((f) => (
-            <FieldControl key={f.id} f={f} b={b} register={register} value={v[f.id] ?? ''} set={(x) => draft.set(f.id, x)} error={errText(errors[f.id])} />
-          ))}
+          {visible.map((f, i) => {
+            // The Problem Card's numbered fields as headings (Section 14).
+            const heading = f.group && f.group.en !== visible[i - 1]?.group?.en ? f.group : undefined;
+            return (
+              <div key={f.id} className="flex flex-col gap-4">
+                {heading && (
+                  <h2 className="-mb-1 mt-2 border-b border-line pb-1 text-sm font-semibold text-teal-900 first:mt-0" data-testid="card-section-heading">
+                    {tl(heading)}
+                  </h2>
+                )}
+                <FieldControl f={f} b={b} register={register} value={v[f.id] ?? ''} values={v} set={(x) => draft.set(f.id, x)} error={errText(errors[f.id])} />
+              </div>
+            );
+          })}
         </fieldset>
       </Card>
+      {reviewEdit && ownCard && <CheckboxField label={t('cardReview.withPreceptor')} checked={withPreceptor} onChange={setWithPreceptor} name="with-preceptor" />}
 
       {item && !readOnly && (
         <TextField label={retracting ? t('item.retractReason') : t('item.changeReason')} optional={!retracting} value={reason} onChange={setReason} error={errText(errors.reason)} />
@@ -316,7 +381,7 @@ function EditorBody({
         </div>
       )}
       {item?.register === 'adr' && item.status === 'active' && <CausalityPanel b={b} item={item} readOnly={readOnly} />}
-      {item && <History itemId={item.id} />}
+      {item && <ItemHistory itemId={item.id} />}
       {item && (
         <p className="text-xs text-slate-600">
           <Icon name="history" className="me-1 inline h-3.5 w-3.5" />

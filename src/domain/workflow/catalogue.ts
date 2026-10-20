@@ -381,8 +381,8 @@ const TASK_LIST: readonly TaskDef[] = [
       L('Safety: any adverse effect, contraindication, interaction or toxicity signal?', 'السلامة: هل توجد أعراض جانبية أو مضاد استطباب أو تداخل أو علامات سمية؟'),
       L('Adherence and practicality: can the patient get, afford and take it?', 'الالتزام والجانب العملي: هل يستطيع المريض الحصول عليه وتحمّل تكلفته وتناوله؟'),
       L(
-        'This four-question frame (Cipolle, Strand and Morley) is a teaching aid. DRPs are classified with PCNE in M4 — the two systems are not equivalent.',
-        'هذا الإطار ذو الأسئلة الأربعة (Cipolle وStrand وMorley) أداة تعليمية. أما تصنيف المشكلات الدوائية فيتم وفق PCNE في M4 — والنظامان غير متكافئين.',
+        'This four-question frame (Cipolle, Strand and Morley) is a teaching aid. Drug-related problems are classified with PCNE V9.1 on the Problem Card — the two systems are not equivalent.',
+        'هذا الإطار ذو الأسئلة الأربعة (Cipolle وStrand وMorley) أداة تعليمية. أما المشكلات الدوائية فتُصنَّف وفق PCNE V9.1 في بطاقة المشكلة — والنظامان غير متكافئين.',
       ),
     ],
     needs: ['problems', 'meds'],
@@ -399,15 +399,6 @@ const TASK_LIST: readonly TaskDef[] = [
         { id: 'assessment', kind: 'longtext', label: L('Your assessment', 'تقييمك') },
       ],
     },
-    later: [
-      {
-        milestone: 'M4',
-        what: L(
-          'The Clinical Problem Card with PCNE V9.1 classification, priorities and per-item review.',
-          'بطاقة المشكلة السريرية مع تصنيف PCNE V9.1 والأولويات والمراجعة لكل بند.',
-        ),
-      },
-    ],
   },
   {
     id: 't16',
@@ -765,15 +756,6 @@ const TASK_LIST: readonly TaskDef[] = [
         ck('prioritised', 'Every problem has a priority and a reason', 'لكل مشكلة أولوية وسبب'),
       ],
     },
-    later: [
-      {
-        milestone: 'M4',
-        what: L(
-          'The full 13-field Clinical Problem Card with PCNE V9.1 problem and cause codes, the optional Cipolle mapping, staleness when new data arrive, and per-item review.',
-          'بطاقة المشكلة السريرية الكاملة ذات الحقول الثلاثة عشر مع رموز PCNE V9.1 للمشكلة والسبب، والربط الاختياري بتصنيف Cipolle، وتنبيه التقادم عند وصول بيانات جديدة، والمراجعة لكل بند.',
-        ),
-      },
-    ],
   },
   {
     id: 't13',
@@ -801,15 +783,6 @@ const TASK_LIST: readonly TaskDef[] = [
         ck('responses', 'Team response recorded for every communicated recommendation', 'رد الفريق مسجّل لكل توصية مُبلَّغة'),
       ],
     },
-    later: [
-      {
-        milestone: 'M4',
-        what: L(
-          'Per-item decisions on suggested recommendations: accept, edit, reject with a reason, ask for evidence, or refer for senior review.',
-          'قرارات لكل بند على التوصيات المقترحة: قبول أو تعديل أو رفض مع السبب أو طلب دليل أو الإحالة لمراجعة أعلى.',
-        ),
-      },
-    ],
   },
   {
     id: 't14',

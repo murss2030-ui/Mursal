@@ -28,6 +28,7 @@ import { RotationEditor, Rotations } from './screens/Rotations';
 import { Settings } from './screens/Settings';
 import { Intake } from './screens/Intake';
 import { ItemEditor } from './screens/ItemEditor';
+import { ProblemCardScreen } from './screens/ProblemCard';
 import { ModulePage } from './screens/ModulePage';
 import { SourceViewer } from './screens/SourceViewer';
 import { TaskPage } from './screens/TaskPage';
@@ -77,6 +78,7 @@ function Route({ path, query }: { path: string; query: URLSearchParams }): React
   }
   if ((m = match('/cases/:id/item/:itemId/causality/:method', path)) && isCausalityMethod(m.method!)) return <CausalityScreen caseId={m.id!} itemId={m.itemId!} method={m.method} />;
   if ((m = match('/cases/:id/item/:itemId', path))) return <ItemEditor caseId={m.id!} mode={{ kind: 'edit', itemId: m.itemId! }} query={query} />;
+  if ((m = match('/cases/:id/card/:itemId', path))) return <ProblemCardScreen caseId={m.id!} itemId={m.itemId!} query={query} />;
   if ((m = match('/cases/:id', path))) return <CaseView caseId={m.id!} tab="modules" />;
   if ((m = match('/cases/:id/:tab', path))) return <CaseView caseId={m.id!} tab={m.tab!} />;
   if (path === '/rotations') return <Rotations />;

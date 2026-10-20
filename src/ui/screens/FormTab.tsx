@@ -231,6 +231,24 @@ function SectionCard({ s, caseId, readOnly, draft }: { s: FormSectionView; caseI
         {s.fields.map((f) => (
           <FieldRow key={f.key} f={f} caseId={caseId} readOnly={readOnly} draft={draft} />
         ))}
+        {s.excluded && s.excluded.length > 0 && (
+          <div className="mt-2 flex flex-col gap-1.5 rounded-xl border border-amber-400 bg-amber-50 p-3" data-testid={`form-excluded-${s.number}`}>
+            <h3 className="text-sm font-semibold text-amber-950">{t('form.excluded.title')}</h3>
+            <ul className="flex flex-col gap-1 text-sm">
+              {s.excluded.map((x) => (
+                <li key={x.itemId} data-item={x.itemId} data-reason={x.reason}>
+                  <a href={`#/cases/${caseId}/card/${x.itemId}`} className="font-medium text-teal-900 underline" dir="auto">
+                    {x.problem}
+                  </a>
+                  <span className="text-amber-950">
+                    {' — '}
+                    {x.reason === 'stale' && x.day !== undefined ? t('card.stale.badge', { n: x.day }) : t(`form.excluded.${x.reason}` as MsgKey)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {s.checkboxes && (
           <div className="mt-2 flex flex-col gap-2" data-testid="drp-checkboxes">
             {s.checkboxes.ticked ? (
@@ -340,11 +358,12 @@ export function FormTab({ c }: { c: Case }) {
             tasks: tasks.data,
             calcResults: calcs.data,
             calcOutOfDate: outOfDate(c, entries.data, calcs.data),
+            reviews: bundle.status === 'ready' ? bundle.b.reviews : [],
             ...(automaticInteractions ? { automaticInteractions } : {}),
             mode,
           })
         : null,
-    [ready, c, ids, entries, formDraft, trainee, items, tasks, calcs, automaticInteractions, mode],
+    [ready, c, ids, entries, formDraft, trainee, items, tasks, calcs, automaticInteractions, mode, bundle],
   );
   if (!view) return <p className="text-slate-600">{t('common.loading')}</p>;
 

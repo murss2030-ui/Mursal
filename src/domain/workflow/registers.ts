@@ -64,6 +64,8 @@ export interface FieldDef {
   requiredWhenSet?: string;
   /** Shown only when another field has one of the listed values. Hidden values are dropped on save. */
   showIf?: Condition;
+  /** Shown only when the named field has a value (e.g. the reason for an adjustment). Hidden values are dropped on save. */
+  showWhenSet?: string;
   /** Kept only to read rows saved before a change of the register: never shown, dropped on the next save. */
   legacy?: true;
   /** Heading under which the field is shown (the Problem Card's numbered fields). */
@@ -371,6 +373,7 @@ const DRP: RegisterDef = {
       id: 'boxesReason',
       kind: 'text',
       requiredWhenSet: 'boxes',
+      showWhenSet: 'boxes',
       group: cardSection(5),
       label: L('Why you changed the boxes', 'سبب تغيير المربعات'),
     },
@@ -1144,7 +1147,7 @@ function matches(cond: Condition | undefined, values: Record<string, string>): b
 
 /** Whether a field is currently shown, given the other values. */
 export function isFieldVisible(def: FieldDef, values: Record<string, string>): boolean {
-  return !def.legacy && matches(def.showIf, values);
+  return !def.legacy && matches(def.showIf, values) && (!def.showWhenSet || !!values[def.showWhenSet]);
 }
 
 /** Whether a field must have a value, given the other values. */

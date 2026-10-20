@@ -1,7 +1,7 @@
 {
   "name": "preceptor",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "PRECEPTOR: an educational tool for supervised clinical pharmacy trainees. Not intended for diagnosis, treatment, or patient-care decisions.",
   "scripts": {
