@@ -100,8 +100,9 @@ export function checkVerification(raw: RawVerification, input: VerifyInput): Cla
       flags.add('support_not_shown');
       verdict = 'unsupported';
     } else verdict = a.verdict === 'partial' || parts.length ? 'partial' : 'supported';
+    // A contradiction may be shown by any source the claim uses, the case header included (a wrong age).
     if (a.contradicted) {
-      if (quotes.some((q) => !context.has(q.sourceId))) verdict = 'contradicted';
+      if (quotes.length) verdict = 'contradicted';
       else flags.add('contradiction_not_shown');
     }
     return { claimId: claim.id, verdict, answered: { verdict: a.verdict, contradicted: Boolean(a.contradicted) }, quotes, unsupportedParts: parts, flags: [...flags] };

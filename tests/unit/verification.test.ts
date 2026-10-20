@@ -93,6 +93,10 @@ describe('the verifier’s answer, checked in code', () => {
     expect(headerOnly).toMatchObject({ verdict: 'unsupported', flags: ['support_not_shown'] });
     const [both] = checkVerification({ results: [answer({ claimId: 'V1', verdict: 'supported', quotes: [{ sourceId: 'H', text: '"age":67' }, { sourceId: 'S2', text: 'Serum creatinine: 2.6 mg/dL' }] })] }, withHeader);
     expect(both).toMatchObject({ verdict: 'supported', flags: [] });
+    // A contradiction shown by the header is still one (a wrong age).
+    const wrongAge = { ...withHeader, claims: [{ ...withHeader.claims[0]!, text: 'A 45-year-old man whose creatinine rose from 2.1 to 2.6 mg/dL.' }] };
+    const [contradicted] = checkVerification({ results: [answer({ claimId: 'V1', verdict: 'partial', contradicted: true, quotes: [{ sourceId: 'H', text: '"age":67' }] })] }, wrongAge);
+    expect(contradicted).toMatchObject({ verdict: 'contradicted', flags: ['support_not_shown'] });
   });
 
   it('a quote from a source the claim does not cite is not its support; a two-letter quote proves nothing', () => {
