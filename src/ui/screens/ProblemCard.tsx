@@ -515,7 +515,15 @@ export function ProblemCardScreen({ caseId, itemId, query }: { caseId: string; i
     <div className="flex flex-col gap-4" data-testid="card-screen">
       <PageTitle back={back}>{t('card.title')}</PageTitle>
       <div className="-mt-3 flex flex-wrap items-center gap-2">
-        {fromModel(item) && <ProvenanceBadge state="ai_suggestion" detail={t('card.fromDraft')} />}
+        {/* Where the card came from — not its review state, which the review chip beside it shows. */}
+        {fromModel(item) && (
+          <span data-testid="card-origin" data-origin="ai_draft">
+            <Chip tone="violet">
+              <Icon name="sparkle" className="h-3.5 w-3.5" />
+              {t('card.fromDraft')}
+            </Chip>
+          </span>
+        )}
         <ReviewChip review={card.review} />
         <StaleBadge card={card} />
         <span className="text-xs text-slate-600">{t('common.version', { n: item.version })}</span>

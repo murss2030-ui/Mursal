@@ -215,6 +215,9 @@ test('Teaching Case: Next → the model reads the file → each value checked �
   await expect(card.getByTestId('card-pcne-code')).toHaveText('P2.1 · C3.2');
   await card.click();
   await expect(page.getByTestId('problem-card')).toBeVisible();
+  // Its origin is said apart from its review state: never "no decision yet" on a decided card.
+  await expect(page.getByTestId('card-origin')).toHaveText('From the AI draft');
+  await expect(page.getByTestId('card-screen').locator('[data-provenance="ai_suggestion"]')).toHaveCount(0);
   await expect(page.locator('[data-card-field="13"] [data-basis="general_knowledge"]')).toBeVisible();
   await expect(page.getByTestId('review-history')).toContainText('Accepted');
   await expect(page.getByTestId('review-history')).toContainText('on the AI draft');

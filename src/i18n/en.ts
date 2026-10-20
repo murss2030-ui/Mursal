@@ -1212,7 +1212,7 @@ export const en = {
   'card.missing': 'Missing',
   'card.writtenByYou': 'Written by you',
   'card.f13.byModel': 'Drafted by the AI — general knowledge, no source',
-  'card.fromDraft': 'from the AI draft',
+  'card.fromDraft': 'From the AI draft',
   'card.f1.drugs': 'Medication(s): {drugs}',
   'card.f1.diagnosis': 'Related diagnosis: {name}',
   'card.f2.words': 'In words:',
