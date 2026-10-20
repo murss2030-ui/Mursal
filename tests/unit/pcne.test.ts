@@ -13,7 +13,16 @@ import {
   PCNE_PROBLEMS,
   PCNE_STATUS,
 } from '../../src/domain/pcne';
-import { CIPOLLE_CATEGORIES, PCNE_TO_CIPOLLE, PCNE_TO_FORM_BOX, cipolleFor, formBoxesFor } from '../../src/domain/pcne-maps';
+import {
+  CIPOLLE_CATEGORIES,
+  PCNE_MAPS_APPROVAL,
+  PCNE_MAPS_APPROVED,
+  PCNE_TO_CIPOLLE,
+  PCNE_TO_FORM_BOX,
+  cipolleFor,
+  formBoxesFor,
+  mapsFingerprint,
+} from '../../src/domain/pcne-maps';
 import { DRP_CATEGORIES } from '../../src/domain/workflow/registers';
 
 const BOXES = new Set(DRP_CATEGORIES.map((c) => c.value));
@@ -114,5 +123,26 @@ describe('PCNE → Cipolle, Strand and Morley (teaching view)', () => {
 
   it('every combination of a problem and one cause resolves to a category or to "no equivalent" without error', () => {
     for (const p of PCNE_PROBLEMS) for (const c of PCNE_CAUSES) expect(() => cipolleFor(p.code, [c.code])).not.toThrow();
+  });
+});
+
+describe('the owner’s approval of both maps (20 October 2026)', () => {
+  it('is bound to the results the owner approved: a changed table or rule fails here until approved again', () => {
+    // A failure means a mapped result changed. Set PCNE_MAPS_APPROVED to false (the screens then say
+    // "draft"), regenerate docs/m4/PCNE-MAPPINGS.md, and record the new fingerprint only once the owner approves.
+    expect(PCNE_MAPS_APPROVED).toBe(true);
+    expect(mapsFingerprint()).toBe(PCNE_MAPS_APPROVAL.fingerprint);
+  });
+
+  it('the fingerprint sees a changed box', () => {
+    const rule = PCNE_TO_FORM_BOX['C4.1'] as { box: string };
+    const before = rule.box;
+    try {
+      rule.box = 'other';
+      expect(mapsFingerprint()).not.toBe(PCNE_MAPS_APPROVAL.fingerprint);
+    } finally {
+      rule.box = before;
+    }
+    expect(mapsFingerprint()).toBe(PCNE_MAPS_APPROVAL.fingerprint);
   });
 });

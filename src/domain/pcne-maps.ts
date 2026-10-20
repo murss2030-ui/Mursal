@@ -16,14 +16,23 @@
  *    reaction"); several candidates resolve in Cipolle's own order of
  *    assessment (indication, effectiveness, safety, adherence).
  *
- * Both tables are a DRAFT for the owner's review (20 October 2026).
+ * The owner approved both tables as they stand, including the nine choices
+ * marked for confirmation (`decide`), on 20 October 2026. The approval is
+ * bound to the mapped results by a fingerprint: a change to either table or
+ * to how codes combine fails a unit test until the change is approved again.
  */
 import { L } from './label';
-import { PCNE_CODE } from './pcne';
+import { PCNE_CAUSES, PCNE_CODE, PCNE_PROBLEMS } from './pcne';
 import type { DrpCategory } from './workflow/registers';
 
-/** Until the owner approves the tables, every screen showing a mapped result says it is a draft. */
-export const PCNE_MAPS_APPROVED = false;
+/**
+ * Whether the owner approved the tables as they are. While false, every
+ * screen showing a mapped result says it is a draft; set it back to false
+ * whenever a table changes, until the change is approved.
+ */
+export const PCNE_MAPS_APPROVED = true;
+/** The approval: its date, and the fingerprint (`mapsFingerprint()`) of the results the owner approved. */
+export const PCNE_MAPS_APPROVAL = { on: '2026-10-20', fingerprint: 'f4b262be' } as const;
 export const PCNE_MAPS_DRAFT = L(
   'Draft mapping (20 October 2026), waiting for the department’s approval: check the boxes yourself.',
   'ربط مبدئي (20 أكتوبر 2026) بانتظار اعتماد القسم: تحقّق من المربعات بنفسك.',
@@ -224,4 +233,36 @@ export function cipolleFor(problem: string | undefined, causes: readonly string[
   candidates.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
   const first = candidates[0];
   return first ? { category: CIPOLLE_CATEGORIES.find((x) => x.id === first.id)!, from: first.from } : { category: undefined, ...(problem ? { from: problem } : {}) };
+}
+
+// ---------------------------------------------------------------- the approval's fingerprint
+
+/**
+ * FNV-1a over what both maps give for every code alone and every problem with
+ * one cause, plus every cause paired with C3.1 under each problem (how codes
+ * combine). Explanations (`why`) are not part of it: rewording one changes no
+ * result.
+ */
+export function mapsFingerprint(): string {
+  const out: string[] = [];
+  const add = (problem: string | undefined, causes: string[]) => {
+    const f = formBoxesFor(problem, causes);
+    const c = cipolleFor(problem, causes);
+    out.push(`${problem ?? '-'}|${causes.join(',')}|${f.boxes.join(',')}|${f.otherText.length}|${c.category?.id ?? '-'}|${c.from ?? '-'}`);
+  };
+  for (const p of PCNE_PROBLEMS) {
+    add(p.code, []);
+    for (const c of PCNE_CAUSES) {
+      add(p.code, [c.code]);
+      add(p.code, [c.code, 'C3.1']);
+    }
+  }
+  for (const c of PCNE_CAUSES) add(undefined, [c.code]);
+  const s = out.join('\n');
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
 }

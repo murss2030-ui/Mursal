@@ -2,7 +2,13 @@
 
 **Date:** 20 October 2026 · **Branch:** `claude/preceptor-build-prompt-v4-slhq8k` · **Build:** 0.5.0 (M4)
 
-**Status: built and tested, waiting for the owner's review and approval.** Two things need the owner before M4 can be closed: the approval of the two PCNE mappings ([PCNE-MAPPINGS.md](PCNE-MAPPINGS.md), nine choices marked ⚑), and the acceptance of this milestone. Until the mappings are approved, every screen that shows a box or a Cipolle category derived from a PCNE code says it is a draft.
+**Status: accepted by the owner on 20 October 2026.** The owner's decisions, the same day:
+
+1. **Both PCNE mappings are approved as they stand**, including the nine choices marked ⚑ ([PCNE-MAPPINGS.md](PCNE-MAPPINGS.md)). The "draft mapping" notes are gone from the screens and the form. The approval is bound to the approved results by a fingerprint (`f4b262be`): if a table or a rule changes, a unit test fails until the owner approves the change.
+2. **A card the trainee writes keeps the current rule** (limitation 7 below): it enters Section 9 as soon as its recommendation is marked "Final", unless a later decision disputes it. No decision with the preceptor is required first.
+3. **M4 is accepted.** M5 starts with its plan ([docs/m5/M5-PLAN.md](../m5/M5-PLAN.md)).
+
+The report below is kept as it was submitted for review; limitation 1 no longer applies.
 
 The plan, with the owner's decisions 2–9 (all approved on 19 October 2026), is in [M4-PLAN.md](M4-PLAN.md).
 
@@ -72,7 +78,7 @@ Run `npm install`, `npm run build`, `npm run preview`, open the app, create a Te
 
 ## 7. Acceptance
 
-Waiting for the owner: (1) approval of the PCNE mappings, or the changes you want; (2) acceptance of M4, or the corrections you want.
+Accepted by the owner on 20 October 2026, with both PCNE mappings approved as they stand and the current rule kept for cards the trainee writes (see the status at the top).
 
 ## 8. Files
 

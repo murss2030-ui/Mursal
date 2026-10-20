@@ -60,9 +60,9 @@ test('a Problem Card written by the trainee: thirteen fields, ranking, staleness
   await page.getByRole('radio', { name: 'Potential problem' }).click();
   await page.locator('[data-group="C3"] summary').click();
   await page.getByRole('button', { name: 'C3.2 Drug dose of a single active ingredient too high' }).click();
-  // The form's boxes follow from the codes, marked as a draft mapping.
+  // The form's boxes follow from the codes, through the mapping the owner approved (20 October 2026): no "draft" note.
   await expect(page.getByTestId('boxes-derived').locator('[data-box="dose_high"]')).toHaveAttribute('data-checked', 'true');
-  await expect(page.getByTestId('pcne-map-draft')).toBeVisible();
+  await expect(page.getByTestId('pcne-map-draft')).toHaveCount(0);
   await page.getByRole('radio', { name: 'Critical' }).click();
   await page.getByLabel(/Recommendation and rationale/).fill(RECOMMENDATION);
   await page.getByRole('radio', { name: 'Final — ready to discuss' }).click();

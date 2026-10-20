@@ -414,7 +414,8 @@ describe('the department form’s Sections 8 and 9 take only current, undisputed
     const before = deriveForm(ctx({ entries: [day2], items: [a, b] }));
     expect(s(before, 8).excluded).toBeUndefined();
     expect(s(before, 8).checkboxes!.ticked).toEqual([false, true, false, false, true, false, false, false, false, false]);
-    expect(s(before, 8).fields[0]!.state).toMatchObject({ notes: ['pcne_map_draft'] });
+    // The owner approved the mappings (20 October 2026): no "draft mapping" note.
+    expect(s(before, 8).fields[0]!.state).not.toHaveProperty('notes');
 
     const day4 = e('scr-4', '2026-10-14T08:00:00Z', 2.9, 4);
     const after = deriveForm(ctx({ entries: [day2, day4], items: [a, b] }));
