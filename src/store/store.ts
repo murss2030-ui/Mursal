@@ -42,7 +42,7 @@ import { CARD_DECISIONS, DECISIONS_NEEDING_REASON, REGISTER_IDS, SOURCE_DOC_TYPE
 import { parseClaims, parseLinks } from '../domain/card-data';
 import { cardStaleness, contentHash, fromModel, type CardContext } from '../domain/problem-card';
 import { resultCurrency } from '../calc/currency';
-import { normalizeItemFields, REGISTERS } from '../domain/workflow/registers';
+import { DRP_RECORD_FIELDS, normalizeItemFields, REGISTERS } from '../domain/workflow/registers';
 import { normalizeTaskInput, type TaskInput } from '../domain/workflow/tasks';
 export type { TaskInput } from '../domain/workflow/tasks';
 import { isValidHospitalDay, isValidTimeOfDay } from '../domain/dates';
@@ -142,7 +142,9 @@ export type NewAnalysis = Omit<CaseAnalysis, keyof Versioned | 'id' | 'caseId' |
 export type SuggestionDecisionInput =
   | { kind: 'accept' }
   | { kind: 'edit'; fields?: Record<string, string>; text?: string }
-  | { kind: 'reject'; reason: string };
+  | { kind: 'reject'; reason: string }
+  /** M4, a drafted Problem Card only: kept as a card with this decision and its reason, out of the form until decided. */
+  | { kind: 'needs_evidence' | 'needs_senior_review'; reason: string };
 
 /** One decision on one Problem Card. "Edited" is recorded with the edit itself (updateItem). */
 export interface CardReviewInput {
@@ -1009,7 +1011,7 @@ export class Store {
     return this.writeVersion<RegisterItem>(
       'items',
       id,
-      (_p, version, at) => ({ id, caseId, register, fields: n.fields, status: 'active', createdAt: at, version, versionCreatedAt: at }),
+      (_p, version, at) => ({ id, caseId, register, fields: n.fields, status: 'active', createdAt: at, version, versionCreatedAt: at, ...(register === 'drp' ? { contentAt: at } : {}) }),
       (_p, next) => ({ entity: 'item', entityId: id, caseId, action: 'create', diff: { register, after: next.fields } }),
       { caseId },
     );
@@ -1043,9 +1045,15 @@ export class Store {
     const version = prev.version + 1;
     let also: { tables: EncryptedTableName[]; run: () => Promise<void> } | undefined;
     const extraAudit: EncryptedRow[] = [];
+    // A Problem Card: a change of its content is a review on today's data (D8) — on a stale card, only with the reason.
+    const contentChanged = prev.register === 'drp' && changedKeys(prev.fields, n.fields).some((k) => !DRP_RECORD_FIELDS.has(k));
+    if (contentChanged && !reason?.trim() && cardStaleness(prev, await this.cardContext(caseId)).stale) {
+      throw new ValidationError({ reason: 'required' });
+    }
     if (opts.decision) {
       const ctx = await this.cardContext(caseId);
-      const next: RegisterItem = { ...prev, fields: n.fields, version, versionCreatedAt: this.nowIso() };
+      const now = this.nowIso();
+      const next: RegisterItem = { ...prev, fields: n.fields, version, versionCreatedAt: now, contentAt: contentChanged ? now : (prev.contentAt ?? prev.versionCreatedAt) };
       if (cardStaleness(next, ctx).stale) throw new IntegrityError('The card still cites data that was corrected or is out of date: link the current values before accepting it.');
       const review = this.newReview(caseId, next, 'edited', reason, opts.withPreceptor);
       const row = await this.sealRow('cardReviews', { id: review.id, caseId }, review);
@@ -1059,7 +1067,8 @@ export class Store {
         if (!p || p.status !== 'active') throw new IntegrityError('That record was retracted and cannot be edited.');
         // The decision names this version: if another tab saved first, the decision would name the wrong one.
         if (opts.decision && v !== version) throw new IntegrityError('The card was changed in the meantime. Reopen it and decide again.');
-        return { ...p, fields: n.fields, version: v, versionCreatedAt: at, changeReason: reason?.trim() || undefined };
+        const contentAt = p.register !== 'drp' ? undefined : contentChanged ? at : (p.contentAt ?? p.versionCreatedAt);
+        return { ...p, fields: n.fields, version: v, versionCreatedAt: at, changeReason: reason?.trim() || undefined, ...(contentAt ? { contentAt } : {}) };
       },
       (p, next) => ({
         entity: 'item',
@@ -1203,7 +1212,7 @@ export class Store {
     const ctx = await this.cardContext(caseId);
     const before = cardStaleness(prev, ctx);
     if (!before.stale) throw new IntegrityError('This card is current: there is nothing to review again.');
-    if (cardStaleness({ ...prev, versionCreatedAt: this.nowIso() }, ctx).stale) {
+    if (cardStaleness({ ...prev, contentAt: this.nowIso() }, ctx).stale) {
       throw new IntegrityError('The card cites data that was corrected or a result that is out of date: edit it and link the current values.');
     }
     return this.writeVersion<RegisterItem>(
@@ -1211,7 +1220,7 @@ export class Store {
       itemId,
       (p, version, at) => {
         if (!p || p.status !== 'active') throw new IntegrityError('That Problem Card was retracted.');
-        return { ...p, version, versionCreatedAt: at, changeReason: r };
+        return { ...p, version, versionCreatedAt: at, contentAt: at, changeReason: r };
       },
       (_p, next) => ({
         entity: 'item',
@@ -1443,6 +1452,9 @@ export class Store {
     if (!sg) throw new IntegrityError('That suggestion does not exist.');
     if (sg.decision) throw new IntegrityError('That suggestion has already been decided.');
     if (d.kind === 'reject' && !d.reason.trim()) throw new ValidationError({ reason: 'required' });
+    const pending = d.kind === 'needs_evidence' || d.kind === 'needs_senior_review';
+    if (pending && !(sg.kind === 'item' && sg.register === 'drp')) throw new ValidationError({ decision: 'invalidChoice' });
+    if (pending && d.reason.trim().length < 3) throw new ValidationError({ reason: 'required' });
     if (d.kind !== 'reject' && (await this.isAnalysisStale(a))) throw new IntegrityError('The data changed after this analysis. Re-analyse before accepting its suggestions.');
 
     let applied: SuggestionDecision['appliedTo'];
@@ -1466,6 +1478,7 @@ export class Store {
           version: 1,
           versionCreatedAt: now,
           origin: { kind: 'suggestion', analysisId, suggestionId },
+          ...(sg.register === 'drp' ? { contentAt: now } : {}),
         };
         const row = await this.sealRow('items', { id: `${id}@1`, entityId: id, version: 1, caseId }, item);
         extraAudit.push(await this.auditRow({ entity: 'item', entityId: id, caseId, action: 'create', diff: { register: item.register, after: n.fields, origin: item.origin } }));
@@ -1473,7 +1486,8 @@ export class Store {
         also = { tables: ['items'], run: async () => void (await this.db.items.add(row)) };
         if (item.register === 'drp') {
           // A Problem Card's review history starts with this decision on the model's draft (Section 8, Review).
-          const review: CardReview = { ...this.newReview(caseId, item, d.kind === 'accept' ? 'accepted' : 'edited', undefined, false), fromSuggestion: { analysisId, suggestionId } };
+          const decision: CardDecision = d.kind === 'accept' ? 'accepted' : d.kind === 'edit' ? 'edited' : d.kind;
+          const review: CardReview = { ...this.newReview(caseId, item, decision, pending ? d.reason : undefined, false), fromSuggestion: { analysisId, suggestionId } };
           const reviewRow = await this.sealRow('cardReviews', { id: review.id, caseId }, review);
           extraAudit.push(await this.reviewAudit(review));
           also = {
@@ -1511,22 +1525,23 @@ export class Store {
         also = { tables: ['tasks'], run: async () => void (await this.db.tasks.add(row)) };
       }
     }
-    const kind = d.kind === 'accept' ? 'accepted' : d.kind === 'edit' ? 'edited' : 'rejected';
+    const kind: SuggestionDecision['kind'] = d.kind === 'accept' ? 'accepted' : d.kind === 'edit' ? 'edited' : d.kind === 'reject' ? 'rejected' : d.kind;
+    const reasonOf = d.kind === 'reject' || pending ? d.reason.trim() : undefined;
     return this.writeVersion<CaseAnalysis>(
       'analyses',
       analysisId,
       (p, version, at) => {
         const cur = p?.suggestions.find((x) => x.id === suggestionId);
         if (!p || !cur || cur.decision) throw new IntegrityError('That suggestion has already been decided.');
-        const decision = stripUndefined({ kind, at, reason: d.kind === 'reject' ? d.reason.trim() : undefined, appliedTo: applied }) as SuggestionDecision;
+        const decision = stripUndefined({ kind, at, reason: reasonOf, appliedTo: applied }) as SuggestionDecision;
         return { ...p, suggestions: p.suggestions.map((x) => (x.id === suggestionId ? { ...x, decision } : x)), version, versionCreatedAt: at };
       },
       () => ({
         entity: 'suggestion',
         entityId: `${analysisId}:${suggestionId}`,
         caseId,
-        action: d.kind === 'accept' ? 'accept' : d.kind === 'edit' ? 'edit' : 'reject',
-        diff: stripUndefined({ taskId: sg.taskId, kind: sg.kind, basis: sg.basis, appliedTo: applied, reason: d.kind === 'reject' ? d.reason.trim() : undefined }),
+        action: d.kind === 'accept' ? 'accept' : d.kind === 'edit' ? 'edit' : d.kind === 'reject' ? 'reject' : REVIEW_ACTION[d.kind],
+        diff: stripUndefined({ taskId: sg.taskId, kind: sg.kind, basis: sg.basis, appliedTo: applied, reason: reasonOf }),
       }),
       { caseId, extraAudit, also },
     );

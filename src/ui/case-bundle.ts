@@ -7,7 +7,7 @@ import { useMemo } from 'react';
 import { hospitalDayOf } from '../domain/dates';
 import { L } from '../domain/label';
 import { deriveMedCourses, deriveProblems, indexTimeline, type MedCourse, type ProblemThread } from '../domain/timeline';
-import type { Attachment, CardReview, Case, CaseAnalysis, CaseIdentifiers, CausalityAssessment, RegisterId, RegisterItem, TaskRecord, TimelineEntry } from '../domain/types';
+import type { Attachment, CardReview, Case, CaseAnalysis, CaseIdentifiers, CausalityAssessment, RegisterId, RegisterItem, Suggestion, TaskRecord, TimelineEntry } from '../domain/types';
 import { analysisStale } from '../store/store';
 import { indexTasks } from '../domain/workflow/tasks';
 import { buildCard, rankCards, type CardContext, type CardModel } from '../domain/problem-card';
@@ -50,6 +50,8 @@ export interface CaseBundle {
   cardContext: CardContext;
   /** M4: the active Problem Cards, ranked (owner decision D5). */
   cards: CardModel[];
+  /** The model's suggestion a register row was accepted from, if any. */
+  suggestionOf: (item: RegisterItem) => Suggestion | undefined;
 }
 
 export type BundleState = { status: 'loading' } | { status: 'error'; error: Error } | { status: 'missing' } | { status: 'ready'; b: CaseBundle };
@@ -137,6 +139,11 @@ export function useCaseBundle(caseId: string): BundleState {
         reviews: reviews.data,
         cardContext,
         cards: rankCards(active.filter((i) => i.register === 'drp')).map((i) => buildCard(i, cardContext)),
+        suggestionOf: (item) => {
+          const o = item.origin;
+          if (o?.kind !== 'suggestion') return undefined;
+          return analyses.data.find((a) => a.id === o.analysisId)?.suggestions.find((x) => x.id === o.suggestionId);
+        },
       },
     };
   }, [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, reviews, today]);

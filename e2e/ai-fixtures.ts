@@ -156,18 +156,28 @@ export function draftModule(data: CaseData): unknown {
       const items: unknown[] = [];
       for (const r of t.registers) {
         if (r.register === 'drp' && enox) {
+          // M4: a Problem Card with PCNE codes (one invented), linked values, claims and the teaching explanation.
           items.push({
             register: 'drp',
             fields: [
               { field: 'problem', value: 'Enoxaparin dose not adjusted for reduced kidney function' },
               { field: 'drugs', value: 'enoxaparin' },
               ...(aki ? [{ field: 'linkedProblemId', value: aki.ref }] : []),
-              { field: 'category', value: 'dose_high' },
+              { field: 'pcneProblem', value: 'P2.1' },
+              { field: 'pcneType', value: 'potential' },
+              { field: 'pcneCauses', value: 'C3.2|C12.9' },
+              ...(scr ? [{ field: 'supporting', value: `${scr.ref}, E99` }] : []),
               { field: 'evidence', value: `${scrText}; enoxaparin 40 mg SC daily.` },
               { field: 'priority', value: 'important' },
+              { field: 'urgency', value: 'high' },
               { field: 'recommendation', value: 'Reduce enoxaparin to 30 mg SC daily and monitor anti-Xa levels (Garcia et al., 2012).' },
               { field: 'recStatus', value: 'draft' },
               { field: 'implemented', value: 'yes' },
+              { field: 'teaching', value: 'Which drugs on this chart are cleared by the kidney, and has each dose followed the kidney function?' },
+            ],
+            claims: [
+              ...(scr ? [{ text: `${scrText}.`, basis: 'case_data', refs: [scr.ref] }] : []),
+              { text: 'Enoxaparin accumulates when kidney function is reduced (Garcia et al., 2012).', basis: 'general_knowledge', refs: [] },
             ],
             reason: 'The dose was ordered before the creatinine rose.',
             basis: 'case_data',

@@ -17,8 +17,9 @@ export async function analyseModule(store: Store, caseId: string, moduleId: stri
   const c = await store.getCase(caseId);
   const module = MODULE_BY_ID.get(moduleId as never);
   if (!c || !module) throw new AiError('bad_request', 'Unknown case or module.');
-  const [entries, items, tasks] = await Promise.all([store.listEntries(caseId), store.listItems(caseId), store.listTasks(caseId)]);
-  const payload = buildCasePayload({ case: c, entries, items, tasks, module, today: store.today() });
+  const [entries, items, tasks, cards] = await Promise.all([store.listEntries(caseId), store.listItems(caseId), store.listTasks(caseId), store.cardContext(caseId)]);
+  // M4: current calculation results are sent too, so that a Problem Card's claim (and a dose) can cite one.
+  const payload = buildCasePayload({ case: c, entries, items, tasks, module, today: store.today(), calcResults: cards.calcResults, calcOutOfDate: cards.calcOutOfDate });
   // Free text typed into the record could still hold an identifier: masked before it leaves the device.
   const ids = c.kind === 'clinical' ? await store.getIdentifiers(caseId) : undefined;
   const text = maskIdentifiers(payload.text, { patientName: ids?.patientName, mrn: ids?.mrn, roomBed: ids?.roomBed, consultantName: ids?.consultantName }).text;

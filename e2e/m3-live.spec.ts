@@ -376,7 +376,7 @@ test('live: the patient file read by Gemini, checked value by value, and the 30 
     await shot(page, 'live-07-task5', true, SHOTS);
     if (await drp.getByRole('button', { name: 'Accept' }).isEnabled()) {
       await drp.getByRole('button', { name: 'Accept' }).click();
-      await expect(page.getByTestId('item-drp')).toBeVisible();
+      await expect(page.getByTestId('card-summary').first()).toBeVisible();
       decisions.push('t05 accepted a drug-related problem row');
     } else decisions.push('t05: the proposed row is incomplete; it would need the trainee to edit it');
   }

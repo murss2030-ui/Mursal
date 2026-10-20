@@ -20,11 +20,12 @@
  *    did, what happened, outcomes, sources and references.
  */
 import { REGISTERS, type FieldDef } from '../../domain/workflow/registers';
+import { claimsValue, linksValue, MAX_CLAIM_TEXT, MAX_CLAIMS, type CardClaim, type CardLink } from '../../domain/card-data';
 import type { TaskDef } from '../../domain/workflow/catalogue';
 import { normalizeItemFields } from '../../domain/workflow/registers';
 import type { CheckValue, ClaimBasis, Suggestion, SuggestionCheck } from '../../domain/types';
-import type { CasePayload } from './payload';
-import type { RawAnalysis, RawSuggestionBase } from './contract';
+import type { CasePayload, RefTarget } from './payload';
+import type { RawAnalysis, RawClaim, RawSuggestionBase } from './contract';
 import { fieldLimit, modelMayAddTo, modelMayAnswer } from './limits';
 
 const NUMBER = /(?<![\p{L}\p{N}.\-/])\d+(?:\.\d+)?(?![\p{L}\p{N}]|\.\d)/gu;
@@ -176,9 +177,20 @@ function itemFields(
       if (f.options?.some((o) => o.value === v)) out[f.id] = v;
       else checks.add('invalid_value_removed');
     } else if (f.kind === 'multi') {
-      const parts = v.split(/[|,]/).map((x) => x.trim()).filter((x) => f.options?.some((o) => o.value === x));
+      const given = v.split(/[|,]/).map((x) => x.trim()).filter(Boolean);
+      const parts = [...new Set(given.filter((x) => f.options?.some((o) => o.value === x)))];
+      if (parts.length < given.length) checks.add('invalid_value_removed');
       if (parts.length) out[f.id] = parts.join('|');
-      else checks.add('invalid_value_removed');
+    } else if (f.kind === 'links') {
+      // M4: a Problem Card's supporting data — only references to data that was sent, timeline entries and calculation results.
+      const links: CardLink[] = [];
+      for (const token of v.split(/[\s,;|]+/).filter(Boolean)) {
+        const t = payload.refs.get(token);
+        if (t?.kind === 'entry' || t?.kind === 'calc') {
+          if (!links.some((l) => l.id === t.id)) links.push({ kind: t.kind, id: t.id });
+        } else checks.add('unknown_ref_removed');
+      }
+      if (links.length) out[f.id] = linksValue(links);
     } else if (f.kind === 'medRef' || f.kind === 'problemRef' || f.kind === 'entryRef') {
       const t = payload.refs.get(v);
       const want = f.kind === 'medRef' ? 'medication' : f.kind === 'problemRef' ? 'problem' : 'entry';
@@ -193,6 +205,38 @@ function itemFields(
       for (const x of c.checks) checks.add(x);
       if (c.text) out[f.id] = c.text;
     }
+  }
+  return out;
+}
+
+/**
+ * M4: the claims of a drafted Problem Card. Each keeps only references to data
+ * that was sent; its numbers must be in what it cites (a dose, only in a cited
+ * calculation result); a citation is removed; a claim without a valid source
+ * is general knowledge — no source.
+ */
+export function draftClaims(raw: readonly RawClaim[], payload: CasePayload, checks: Set<SuggestionCheck>): CardClaim[] {
+  const header = numbersIn(payload.context);
+  const out: CardClaim[] = [];
+  for (const c of raw.slice(0, MAX_CLAIMS)) {
+    const targets: RefTarget[] = [];
+    for (const r of c.refs ?? []) {
+      const t = payload.refs.get(r.trim());
+      if (t) targets.push(t);
+      else checks.add('unknown_ref_removed');
+    }
+    const cited = new Set<string>();
+    for (const t of targets) for (const n of numbersIn(t.text)) cited.add(n);
+    const clean = cleanStatement(c.text ?? '', new Set([...cited, ...header]), cited);
+    for (const x of clean.checks) checks.add(x);
+    const text = clean.text.slice(0, MAX_CLAIM_TEXT);
+    if (!text) continue;
+    const calc = targets.find((t) => t.kind === 'calc');
+    const entry = targets.find((t) => t.kind === 'entry') ?? targets.find((t) => t.entryId);
+    if (c.basis === 'case_data' && !calc && !entry) checks.add('no_valid_ref');
+    const source: Pick<CardClaim, 'source' | 'ref'> =
+      c.basis !== 'case_data' ? { source: 'none' } : calc ? { source: 'calc', ref: calc.id } : entry ? { source: 'entry', ref: entry.kind === 'entry' ? entry.id : entry.entryId! } : { source: 'none' };
+    out.push({ text, ...source, by: 'model' });
   }
   return out;
 }
@@ -263,6 +307,10 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
       const r = resolveRefs(it, payload, everything, false);
       const checks = new Set<SuggestionCheck>(r.checks);
       const fields = itemFields(it.register, it.fields ?? [], r.allowed, r.cited, payload, checks);
+      if (it.register === 'drp' && it.claims?.length) {
+        const claims = draftClaims(it.claims, payload, checks);
+        if (claims.length) fields.claims = claimsValue(claims);
+      }
       const c = cleanStatement(it.reason ?? '', r.allowed, r.cited);
       for (const x of c.checks) checks.add(x);
       if (!normalizeItemFields(it.register as never, fields).ok) checks.add('incomplete');

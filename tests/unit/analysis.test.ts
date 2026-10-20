@@ -309,7 +309,8 @@ describe('what only the trainee can record (Section 24) — never drafted by the
     const { suggestions, dropped } = verifyAnalysis(raw, p);
     expect(dropped).toBe(3); // both checks of t13, and the whole of t25
     const [first, second] = suggestions.filter((x) => x.kind === 'item');
-    expect(Object.keys(first!.fields ?? {}).sort()).toEqual(['evidence', 'pcneCauses', 'pcneProblem', 'pcneType', 'priority', 'problem']);
+    // Since M4 (owner decision D6) the model drafts a card's teaching explanation; it is shown as general knowledge.
+    expect(Object.keys(first!.fields ?? {}).sort()).toEqual(['evidence', 'pcneCauses', 'pcneProblem', 'pcneType', 'priority', 'problem', 'teaching']);
     expect(first!.checks).toContain('trainee_only_removed');
     expect(first!.checks).not.toContain('incomplete');
     expect(second!.fields?.recStatus).toBe('draft');

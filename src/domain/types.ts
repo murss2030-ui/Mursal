@@ -430,6 +430,11 @@ export interface RegisterItem extends Versioned {
   createdAt: string;
   /** M3 extension: the row was confirmed from a document the model read, or accepted from the model's draft. */
   origin?: { kind: 'extraction'; runId: string; fieldId: string; attachmentId: string } | { kind: 'suggestion'; analysisId: string; suggestionId: string };
+  /**
+   * M4, a Problem Card: when its clinical content was last written or reviewed again on the data of the time.
+   * Recording communication, implementation or outcome does not move it, so it does not make a stale card current.
+   */
+  contentAt?: string;
 }
 
 // ---------------------------------------------------------------- M3: what the model read (Section 7 ExtractionRun, Section 13)
@@ -549,13 +554,14 @@ export interface Suggestion {
   reason: string;
   basis: ClaimBasis;
   /** References to the case data that was sent (timeline entries and register rows). */
-  refs: { kind: 'entry' | 'item' | 'medication' | 'problem'; id: string; label: string }[];
+  refs: { kind: 'entry' | 'item' | 'medication' | 'problem' | 'calc'; id: string; label: string }[];
   checks: SuggestionCheck[];
   decision?: SuggestionDecision;
 }
 
 export interface SuggestionDecision {
-  kind: 'accepted' | 'edited' | 'rejected';
+  /** M4: a drafted Problem Card can also be kept as a card waiting for more evidence or for a senior review. */
+  kind: 'accepted' | 'edited' | 'rejected' | 'needs_evidence' | 'needs_senior_review';
   at: string;
   reason?: string;
   /** What accepting changed: a task version, or a register row. */

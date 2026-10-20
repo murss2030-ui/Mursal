@@ -166,5 +166,15 @@ test('a Problem Card written by the trainee: thirteen fields, ranking, staleness
   await expect(page.locator('[data-entity="card_review"][data-action="reject"]')).toHaveCount(1);
   await expect(page.locator('[data-entity="card_review"][data-action="escalate"]')).toHaveCount(1);
   await expect(page.locator('[data-entity="item"][data-action="reconfirm"]')).toHaveCount(1);
+
+  // In Arabic, right to left: the official PCNE wording stays in English, with PRECEPTOR's Arabic explanation.
+  await page.getByRole('button', { name: 'العربية' }).first().click();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await page.goto(`/#/cases/${caseId}/problems`);
+  await page.getByTestId('card-summary').click();
+  await expect(page.getByTestId('card-pcne')).toContainText('Adverse drug event (possibly) occurring');
+  await expect(page.getByTestId('card-pcne')).toContainText('حدث دوائي ضار');
+  await expect(page.locator('[data-card-field="13"]')).toContainText('ناقص');
+  await shot(page, 'm4-07-card-arabic');
   expect(watch.errors).toEqual([]);
 });

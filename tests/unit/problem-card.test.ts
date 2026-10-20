@@ -225,6 +225,21 @@ describe('staleness: a new creatinine makes the card that cites a creatinine sta
     expect(audit).toMatchObject({ entity: 'item', entityId: card.id, diff: { reason: 'Still valid with the creatinine of Day 4' } });
   });
 
+  it('recording the implementation does not make a stale card current; changing its content needs the reason', async () => {
+    const { store, c } = await setup();
+    const s1 = await store.addEntry(c.id, scr(2.4, 2));
+    const card = await store.addItem(c.id, 'drp', { ...MINIMAL, supporting: `e:${s1.id}` });
+    await store.addEntry(c.id, scr(2.9, 3));
+    const { cardStaleness } = await import('../../src/domain/problem-card');
+    const latest = async () => (await store.listItems(c.id)).find((i) => i.id === card.id)!;
+    const v2 = await store.updateItem(c.id, card.id, { ...card.fields, response: 'not_communicated', implemented: 'no' });
+    expect(v2.version).toBe(2);
+    expect(cardStaleness(await latest(), await store.cardContext(c.id)).stale).toBe(true);
+    await expect(store.updateItem(c.id, card.id, { ...v2.fields, recommendation: 'Hold one dose' })).rejects.toMatchObject({ errors: { reason: 'required' } });
+    await store.updateItem(c.id, card.id, { ...v2.fields, recommendation: 'Hold one dose' }, 'Reviewed with the creatinine of Day 3');
+    expect(cardStaleness(await latest(), await store.cardContext(c.id)).stale).toBe(false);
+  });
+
   it('a corrected value: stale until the card links the corrected one (re-review alone is refused)', async () => {
     const { store, c } = await setup();
     const s1 = await store.addEntry(c.id, scr(2.4, 2));

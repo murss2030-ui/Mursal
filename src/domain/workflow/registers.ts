@@ -265,8 +265,12 @@ const CAUSE_GROUPS = [...new Set(PCNE_CAUSES.map((x) => x.domain))].map((id) => 
   return { id, label: L(`${id} ${d.label.en}`, `${id} ${d.label.ar}`) };
 });
 
-/** Fields that record what happened after the decision (communication, implementation, outcome); every other field is the card's clinical content. */
+/**
+ * Fields that record the trainee's readiness and what happened after the decision (draft or final, communication,
+ * implementation, outcome); every other field is the card's clinical content.
+ */
 export const DRP_RECORD_FIELDS: ReadonlySet<string> = new Set([
+  'recStatus',
   'response',
   'communicatedTo',
   'communicatedDay',

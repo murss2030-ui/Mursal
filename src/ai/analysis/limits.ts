@@ -9,7 +9,8 @@
  *   intervention as implemented, or an unmeasured outcome as documented.
  * - Sources and references: the model never names, cites or vouches for one.
  * - Results and targets that must come from a calculation or a reference.
- * - The trainee's own work: the reflection, teaching points and sign-offs.
+ * - The trainee's own work: the reflection and sign-offs. (Since M4 the model
+ *   drafts a Problem Card's teaching explanation, labelled general knowledge.)
  */
 import type { RegisterId } from '../../domain/types';
 
@@ -72,8 +73,7 @@ export const FIELD_LIMITS: Partial<Record<RegisterId, Readonly<Record<string, Fi
     category: 'never',
     boxes: 'never',
     boxesReason: 'never',
-    // M4: links and claims are drafted with their own checks (M4f); until then the model does not propose them.
-    supporting: 'never',
+    // M4: the claims come as their own list, each checked (verify.ts), never as a field value.
     claims: 'never',
     references: 'never',
     response: 'never',
@@ -86,7 +86,7 @@ export const FIELD_LIMITS: Partial<Record<RegisterId, Readonly<Record<string, Fi
     goalMet: 'never',
     outcome: 'never',
     outcomeDay: 'never',
-    teaching: 'never',
+    // Owner decision D6 of M4: the model drafts field 13, the teaching explanation, shown as general knowledge with no source.
     preceptorReviewed: 'never',
   },
   // The trainee looks up and writes everything about an interaction but the drugs (owner decision, 19 October 2026).

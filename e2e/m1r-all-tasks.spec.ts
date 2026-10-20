@@ -6,7 +6,7 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 import { TASK_ORDER } from '../src/domain/workflow/catalogue';
-import { isFieldVisible, REGISTERS, type FieldDef } from '../src/domain/workflow/registers';
+import { isFieldRequired, isFieldVisible, REGISTERS, type FieldDef } from '../src/domain/workflow/registers';
 import { createCase, createRotation, onboard, watchPage } from './helpers';
 
 /** An untranslated message key on screen, such as "task.save". */
@@ -50,8 +50,7 @@ async function fillRequired(page: Page, fields: readonly FieldDef[]) {
   const values: Record<string, string> = {};
   for (const f of fields) {
     if (!isFieldVisible(f, values)) continue;
-    const required = f.required || (f.requiredIf ? f.requiredIf.in.includes(values[f.requiredIf.field] ?? '') : false);
-    if (!required) continue;
+    if (!isFieldRequired(f, values)) continue;
     const label = f.label.en;
     switch (f.kind) {
       case 'text':
@@ -72,6 +71,8 @@ async function fillRequired(page: Page, fields: readonly FieldDef[]) {
       }
       case 'multi': {
         const o = f.options![0];
+        // Long lists fold by group (the PCNE causes): open the option's group first.
+        if (o.group) await page.locator(`[data-group="${o.group}"] summary`).click();
         await page.getByRole('group', { name: label }).getByRole('button', { name: o.label.en, exact: true }).click();
         values[f.id] = o.value;
         break;
@@ -139,7 +140,8 @@ test('every shared register accepts a row through its editor', async ({ page }) 
     await fillRequired(page, r.fields);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page, `saving a ${r.id} row returns to task ${task!.number}`).toHaveURL(new RegExp(`#/cases/${caseId}/task/${task!.id}$`));
-    await expect(page.getByTestId(`item-${r.id}`).first()).toBeVisible();
+    // A drug-related problem is shown as its Problem Card (M4).
+    await expect(page.getByTestId(r.id === 'drp' ? 'card-summary' : `item-${r.id}`).first()).toBeVisible();
   }
 
   // Each row was written once, with an audit record.

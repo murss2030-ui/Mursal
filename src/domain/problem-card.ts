@@ -320,13 +320,13 @@ export interface CardStaleness {
  * A card version depends on the entries and calculation results it cites (and
  * on the entries those results used). It is stale when one of them was
  * corrected or retracted, when an entry of the same kind was recorded after
- * the version was saved, or when a cited result went out of date. An
- * unrelated entry does not make it stale.
+ * its content was last written or reviewed again, or when a cited result went
+ * out of date. An unrelated entry does not make it stale.
  */
 export function cardStaleness(item: RegisterItem, ctx: CardContext): CardStaleness {
   const idx = indexTimeline(ctx.entries);
   const current = new Set(idx.current.map((e) => e.id));
-  const since = item.versionCreatedAt;
+  const since = item.contentAt ?? item.versionCreatedAt;
   const reasons = new Map<string, L>();
   let day: number | undefined;
   const bump = (d: number) => (day = day === undefined ? d : Math.max(day, d));

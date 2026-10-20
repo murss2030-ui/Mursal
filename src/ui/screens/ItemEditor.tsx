@@ -217,6 +217,8 @@ function EditorBody({
   // Section 8, Review: "Edit" on a Problem Card is the edit itself, recorded as the decision on the new version.
   const reviewEdit = !!item && register === 'drp' && query.get('review') === 'edit';
   const ownCard = !!item && !fromModel(item);
+  // D8: editing the content of a stale card is a review on the current data, recorded with its reason.
+  const staleCard = !!item && register === 'drp' && !!b.cards.find((c) => c.item.id === item.id)?.staleness.stale;
   const [withPreceptor, setWithPreceptor] = useState(ownCard);
 
   const prefill: Record<string, string> = {};
@@ -318,6 +320,11 @@ function EditorBody({
           <span data-testid="review-edit-banner">{t('cardReview.editBanner')}</span>
         </Banner>
       )}
+      {staleCard && (
+        <Banner tone="warning">
+          <span data-testid="stale-edit-banner">{t('card.stale.editBanner')}</span>
+        </Banner>
+      )}
 
       <Card>
         <fieldset disabled={readOnly} className="flex flex-col gap-4">
@@ -340,7 +347,13 @@ function EditorBody({
       {reviewEdit && ownCard && <CheckboxField label={t('cardReview.withPreceptor')} checked={withPreceptor} onChange={setWithPreceptor} name="with-preceptor" />}
 
       {item && !readOnly && (
-        <TextField label={retracting ? t('item.retractReason') : t('item.changeReason')} optional={!retracting} value={reason} onChange={setReason} error={errText(errors.reason)} />
+        <TextField
+          label={retracting ? t('item.retractReason') : staleCard ? t('card.stale.editReason') : t('item.changeReason')}
+          optional={!retracting && !staleCard}
+          value={reason}
+          onChange={setReason}
+          error={errText(errors.reason)}
+        />
       )}
       {Object.keys(errors).length > 0 && (
         <Banner tone="danger" role="alert">

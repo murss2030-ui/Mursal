@@ -11,18 +11,23 @@ import { parseClaims, parseLinks } from '../../domain/card-data';
 import { hospitalDayOf } from '../../domain/dates';
 import { REGISTERS } from '../../domain/workflow/registers';
 import { TASKS, type ModuleDef, type ScopedSection, type TaskDef } from '../../domain/workflow/catalogue';
-import { deriveMedCourses, deriveProblems, indexTimeline, regimenText } from '../../domain/timeline';
+import { compareEntries, deriveMedCourses, deriveProblems, indexTimeline, regimenText } from '../../domain/timeline';
+import { CALC_BY_ID } from '../../calc/registry';
+import type { CalcResult } from '../../calc/types';
+import { show } from '../../calc/units';
 import type { Case, RegisterItem, TaskRecord, TimelineEntry } from '../../domain/types';
 import { translate } from '../../i18n/i18n';
 import { entryText } from '../../ui/format';
 import { fieldLimit, modelMayAddTo, modelMayAnswer, UNDRAFTED_TASKS } from './limits';
 
 export interface RefTarget {
-  kind: 'entry' | 'item' | 'medication' | 'problem';
+  kind: 'entry' | 'item' | 'medication' | 'problem' | 'calc';
   id: string;
   label: string;
   /** All the text sent for this reference; the numbers in it are the ones a statement citing it may use. */
   text: string;
+  /** M4: the timeline entry a Problem Card's claim citing this reference points to (a medication's latest order, a problem's latest note). */
+  entryId?: string;
 }
 
 export interface CasePayload {
@@ -58,7 +63,8 @@ export function draftableRegisters(def: TaskDef) {
       .map((f) => {
         const limit = fieldLimit(r, f.id);
         const allowed = f.options?.map((o) => o.value).filter((v) => !Array.isArray(limit) || limit.includes(v));
-        return { id: f.id, label: f.label.en, kind: f.kind, ...(f.required ? { required: true } : {}), ...(allowed ? { allowed } : {}) };
+        const format = f.kind === 'links' ? { format: 'references to timeline entries and calculation results (E#, C#), comma-separated' } : f.kind === 'multi' ? { format: 'allowed values joined with |' } : {};
+        return { id: f.id, label: f.label.en, kind: f.kind, ...(f.required ? { required: true } : {}), ...(allowed ? { allowed } : {}), ...format };
       }),
   }));
 }
@@ -86,6 +92,9 @@ export function buildCasePayload(input: {
   tasks: readonly TaskRecord[];
   module: ModuleDef;
   today: string;
+  /** M4: calculation results, and which are current; only current results are sent (C1, C2 …). */
+  calcResults?: readonly CalcResult[];
+  calcOutOfDate?: ReadonlySet<string>;
 }): CasePayload {
   const c = input.case;
   const refs = new Map<string, RefTarget>();
@@ -101,14 +110,15 @@ export function buildCasePayload(input: {
     const ref = `M${i + 1}`;
     medRef.set(m.medId, ref);
     const text = `${m.drug} ${regimenText(m)} from Day ${m.startDay}${m.stopDay !== undefined ? ` to Day ${m.stopDay}` : ''} ${m.status}${m.indication ? ` for ${m.indication}` : ''}`;
-    refs.set(ref, { kind: 'medication', id: m.medId, label: m.drug, text });
+    const last = [m.start, ...m.changes, ...(m.stop ? [m.stop] : [])].sort(compareEntries).at(-1)!;
+    refs.set(ref, { kind: 'medication', id: m.medId, label: m.drug, text, entryId: last.id });
     return { ref, drug: m.drug, regimen: regimenText(m), startDay: m.startDay, ...(m.stopDay !== undefined ? { stopDay: m.stopDay } : {}), status: m.status, ...(m.indication ? { indication: m.indication } : {}) };
   });
   const probs = problems.map((p, i) => {
     const ref = `P${i + 1}`;
     probRef.set(p.problemId, ref);
     const pl = p.latest.payload;
-    refs.set(ref, { kind: 'problem', id: p.problemId, label: pl.name, text: `${pl.name} ${pl.acuity} ${pl.status}` });
+    refs.set(ref, { kind: 'problem', id: p.problemId, label: pl.name, text: `${pl.name} ${pl.acuity} ${pl.status}`, entryId: p.latest.id });
     return { ref, name: pl.name, acuity: pl.acuity, status: pl.status, primary: pl.primaryDiagnosis };
   });
 
@@ -123,12 +133,30 @@ export function buildCasePayload(input: {
       return { ref, day: e.hospitalDay, ...(e.timeOfDay ? { time: e.timeOfDay } : {}), type: e.type, text };
     });
 
-  /** Links and claims of a Problem Card, with the references of this payload in place of internal ids (calculation results are not sent yet). */
+  // M4: the current calculation results, each with its formula's result, unit and day (a dose may come only from one of these).
+  const calcRef = new Map<string, string>();
+  const calculations = (input.calcResults ?? [])
+    .filter((r) => !input.calcOutOfDate?.has(r.id))
+    .map((r, i) => {
+      const ref = `C${i + 1}`;
+      calcRef.set(r.id, ref);
+      const name = CALC_BY_ID.get(r.calc)?.name ?? r.calc;
+      const secondary = (r.secondary ?? []).map((x) => `${x.label.en}: ${show(x.value, x.unit, x.decimals)}`).join('; ');
+      const text = `${name}: ${show(r.value, r.unit, r.decimals)}${r.category ? ` (${r.category.label.en})` : ''}${secondary ? `; ${secondary}` : ''}${r.day !== undefined ? ` — Day ${r.day}` : ''}`;
+      refs.set(ref, { kind: 'calc', id: r.id, label: name, text });
+      return { ref, text };
+    });
+
+  /** Links and claims of a Problem Card, with the references of this payload in place of internal ids. */
+  const ref = (l: { kind: 'entry' | 'calc'; id: string }) => (l.kind === 'entry' ? entryRef.get(l.id) : calcRef.get(l.id));
   const cardValue = (kind: 'links' | 'claims', v: string): string => {
-    if (kind === 'links') return parseLinks(v).flatMap((l) => (l.kind === 'entry' && entryRef.has(l.id) ? [entryRef.get(l.id)!] : [])).join(', ');
+    if (kind === 'links') return parseLinks(v).flatMap((l) => ref(l) ?? []).join(', ');
     const SOURCE = { entry: 'case data', calc: 'a calculation', dataset: 'the offline interaction check', reading: 'a source the trainee read', none: 'general knowledge' } as const;
     return parseClaims(v)
-      .map((c) => `${c.text} [${c.source === 'entry' && c.ref && entryRef.has(c.ref) ? entryRef.get(c.ref) : SOURCE[c.source]}]`)
+      .map((c) => {
+        const r = (c.source === 'entry' || c.source === 'calc') && c.ref ? ref({ kind: c.source, id: c.ref }) : undefined;
+        return `${c.text} [${r ?? SOURCE[c.source]}]`;
+      })
       .join(' | ');
   };
 
@@ -172,6 +200,7 @@ export function buildCasePayload(input: {
     timeline,
     medications: meds,
     problems: probs,
+    calculations,
     registerRows: rows,
     module: { id: input.module.id, title: input.module.title.en },
     tasks: tasks.map((d) => taskSpec(d, byTask.get(d.id))),

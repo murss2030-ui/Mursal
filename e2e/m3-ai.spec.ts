@@ -199,9 +199,27 @@ test('Teaching Case: Next → the model reads the file → each value checked �
   await expect(drp).toContainText('Enoxaparin dose not adjusted for reduced kidney function');
   await expect(drp.locator('[data-check="trainee_only_removed"]')).toBeVisible();
   await expect(drp).not.toContainText('Implemented');
+  // M4: a drafted Problem Card — the invented PCNE code and the unknown reference removed, its claims shown with their sources.
+  await expect(drp.locator('[data-check="invalid_value_removed"]')).toBeVisible();
+  await expect(drp.locator('[data-check="unknown_ref_removed"]')).toBeVisible();
+  await expect(drp.locator('[data-field="pcneCauses"]')).toContainText('C3.2');
+  await expect(drp.locator('[data-field="pcneCauses"]')).not.toContainText('C12.9');
+  await expect(drp.getByTestId('draft-claims').locator('li')).toHaveCount(2);
+  await expect(drp.getByTestId('draft-claims').locator('[data-claim-source="none"]')).not.toContainText('Garcia');
+  await expect(drp.locator('[data-field="teaching"] [data-basis="general_knowledge"]')).toBeVisible();
   await shot(page, 'm3-10-drp-suggestion', true);
   await drp.getByRole('button', { name: 'Accept' }).click();
-  await expect(page.getByTestId('item-drp')).toContainText('Enoxaparin dose not adjusted for reduced kidney function');
+  const card = page.getByTestId('card-summary');
+  await expect(card).toContainText('Enoxaparin dose not adjusted for reduced kidney function');
+  await expect(card).toHaveAttribute('data-review', 'accepted');
+  await expect(card.getByTestId('card-pcne-code')).toHaveText('P2.1 · C3.2');
+  await card.click();
+  await expect(page.getByTestId('problem-card')).toBeVisible();
+  await expect(page.locator('[data-card-field="13"] [data-basis="general_knowledge"]')).toBeVisible();
+  await expect(page.getByTestId('review-history')).toContainText('Accepted');
+  await expect(page.getByTestId('review-history')).toContainText('on the AI draft');
+  await expect(page.getByTestId('card-claims').locator('[data-claim-source="entry"]')).toHaveAttribute('data-check', 'numbers_found');
+  await shot(page, 'm3-10b-drafted-card-accepted', true);
 
   // Tasks that are the trainee's alone are never drafted.
   await page.goto(`/#/cases/${caseId}/task/t25`);

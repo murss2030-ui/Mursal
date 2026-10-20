@@ -467,6 +467,12 @@ export function CardBody({ b, card, readOnly }: { b: CaseBundle; card: CardModel
       </Field>
 
       <Field status={st(13)}>
+        {/* Owner decision D6: the model's teaching explanation is general knowledge, with no source, until the trainee rewrites it. */}
+        {fromModel(card.item) && f.teaching && b.suggestionOf(card.item)?.fields?.teaching === f.teaching && (
+          <span className="self-start rounded-full border border-dashed border-amber-500 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900" data-basis="general_knowledge">
+            {t('card.f13.byModel')}
+          </span>
+        )}
         <Text>{f.teaching}</Text>
       </Field>
     </div>
@@ -492,6 +498,7 @@ export function ProblemCardScreen({ caseId, itemId, query }: { caseId: string; i
     <div className="flex flex-col gap-4" data-testid="card-screen">
       <PageTitle back={back}>{t('card.title')}</PageTitle>
       <div className="-mt-3 flex flex-wrap items-center gap-2">
+        {fromModel(item) && <ProvenanceBadge state="ai_suggestion" detail={t('card.fromDraft')} />}
         <ReviewChip review={card.review} />
         <StaleBadge card={card} />
         <span className="text-xs text-slate-600">{t('common.version', { n: item.version })}</span>

@@ -10,7 +10,7 @@ import type { TaskDef } from '../../domain/workflow/catalogue';
 import { S, type OutputSchema } from '../schema';
 import { modelMayAddTo, modelMayAnswer } from './limits';
 
-export const ANALYSE_PROMPT_VERSION = 'analyse-v2';
+export const ANALYSE_PROMPT_VERSION = 'analyse-v3';
 
 export interface RawSuggestionBase {
   reason: string;
@@ -22,9 +22,17 @@ export interface RawCheck extends RawSuggestionBase {
   scopeRef: string | null;
   answer: 'ok' | 'issue' | 'na';
 }
+/** M4: one statement a Problem Card rests on, with what it rests on. */
+export interface RawClaim {
+  text: string;
+  basis: 'case_data' | 'general_knowledge';
+  refs: string[];
+}
 export interface RawItem extends RawSuggestionBase {
   register: string;
   fields: { field: string; value: string }[];
+  /** Problem Cards (register drp) only. */
+  claims?: RawClaim[];
 }
 export interface RawTaskDraft {
   taskId: string;
@@ -44,6 +52,11 @@ const BASE = {
   refs: S.arr(S.str(), 12, 'References such as E1, M2, P1, R3'),
 };
 
+const BASE_CLAIM = {
+  basis: BASE.basis,
+  refs: S.arr(S.str(), 8, 'References such as E1, C1, M2, P1'),
+};
+
 export function analysisSchema(tasks: readonly TaskDef[]): OutputSchema {
   const taskIds = tasks.map((t) => t.id);
   const checkIds = [
@@ -61,7 +74,15 @@ export function analysisSchema(tasks: readonly TaskDef[]): OutputSchema {
         summary: S.str('What the data shows for this task, at most four sentences'),
         checks: S.arr(S.obj({ checkId: checkIds.length ? S.enumOf(checkIds) : S.str(), scopeRef: S.strOrNull('M# or P# for a per-medication or per-problem check'), answer: S.enumOf(['ok', 'issue', 'na']), ...BASE }), 40),
         items: S.arr(
-          S.obj({ register: registers.length ? S.enumOf(registers) : S.str(), fields: S.arr(S.obj({ field: S.str(), value: S.str() }), 30), ...BASE }),
+          S.obj(
+            {
+              register: registers.length ? S.enumOf(registers) : S.str(),
+              fields: S.arr(S.obj({ field: S.str(), value: S.str() }), 40),
+              ...BASE,
+              claims: S.arr(S.obj({ text: S.str('One statement the card rests on'), ...BASE_CLAIM }), 10, 'Problem Cards (register drp) only'),
+            },
+            ['register', 'fields', 'reason', 'basis', 'refs'],
+          ),
           15,
         ),
         missingData: S.arr(S.str(), 15),
@@ -84,6 +105,7 @@ Rules:
 7. Register rows only for the registers listed for that task, with only the listed field ids and allowed values.
 8. Never state that something was done or happened unless the data says so: interviews, counselling, communication with the team, discussions, double-checks, reports, implementation and outcomes are recorded by the trainee alone. A recommendation you propose is a proposal, never an implemented one.
 9. Be concise. Write in English. There are no names or identifiers in the data; never invent any.
+10. Drug-related problems (register drp) are Problem Cards. Classify each with PCNE V9.1 using only the allowed codes: pcneProblem (the problem), pcneType (potential or manifest) and pcneCauses (every cause that applies, joined with "|"; C9.3 if there is no obvious cause) — the problem and its cause are separate. Put in "supporting" the references of the values it rests on (E#, C#), comma-separated. List in "claims" each statement the card rests on, with its basis and refs. Propose the priority with its reason, and urgency, significance and impact (high, medium or low). Write "teaching" as the clinical question this problem teaches the trainee to ask (general knowledge). A dose may appear only if it is in a calculation result (C#) you cite. Never propose a review decision, communication, implementation or outcome.
 Return JSON only.`;
 
 export function analyseHeader(moduleId: string, taskIds: readonly string[]): string {

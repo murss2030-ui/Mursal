@@ -18,6 +18,8 @@ import { Icon } from '../components/Icon';
 import { ProvenanceBadge } from '../components/ProvenanceBadge';
 import { Banner, Button, LinkButton, Num, TextAreaField, TextField } from '../components/ui';
 import { entryText } from '../format';
+import { parseClaims, parseLinks, type CardClaim } from '../../domain/card-data';
+import { calcLabel, entryLabel } from './card-parts';
 import { navigate } from '../router';
 import { useSession } from '../session-context';
 
@@ -31,6 +33,15 @@ function checkLabel(def: TaskDef, s: Suggestion, b: CaseBundle, tl: ReturnType<t
 /** A field value as the trainee reads it: choices by their label, references by the name of what they point to. */
 function shownValue(f: FieldDef | undefined, v: string, b: CaseBundle, tl: ReturnType<typeof useL>, i18n: Pick<ReturnType<typeof useI18n>, 't'>): string {
   if (f?.options) return v.split('|').map((x) => tl(f.options!.find((o) => o.value === x)?.label ?? { en: x, ar: x })).join(', ');
+  if (f?.kind === 'links') {
+    return parseLinks(v)
+      .map((l) => {
+        const e = l.kind === 'entry' ? b.entries.find((x) => x.id === l.id) : undefined;
+        const r = l.kind === 'calc' ? b.calcResults.find((x) => x.id === l.id) : undefined;
+        return e ? entryLabel(e, i18n.t) : r ? calcLabel(r, 'en', i18n.t) : l.id;
+      })
+      .join(' · ');
+  }
   if (f?.kind === 'medRef') return b.courses.find((m) => m.medId === v)?.drug ?? v;
   if (f?.kind === 'problemRef') return b.problems.find((p) => p.problemId === v)?.latest.payload.name ?? v;
   if (f?.kind === 'entryRef') {
@@ -38,6 +49,12 @@ function shownValue(f: FieldDef | undefined, v: string, b: CaseBundle, tl: Retur
     return e ? entryText(e, i18n).main : v;
   }
   return v;
+}
+
+function claimLabel(c: CardClaim, b: CaseBundle, t: ReturnType<typeof useI18n>['t']): string {
+  const e = c.source === 'entry' ? b.entries.find((x) => x.id === c.ref) : undefined;
+  const r = c.source === 'calc' ? b.calcResults.find((x) => x.id === c.ref) : undefined;
+  return e ? entryLabel(e, t) : r ? calcLabel(r, 'en', t) : c.title ?? '';
 }
 
 function Basis({ s }: { s: Suggestion }) {
@@ -74,7 +91,8 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
   const { t } = useI18n();
   const tl = useL();
   const { store } = useSession();
-  const [mode, setMode] = useState<'idle' | 'reject' | 'edit'>('idle');
+  const [mode, setMode] = useState<'idle' | 'reject' | 'edit' | 'needs_evidence' | 'needs_senior_review'>('idle');
+  const card = s.kind === 'item' && s.register === 'drp';
   const [reason, setReason] = useState('');
   const [text, setText] = useState(s.text ?? '');
   const [error, setError] = useState<string>();
@@ -109,6 +127,11 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
             {t(`draft.decided.${k}`)}
             {s.decision.reason ? ` — ${s.decision.reason}` : ''}
           </span>
+          {s.decision.appliedTo?.kind === 'item' && s.register === 'drp' && (
+            <a href={`#/cases/${b.case.id}/card/${s.decision.appliedTo.itemId}?task=${def.id}`} className="mt-0.5 inline-flex min-h-[32px] items-center text-xs font-medium text-teal-900 underline">
+              {t('draft.openCard')}
+            </a>
+          )}
         </span>
       </li>
     );
@@ -138,10 +161,31 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
               {Object.entries(s.fields ?? {}).map(([k, v]) => {
                 const f = reg.fields.find((x) => x.id === k);
                 return (
-                  <div key={k}>
-                    <dt className="text-xs text-slate-600">{f ? tl(f.label) : k}</dt>
+                  <div key={k} data-field={k}>
+                    <dt className="flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+                      {f ? tl(f.label) : k}
+                      {/* Owner decision D6 of M4: the drafted teaching explanation is general knowledge, with no source. */}
+                      {s.register === 'drp' && k === 'teaching' && (
+                        <span className="rounded-full border border-dashed border-amber-500 bg-amber-50 px-1.5 text-[11px] font-medium text-amber-900" data-basis="general_knowledge">
+                          {t('draft.noSource')}
+                        </span>
+                      )}
+                    </dt>
                     <dd dir="auto" className="text-slate-900">
-                      {shownValue(f, v, b, tl, { t })}
+                      {f?.kind === 'claims' ? (
+                        <ul className="flex flex-col gap-1" data-testid="draft-claims">
+                          {parseClaims(v).map((c, i) => (
+                            <li key={i} className={`rounded-lg border px-2 py-1 ${c.source === 'none' ? 'border-dashed border-amber-500 bg-amber-50' : 'border-violet-200 bg-white'}`} data-claim-source={c.source}>
+                              {c.text}
+                              <span className="block text-xs text-slate-600">
+                                {c.source === 'none' ? t('claims.from.none') : t(`claims.from.${c.source}` as MsgKey, { label: claimLabel(c, b, t) })}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        shownValue(f, v, b, tl, { t })
+                      )}
                     </dd>
                   </div>
                 );
@@ -172,6 +216,19 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
             <div className="flex flex-wrap gap-2">
               <Button variant="danger" icon="x" disabled={busy || !reason.trim()} onClick={() => void decide({ kind: 'reject', reason })}>
                 {t('draft.reject')}
+              </Button>
+              <Button variant="ghost" onClick={() => setMode('idle')}>
+                {t('common.cancel')}
+              </Button>
+            </div>
+          </div>
+        ) : mode === 'needs_evidence' || mode === 'needs_senior_review' ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-slate-700">{t('draft.keepAsCard')}</p>
+            <TextField label={t(`cardReview.reason.${mode}`)} value={reason} onChange={setReason} name={`${mode}-${s.id}`} />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="primary" disabled={busy || reason.trim().length < 3 || stale || incomplete} onClick={() => void decide({ kind: mode, reason })}>
+                {t('cardReview.confirm', { decision: t(`cardReview.decision.${mode}`) })}
               </Button>
               <Button variant="ghost" onClick={() => setMode('idle')}>
                 {t('common.cancel')}
@@ -209,6 +266,16 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
             <Button variant="ghost" icon="x" onClick={() => setMode('reject')}>
               {t('draft.reject')}
             </Button>
+            {card && (
+              <>
+                <Button variant="ghost" icon="search" disabled={stale || incomplete} onClick={() => setMode('needs_evidence')}>
+                  {t('cardReview.evidence')}
+                </Button>
+                <Button variant="ghost" icon="graduation" disabled={stale || incomplete} onClick={() => setMode('needs_senior_review')}>
+                  {t('cardReview.senior')}
+                </Button>
+              </>
+            )}
           </div>
         )}
         {incomplete && <p className="text-xs text-slate-600">{t('draft.incompleteHelp')}</p>}
