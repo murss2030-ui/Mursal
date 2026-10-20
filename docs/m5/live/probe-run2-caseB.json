@@ -64,6 +64,14 @@
           "errors": [
             "provider_quota_exhausted: RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To m..."
           ]
+        },
+        {
+          "moduleId": "document",
+          "ok": false,
+          "errors": [
+            "provider_rate_limited: RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To m...",
+            "provider_quota_exhausted: RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To m..."
+          ]
         }
       ]
     }
@@ -146,6 +154,20 @@
       "model": "gemini-3.6-flash",
       "status": 429,
       "ms": 234,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativel"
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 429,
+      "ms": 256,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativel"
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 429,
+      "ms": 616,
       "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativel"
     }
   ]

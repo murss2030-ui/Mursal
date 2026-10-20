@@ -6,6 +6,7 @@
  *   PRECEPTOR_LIVE=1 PRECEPTOR_LIVE_DRAFT=<model> PRECEPTOR_LIVE_VERIFY=<model>[,<model>…] \
  *   PRECEPTOR_LIVE_PRICES=<model>:<in>:<out>[,…] [PRECEPTOR_LIVE_BUDGET_USD=3] \
  *   [PRECEPTOR_LIVE_PARTS=bench,cases,reverify] [PRECEPTOR_LIVE_CASES=A,B] [PRECEPTOR_LIVE_FROM=<probe json>] \
+ *   [PRECEPTOR_LIVE_SKIP=A:collect,…] [PRECEPTOR_LIVE_ATTEMPTS=3] \
  *   [PRECEPTOR_LIVE_KEY_CLASS=paid] NODE_USE_ENV_PROXY=1 \
  *   npx vitest run --config vitest.live.config.ts
  *
@@ -55,6 +56,9 @@ const PRICES = process.env.PRECEPTOR_LIVE_PRICES ?? '';
 const BUDGET = process.env.PRECEPTOR_LIVE_BUDGET_USD ?? '3';
 const PARTS = new Set((process.env.PRECEPTOR_LIVE_PARTS ?? 'bench,cases').split(','));
 const CASES = new Set((process.env.PRECEPTOR_LIVE_CASES ?? 'A,B').split(','));
+/** Modules already drafted in an earlier run, as `A:collect,A:review` (a free-tier key allows 20 requests per model per day). */
+const SKIP = new Set((process.env.PRECEPTOR_LIVE_SKIP ?? '').split(',').filter(Boolean));
+const ATTEMPTS = Number(process.env.PRECEPTOR_LIVE_ATTEMPTS ?? '3');
 const RUN = process.env.PRECEPTOR_LIVE_RUN ?? new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
 const OUT = 'docs/m5/live';
 
@@ -129,7 +133,7 @@ const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 /** One module, retried twice after a pause when the provider refuses for the moment (high demand, timeout). */
 async function draftModule(store: Store, caseId: string, moduleId: string, deps: CallDeps) {
   const errors: string[] = [];
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     try {
       return { analysis: await analyseModule(store, caseId, moduleId, deps), errors };
     } catch (e) {
@@ -286,7 +290,7 @@ describeLive('M5 live probe (synthetic data only)', () => {
         const c = (await store.getCase(k.caseId))!;
         const modules: unknown[] = [];
         out.push({ name: k.name, modules });
-        for (const m of MODULES) {
+        for (const m of MODULES.filter((x) => !SKIP.has(`${k.name.slice(0, 1)}:${x.id}`))) {
           const { analysis, errors } = await draftModule(store, k.caseId, m.id, deps);
           if (!analysis) {
             modules.push({ moduleId: m.id, ok: false, errors });
@@ -312,6 +316,7 @@ describeLive('M5 live probe (synthetic data only)', () => {
           const sourceText = new Map(input.sources.map((s) => [s.id, s]));
           modules.push({
             moduleId: m.id,
+            draftModel: analysis.model,
             ok: true,
             errors: [...errors, ...Object.values(byModel).flatMap((x) => x.errors)],
             usage: analysis.usage,
