@@ -21,16 +21,65 @@ The plan, with the owner's decisions 2–9 (all approved on 19 October 2026), is
 | **The form** | Section 8: the boxes of the current, undisputed cards, from their PCNE codes (the draft-mapping note shown while unapproved); one line per card with its PCNE codes; the PCNE wording of codes under "other"; the trainee's adjustments with their reasons. Section 9: the final recommendations of those cards only — never a stale, rejected, undecided or waiting card, nor one whose dose is not traced to a calculation or a cited source. Each card left out is listed with why. |
 | **The model's part** (M4f, decision D6) | The case analysis (prompt `analyse-v3`) drafts Problem Cards: PCNE codes from the allowed lists only, the values they rest on as references, claims with their basis and references, priority and its factors, and the teaching explanation (field 13, labelled "general knowledge — no source"). Current calculation results are now sent too (C1, C2 …), so that a claim — and a dose — can cite one. Checks in code before anything is shown: an invalid PCNE code is removed; references must point to data that was sent; every number must be in the data the statement cites (a dose: only in a cited calculation result), otherwise it is removed or withheld; citations, URLs and grades are removed; the review decision, communication, implementation, outcome, the form boxes and the trainee's references are never taken from the model. A drafted card is decided on its own: accept, edit, reject, or kept as a card waiting for more evidence or for a senior review (with the reason). |
 
-## 2. Test results
+## 2. Test results (run on 20 October 2026, on this build)
 
-*(filled from the final runs below)*
+| Suite | Result |
+|---|---|
+| Type check (`tsc -b`, strict) | no error |
+| Unit tests (`npm test`, Vitest) | **633 passed** in 43 files, 0 failed |
+| Browser tests (`npm run test:e2e`, Playwright, Pixel 7, production build) | __E2E__ |
+
+New for M4:
+
+- `tests/unit/pcne.test.ts` (31) — the PCNE list against the document's counts and wording; both maps across every code and every problem–cause pair.
+- `tests/unit/problem-card.test.ts` (19) — the thirteen-field rule on a minimal, a complete, a drafted and a pre-M4 card; the boxes and Cipolle view of a card; the claim checks; the ranking and the stage; staleness through the store (a potassium does not stale a creatinine card; a new creatinine does, with its day; a corrected value; a cited CrCl going out of date; recording the implementation does not make a stale card current; re-review as version 2 with its reason); the review (no operation over several cards; reasons required; append-only history; the trainee's own card decided with the preceptor; "Edit" recorded with the new version; the first decision on a drafted card); form Sections 8 and 9 leaving out stale, rejected, waiting, draft and untraced-dose cards with their reasons.
+- `tests/unit/card-drafts.test.ts` (7) — the model's drafted cards with hostile fixtures: an invented cause code, references never sent, a number not in the cited data, a dose not from a calculation, citations and a URL, the fields only the trainee records, a claims list smuggled as a field value; a dose kept when it comes from a cited calculation result; a medication reference linked through its order; the output schema of every module within the relay's limits; a drafted card accepted, or kept for more evidence or a senior review.
+- `e2e/m4-cards.spec.ts` — the whole path in the browser on a card the trainee writes (screenshots in [screenshots/](screenshots/)).
+- Updated for M4: the M3 browser test now accepts a drafted Problem Card and checks its PCNE codes, claims, teaching label and first decision; the M1 test that fills every shared list fills the card's new required fields.
 
 ## 3. Acceptance criteria (Section 23, M4)
 
-*(filled from the final runs below)*
+| Criterion | How it is met | Verified by |
+|---|---|---|
+| Every Problem Card carries all thirteen fields populated or explicitly marked missing | The card view renders the thirteen fields in order; a field without content shows "Missing — " and what is missing; gaps inside a filled field are named under it. Field 10 shows the decisions, or "written by you". | Unit: minimal, complete, drafted and pre-M4 cards. Browser: each of the 13 fields of a card has content or "Missing — …" ([m4-03](screenshots/m4-03-card-thirteen-fields.png)); the drafted card in the M3 test. |
+| Bulk approve does not exist | Every decision is one call naming one card; there is no store operation over several cards and no control that decides more than one; nothing is pre-selected, and "Decided with my preceptor" is never ticked in advance. | Unit: the store's decision methods listed and checked. Browser: no "all / bulk / every" control on the Problems tab or Tasks 5 and 13; each decision needs its own click and, where required, its reason. |
+| Adding a new creatinine marks the dependent analysis stale within one interaction and blocks its export | After saving a new creatinine, the next screen shows "Re-analyse — Day 2" on the card that cites the earlier creatinine (no reload); a potassium does not. The card cannot be accepted, and the form's Sections 8 and 9 leave it out and say why. **There is no export yet (M6):** the form screen is the department form as it will be exported, so a stale card cannot reach it; M6 will build the PDF from the same rules and add its own block. | Browser: [m4-04](screenshots/m4-04-stale-after-new-creatinine.png), [m4-05](screenshots/m4-05-form-leaves-stale-card-out.png). Unit: the same with a cited CrCl, a corrected value and an unrelated entry. |
+| A rejected recommendation records a reason | Reject is refused without a reason (store and screen); the reason is stored with the decision, shown in the card's history and written to the audit log. | Unit and browser ([m4-06](screenshots/m4-06-review-history.png)): the button stays disabled until the reason is given; the audit log holds the rejection with its reason. |
+| Section 21: both maps across all codes; staleness when a new entry lands | Both maps are defined for every problem and cause code and resolve every problem–cause pair. | `pcne.test.ts`; `problem-card.test.ts`. |
 
-## 4. Known limitations
+All M1, M2 and M3 tests still pass (one skipped test is the live run with the real Gemini service, which needs the deployed relay and the key).
 
-*(below)*
+## 4. Known limitations — said plainly
 
-## 5. Files
+1. **The two mappings are drafts.** Until you approve [PCNE-MAPPINGS.md](PCNE-MAPPINGS.md) — in particular the nine ⚑ choices (C4.1, C4.2, C6.2, C6.3, C7.2, C7.3, C7.5, C7.9, C7.10) — every screen that shows a derived box or Cipolle category says it is a draft, and the trainee checks the boxes.
+2. **Claims are checked in code only:** that each cited source exists and that every number of the claim is in it. Their meaning is not verified; that is the verifier of M5. A claim with no source is shown as "general knowledge — unverified", and one naming a source the trainee read says that PRECEPTOR did not consult it.
+3. **The model's part was tested with the stand-in for the AI service, not with the real model.** The prompt changed (`analyse-v3`: PCNE codes, claims, calculation results). A live run like M3's needs your deployed relay and key; I have not run it, and the real model's cards may be poorer than the stand-in's. Every check in code applies to them whatever they contain.
+4. **No export yet.** The form screen excludes stale and disputed cards; the PDF and its own export block come in M6.
+5. **PCNE interventions, acceptance and problem status** (I, A, O codes) are stored in the classification module but not yet chosen on the card, which uses the department form's own fields for communication, implementation and outcome. They can be added if you want the PCNE record complete for research.
+6. **Staleness is deliberately cautious:** any entry of the same kind recorded after the card's content was written or reviewed makes it stale — even one dated earlier (a value typed in late). An entry of a kind the card does not cite never does.
+7. **A card you write yourself** enters Section 9 when you mark its recommendation "Final" (your own explicit act, decision D9), unless a later decision disputes it (rejected, more evidence requested, senior review requested). If you prefer that such cards wait for a decision taken with the preceptor, it is a one-line rule change.
+8. **A dose in your own recommendation must be traced:** if it does not appear in a cited calculation, a cited value or a claim with a source, the card stays out of Section 9 with that reason. Your text is never changed.
+9. **Cards recorded before M4** keep their department category until edited; editing them then requires the PCNE codes. Nothing is converted automatically. (Only synthetic data exists on any device.)
+10. **PCNE asks to be informed of the classification's use** (drp@pcne.org). PRECEPTOR contacts no one; the department should send that notice.
+
+## 5. Review before this report
+
+A review pass over the M4 code (after an attempted automated multi-reviewer pass that could not complete) found and fixed, with tests: the preceptor's part in a decision on the trainee's own card is now stated by the trainee and never ticked in advance; field 8 no longer says "Proposed — not implemented" once the implementation is recorded; recording implementation or outcome no longer makes a stale card current; Section 8 says the cards are held out rather than "not assessed" when every card is left out; a drafted medication or problem reference is linked through its timeline entry instead of being dropped; the editor's PCNE choices keep the official English wording in Arabic; an incomplete claim is reported as required.
+
+## 6. How to see it
+
+Run `npm install`, `npm run build`, `npm run preview`, open the app, create a Teaching Case with a creatinine, open the case's **Problems** tab and add a drug-related problem. Screenshots of the path are in [screenshots/](screenshots/): the editor (m4-01), the ranked list (m4-02), the card's thirteen fields (m4-03), staleness after a new creatinine (m4-04), the form leaving the stale card out (m4-05), the decisions with their reasons (m4-06), the card in Arabic (m4-07); the drafted card from the AI stand-in is in the M3 test screenshots (m3-10, m3-10b).
+
+## 7. Acceptance
+
+Waiting for the owner: (1) approval of the PCNE mappings, or the changes you want; (2) acceptance of M4, or the corrections you want.
+
+## 8. Files
+
+- Classification and maps: `src/domain/pcne.ts`, `src/domain/pcne-maps.ts`, `docs/m4/PCNE-MAPPINGS.md` (generated by `npm run docs:pcne`).
+- The card: `src/domain/problem-card.ts`, `src/domain/card-data.ts`, `src/domain/workflow/registers.ts` (the drug-related problem register), `src/domain/types.ts` (`CardReview`).
+- Store: `src/store/store.ts` (`reviewCard`, `reconfirmCard`, `updateItem` with the Edit decision, `decideSuggestion`, `cardContext`), `src/store/db.ts` (table `cardReviews`, database version 7), `src/store/backup.ts` (format 5).
+- The form: `src/domain/form/derive.ts` (Sections 8 and 9).
+- The model: `src/ai/analysis/{payload,contract,verify,limits,run}.ts`.
+- Screens: `src/ui/screens/{ProblemCard,ProblemsTab,card-parts,ItemEditor,AiDraft,RegisterList,FormTab}.tsx`, `src/ui/case-bundle.ts`, strings in `src/i18n/{en,ar}.ts`.
+- Tests: `tests/unit/{pcne,problem-card,card-drafts}.test.ts`, `e2e/m4-cards.spec.ts`.

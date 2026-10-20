@@ -1,6 +1,6 @@
 # PRECEPTOR — M4 plan: Assessment and drug-related problems
 
-**Status:** plan prepared on 19 October 2026, the day the owner accepted M2 and approved starting M4. No M4 code has been written. Before building, I need the owner's answers to Section 5 — above all the PCNE V9.1 document (decision 1), which cannot be downloaded from the build environment.
+**Status:** plan prepared on 19 October 2026. The owner approved decisions 2–9 as proposed on 19 October 2026; decision 1 was settled the same day, when the owner allowed `pcne.org` and the official PCNE V9.1 document was downloaded. Built on 20 October 2026 — see the [M4 report](M4-REPORT.md). The plan below is kept as approved.
 
 ## 1. What M4 must deliver
 
