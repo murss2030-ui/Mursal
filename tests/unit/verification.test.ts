@@ -52,6 +52,13 @@ describe('the verifier’s request', () => {
     expect(VERIFY_SYSTEM).toMatch(/Judge meaning, not shared words or numbers/);
   });
 
+  it('lets a claim that cites many sources be shown by a quote from each', () => {
+    const sources = Array.from({ length: 9 }, (_, i) => ({ id: `S${i + 1}`, label: `Order ${i + 1}`, text: `drug ${i + 1} 10 mg PO once daily for an indication` }));
+    const input: VerifyInput = { sources, claims: [{ id: 'V1', text: 'Every order states its indication.', sourceIds: sources.map((s) => s.id) }] };
+    const output = { results: [answer({ claimId: 'V1', verdict: 'supported', quotes: sources.map((s) => ({ sourceId: s.id, text: s.text })) })] };
+    expect(validateOutput(output, verificationSchema(input))).toEqual([]);
+  });
+
   it('sends only the sources its claims cite, in batches, never the labels; a claim with no source is not sent', () => {
     const many: VerifyInput = {
       sources: INPUT.sources,
@@ -97,6 +104,16 @@ describe('the verifier’s answer, checked in code', () => {
     const wrongAge = { ...withHeader, claims: [{ ...withHeader.claims[0]!, text: 'A 45-year-old man whose creatinine rose from 2.1 to 2.6 mg/dL.' }] };
     const [contradicted] = checkVerification({ results: [answer({ claimId: 'V1', verdict: 'partial', contradicted: true, quotes: [{ sourceId: 'H', text: '"age":67' }] })] }, wrongAge);
     expect(contradicted).toMatchObject({ verdict: 'contradicted', flags: ['support_not_shown'] });
+  });
+
+  it('a verifier that also quotes a source the claim does not cite judged it on outside material: at most partly supported', () => {
+    // Live probe, 20 October 2026: "Serum creatinine increased from 2.1 mg/dL to 2.6 mg/dL" citing only the Day 0 value.
+    const oneSource: VerifyInput = { sources: INPUT.sources, claims: [{ id: 'V1', text: 'Serum creatinine increased from 2.1 mg/dL to 2.6 mg/dL.', sourceIds: ['S1'] }] };
+    const [v] = checkVerification(
+      { results: [answer({ claimId: 'V1', verdict: 'supported', quotes: [{ sourceId: 'S1', text: 'Serum creatinine: 2.1 mg/dL' }, { sourceId: 'S2', text: 'Serum creatinine: 2.6 mg/dL' }] })] },
+      oneSource,
+    );
+    expect(v).toMatchObject({ verdict: 'partial', quotes: [{ sourceId: 'S1', text: 'Serum creatinine: 2.1 mg/dL' }], flags: ['quote_from_other_source'] });
   });
 
   it('a quote from a source the claim does not cite is not its support; a two-letter quote proves nothing', () => {

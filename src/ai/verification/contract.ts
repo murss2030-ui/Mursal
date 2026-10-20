@@ -54,14 +54,16 @@ export interface RawVerification {
 }
 
 export function verificationSchema(input: VerifyInput): OutputSchema {
+  // A claim citing many sources may be shown by a quote from each (live probe: a whole batch was refused at 6).
+  const quotes = Math.max(6, ...input.claims.map((c) => c.sourceIds.length + 2));
   return S.obj({
     results: S.arr(
       S.obj({
         claimId: S.enumOf(input.claims.map((c) => c.id)),
         verdict: S.enumOf(VERDICTS),
         contradicted: S.bool('True only when a source states the opposite of the claim, or something incompatible with it'),
-        quotes: S.arr(S.obj({ sourceId: S.enumOf(input.sources.map((s) => s.id)), text: S.str('Exact words copied from that source') }), 6),
-        unsupportedParts: S.arr(S.str('Exact words copied from the claim'), 6),
+        quotes: S.arr(S.obj({ sourceId: S.enumOf(input.sources.map((s) => s.id)), text: S.str('Exact words copied from that source') }), quotes),
+        unsupportedParts: S.arr(S.str('Exact words copied from the claim'), 10),
       }),
       input.claims.length,
     ),

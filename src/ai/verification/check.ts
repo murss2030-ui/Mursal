@@ -99,7 +99,8 @@ export function checkVerification(raw: RawVerification, input: VerifyInput): Cla
     else if (!shown) {
       flags.add('support_not_shown');
       verdict = 'unsupported';
-    } else verdict = a.verdict === 'partial' || parts.length ? 'partial' : 'supported';
+      // A verifier that quotes a source the claim does not cite judged it on outside material: at most partly supported.
+    } else verdict = a.verdict === 'partial' || parts.length || flags.has('quote_from_other_source') ? 'partial' : 'supported';
     // A contradiction may be shown by any source the claim uses, the case header included (a wrong age).
     if (a.contradicted) {
       if (quotes.length) verdict = 'contradicted';
