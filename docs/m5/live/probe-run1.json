@@ -3623,16 +3623,1009 @@
           ]
         }
       ]
+    },
+    "gemini-3.8-flash": {
+      "runs": [
+        {
+          "errors": [
+            "provider_timeout: The model took longer than 25 seconds, the most this server can wait. Try again; if it keeps happening, choose a faster model or a lower thinking level.",
+            "provider_unavailable: UNAVAILABLE: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+            "provider_timeout: The model took longer than 25 seconds, the most this server can wait. Try again; if it keeps happening, choose a faster model or a lower thinking level.",
+            "provider_timeout: The model took longer than 25 seconds, the most this server can wait. Try again; if it keeps happening, choose a faster model or a lower thinking level.",
+            "provider_timeout: The model took longer than 25 seconds, the most this server can wait. Try again; if it keeps happening, choose a faster model or a lower thinking level.",
+            "provider_timeout: The model took longer than 25 seconds, the most this server can wait. Try again; if it keeps happening, choose a faster model or a lower thinking level."
+          ],
+          "calls": [
+            {
+              "model": "gemini-3.8-flash",
+              "usage": {
+                "inputTokens": 999,
+                "outputTokens": 796,
+                "costUsd": 0.0074685
+              },
+              "claims": 12
+            }
+          ],
+          "items": [
+            {
+              "id": "b01",
+              "kind": "arithmetic",
+              "expected": [
+                "supported"
+              ],
+              "got": "supported",
+              "ok": true,
+              "answered": {
+                "verdict": "supported",
+                "contradicted": false
+              },
+              "quotes": [
+                {
+                  "sourceId": "E1",
+                  "text": "Day 0 Serum creatinine: 2.1 mg/dL"
+                },
+                {
+                  "sourceId": "E2",
+                  "text": "Day 1 Serum creatinine: 2.6 mg/dL"
+                }
+              ],
+              "unsupportedParts": [],
+              "flags": []
+            },
+            {
+              "id": "b02",
+              "kind": "direction",
+              "expected": [
+                "contradicted"
+              ],
+              "got": "contradicted",
+              "ok": true,
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": true
+              },
+              "quotes": [
+                {
+                  "sourceId": "E1",
+                  "text": "Day 0 Serum creatinine: 2.1 mg/dL"
+                },
+                {
+                  "sourceId": "E2",
+                  "text": "Day 1 Serum creatinine: 2.6 mg/dL"
+                }
+              ],
+              "unsupportedParts": [
+                "Serum creatinine fell from 2.6 mg/dL to 2.1 mg/dL between Day 0 and Day 1."
+              ],
+              "flags": []
+            },
+            {
+              "id": "b03",
+              "kind": "interpretation",
+              "expected": [
+                "partial"
+              ],
+              "got": "partial",
+              "ok": true,
+              "answered": {
+                "verdict": "partial",
+                "contradicted": false
+              },
+              "quotes": [
+                {
+                  "sourceId": "E1",
+                  "text": "Day 0 Serum creatinine: 2.1 mg/dL"
+                },
+                {
+                  "sourceId": "E2",
+                  "text": "Day 1 Serum creatinine: 2.6 mg/dL"
+                }
+              ],
+              "unsupportedParts": [
+                "which confirms acute kidney injury"
+              ],
+              "flags": []
+            },
+            {
+              "id": "b04",
+              "kind": "range",
+              "expected": [
+                "contradicted"
+              ],
+              "got": "contradicted",
+              "ok": true,
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": true
+              },
+              "quotes": [
+                {
+                  "sourceId": "E3",
+                  "text": "Day 0 Potassium: 5.4 mmol/L; reference range 3.5-5.0 mmol/L; high"
+                }
+              ],
+              "unsupportedParts": [
+                "Potassium was within the normal range on Day 0"
+              ],
+              "flags": []
+            },
+            {
+              "id": "b05",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "supported",
+              "ok": true,
+              "answered": {
+                "verdict": "supported",
+                "contradicted": false
+              },
+              "quotes": [
+                {
+                  "sourceId": "E3",
+                  "text": "Day 0 Potassium: 5.4 mmol/L; reference range 3.5-5.0 mmol/L; high"
+                }
+              ],
+              "unsupportedParts": [],
+              "flags": []
+            },
+            {
+              "id": "b06",
+              "kind": "drug",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "got": "unsupported",
+              "ok": true,
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": false
+              },
+              "quotes": [],
+              "unsupportedParts": [
+                "ceftriaxone"
+              ],
+              "flags": []
+            },
+            {
+              "id": "b07",
+              "kind": "negation",
+              "expected": [
+                "contradicted"
+              ],
+              "got": "contradicted",
+              "ok": true,
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": true
+              },
+              "quotes": [
+                {
+                  "sourceId": "E4",
+                  "text": "Day 0 Allergy: penicillin; reaction: rash; severity: moderate"
+                }
+              ],
+              "unsupportedParts": [
+                "The patient has no documented drug allergy."
+              ],
+              "flags": []
+            },
+            {
+              "id": "b08",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "supported",
+              "ok": true,
+              "answered": {
+                "verdict": "supported",
+                "contradicted": false
+              },
+              "quotes": [
+                {
+                  "sourceId": "E4",
+                  "text": "Day 0 Allergy: penicillin; reaction: rash; severity: moderate"
+                }
+              ],
+              "unsupportedParts": [],
+              "flags": []
+            },
+            {
+              "id": "b09",
+              "kind": "event",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "got": "contradicted",
+              "ok": true,
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": true
+              },
+              "quotes": [
+                {
+                  "sourceId": "M1",
+                  "text": "enoxaparin 40 mg SC once daily from Day 0 active for VTE prophylaxis"
+                }
+              ],
+              "unsupportedParts": [
+                "Enoxaparin was stopped on Day 1."
+              ],
+              "flags": []
+            },
+            {
+              "id": "b10",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "supported",
+              "ok": true,
+              "answered": {
+                "verdict": "supported",
+                "contradicted": false
+              },
+              "quotes": [
+                {
+                  "sourceId": "M1",
+                  "text": "enoxaparin 40 mg SC once daily from Day 0 active for VTE prophylaxis"
+                }
+              ],
+              "unsupportedParts": [],
+              "flags": []
+            },
+            {
+              "id": "b11",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "supported",
+              "ok": true,
+              "answered": {
+                "verdict": "supported",
+                "contradicted": false
+              },
+              "quotes": [
+                {
+                  "sourceId": "C1",
+                  "text": "Creatinine clearance (Cockcroft-Gault): 26 mL/min - Day 1"
+                }
+              ],
+              "unsupportedParts": [],
+              "flags": []
+            },
+            {
+              "id": "b12",
+              "kind": "number",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "got": "contradicted",
+              "ok": true,
+              "answered": {
+                "verdict": "unsupported",
+                "contradicted": true
+              },
+              "quotes": [
+                {
+                  "sourceId": "C1",
+                  "text": "Creatinine clearance (Cockcroft-Gault): 26 mL/min"
+                }
+              ],
+              "unsupportedParts": [
+                "62 mL/min"
+              ],
+              "flags": []
+            },
+            {
+              "id": "b13",
+              "kind": "unit",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b14",
+              "kind": "interpretation",
+              "expected": [
+                "partial"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b15",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b16",
+              "kind": "threshold",
+              "expected": [
+                "supported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b17",
+              "kind": "threshold",
+              "expected": [
+                "contradicted"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b18",
+              "kind": "condition",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b19",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b20",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b21",
+              "kind": "negation",
+              "expected": [
+                "contradicted"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b22",
+              "kind": "multi_part",
+              "expected": [
+                "partial"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b23",
+              "kind": "threshold",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b24",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b25",
+              "kind": "direction",
+              "expected": [
+                "contradicted"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b26",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b27",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b28",
+              "kind": "drug",
+              "expected": [
+                "unsupported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b29",
+              "kind": "certainty",
+              "expected": [
+                "unsupported",
+                "contradicted",
+                "partial"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b30",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b31",
+              "kind": "condition",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b32",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b33",
+              "kind": "population",
+              "expected": [
+                "partial",
+                "unsupported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b34",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b35",
+              "kind": "unit",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b36",
+              "kind": "frequency",
+              "expected": [
+                "contradicted"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            },
+            {
+              "id": "b37",
+              "kind": "route",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "got": "not_checked",
+              "ok": false,
+              "quotes": [],
+              "unsupportedParts": [],
+              "flags": [
+                "no_answer"
+              ]
+            }
+          ]
+        },
+        {
+          "errors": [
+            "provider_quota_exhausted: RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To m..."
+          ],
+          "calls": [],
+          "items": [
+            {
+              "id": "b01",
+              "kind": "arithmetic",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b02",
+              "kind": "direction",
+              "expected": [
+                "contradicted"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b03",
+              "kind": "interpretation",
+              "expected": [
+                "partial"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b04",
+              "kind": "range",
+              "expected": [
+                "contradicted"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b05",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b06",
+              "kind": "drug",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b07",
+              "kind": "negation",
+              "expected": [
+                "contradicted"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b08",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b09",
+              "kind": "event",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b10",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b11",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b12",
+              "kind": "number",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b13",
+              "kind": "unit",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b14",
+              "kind": "interpretation",
+              "expected": [
+                "partial"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b15",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b16",
+              "kind": "threshold",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b17",
+              "kind": "threshold",
+              "expected": [
+                "contradicted"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b18",
+              "kind": "condition",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b19",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b20",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b21",
+              "kind": "negation",
+              "expected": [
+                "contradicted"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b22",
+              "kind": "multi_part",
+              "expected": [
+                "partial"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b23",
+              "kind": "threshold",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b24",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b25",
+              "kind": "direction",
+              "expected": [
+                "contradicted"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b26",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b27",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b28",
+              "kind": "drug",
+              "expected": [
+                "unsupported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b29",
+              "kind": "certainty",
+              "expected": [
+                "unsupported",
+                "contradicted",
+                "partial"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b30",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b31",
+              "kind": "condition",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b32",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b33",
+              "kind": "population",
+              "expected": [
+                "partial",
+                "unsupported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b34",
+              "kind": "restated",
+              "expected": [
+                "supported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b35",
+              "kind": "unit",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b36",
+              "kind": "frequency",
+              "expected": [
+                "contradicted"
+              ],
+              "ok": false
+            },
+            {
+              "id": "b37",
+              "kind": "route",
+              "expected": [
+                "contradicted",
+                "unsupported"
+              ],
+              "ok": false
+            }
+          ]
+        }
+      ]
     }
   },
+  "cases": [
+    {
+      "name": "A — pneumonia, AKI on CKD, diabetes",
+      "modules": [
+        {
+          "moduleId": "collect",
+          "ok": false,
+          "errors": [
+            "provider_quota_exhausted: RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To m..."
+          ]
+        }
+      ]
+    }
+  ],
   "relaySpend": {
     "month": "2026-10",
     "budgetUsd": 3,
-    "spentUsd": 0.075803,
+    "spentUsd": 0.727843,
     "byTask": {
-      "verify": 0.075803
+      "verify": 0.727843,
+      "analyse": 0
     },
-    "calls": 19
+    "calls": 30
   },
   "calls": [
     {
@@ -3861,6 +4854,137 @@
         "thoughts": 0
       },
       "finishReason": "STOP"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 200,
+      "ms": 24644,
+      "usage": {
+        "prompt": 999,
+        "output": 796,
+        "thoughts": 0
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 0,
+      "ms": 25002,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 503,
+      "ms": 2140,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 503,
+      "ms": 2929,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 0,
+      "ms": 25000,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 503,
+      "ms": 1068,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 0,
+      "ms": 25002,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 503,
+      "ms": 1036,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 0,
+      "ms": 25001,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 0,
+      "ms": 25002,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 0,
+      "ms": 25002,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 503,
+      "ms": 998,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 0,
+      "ms": 25002,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 0,
+      "ms": 25001,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 0,
+      "ms": 25002,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 0,
+      "ms": 25002,
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "task": "verify",
+      "model": "gemini-3.8-flash",
+      "status": 429,
+      "ms": 481,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativel"
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.8-flash",
+      "status": 429,
+      "ms": 207,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativel"
     }
   ]
 }

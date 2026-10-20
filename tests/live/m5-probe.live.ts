@@ -5,7 +5,7 @@
  *
  *   PRECEPTOR_LIVE=1 PRECEPTOR_LIVE_DRAFT=<model> PRECEPTOR_LIVE_VERIFY=<model>[,<model>…] \
  *   PRECEPTOR_LIVE_PRICES=<model>:<in>:<out>[,…] [PRECEPTOR_LIVE_BUDGET_USD=3] \
- *   [PRECEPTOR_LIVE_PARTS=bench,cases] [PRECEPTOR_LIVE_KEY_CLASS=paid] NODE_USE_ENV_PROXY=1 \
+ *   [PRECEPTOR_LIVE_PARTS=bench,cases] [PRECEPTOR_LIVE_CASES=A,B] [PRECEPTOR_LIVE_KEY_CLASS=paid] NODE_USE_ENV_PROXY=1 \
  *   npx vitest run --config vitest.live.config.ts
  *
  * 1. The semantic benchmark (tests/fixtures/semantic-benchmark.ts): each
@@ -50,6 +50,7 @@ const VERIFY = (process.env.PRECEPTOR_LIVE_VERIFY ?? '').split(',').map((x) => x
 const PRICES = process.env.PRECEPTOR_LIVE_PRICES ?? '';
 const BUDGET = process.env.PRECEPTOR_LIVE_BUDGET_USD ?? '3';
 const PARTS = new Set((process.env.PRECEPTOR_LIVE_PARTS ?? 'bench,cases').split(','));
+const CASES = new Set((process.env.PRECEPTOR_LIVE_CASES ?? 'A,B').split(','));
 const RUN = process.env.PRECEPTOR_LIVE_RUN ?? new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
 const OUT = 'docs/m5/live';
 
@@ -212,7 +213,7 @@ describeLive('M5 live probe (synthetic data only)', () => {
     // ---------------------------------------------------------------- 2. the 30 tasks, then every claim on case data
     if (PARTS.has('cases')) {
       await store.updateAiSettings({ models: { analyse: DRAFT, verify: VERIFY[0]! } });
-      const cases: SyntheticCase[] = [await caseA(store), await caseB(store)];
+      const cases: SyntheticCase[] = [...(CASES.has('A') ? [await caseA(store)] : []), ...(CASES.has('B') ? [await caseB(store)] : [])];
       const out: unknown[] = [];
       results.cases = out;
       for (const k of cases) {
