@@ -1,0 +1,82 @@
+{
+  "run": "run2-caseB",
+  "date": "2026-10-20T19:32:58.377Z",
+  "data": "synthetic Teaching Cases and the synthetic benchmark only",
+  "models": {
+    "draft": "gemini-3.6-flash",
+    "verify": [
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite"
+    ]
+  },
+  "pricesUsdPerMillion": "gemini-3.6-flash:1.50:7.50,gemini-3.5-flash-lite:0.30:2.50,gemini-3.1-flash-lite:0.25:1.50",
+  "thinking": "analyse=low,verify=low",
+  "budgetCapUsd": 2,
+  "cases": [
+    {
+      "name": "B — atrial fibrillation, heart failure, warfarin with amiodarone",
+      "modules": [
+        {
+          "moduleId": "collect",
+          "ok": false,
+          "errors": [
+            "provider_quota_exhausted: RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To m..."
+          ]
+        },
+        {
+          "moduleId": "review",
+          "ok": false,
+          "errors": [
+            "provider_quota_exhausted: RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To m..."
+          ]
+        },
+        {
+          "moduleId": "dosing",
+          "ok": false,
+          "errors": [
+            "provider_quota_exhausted: RESOURCE_EXHAUSTED: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To m..."
+          ]
+        }
+      ]
+    }
+  ],
+  "relaySpend": {
+    "month": "2026-10",
+    "budgetUsd": 2,
+    "spentUsd": 0.000003,
+    "byTask": {
+      "analyse": 0.000003
+    },
+    "calls": 0
+  },
+  "calls": [
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 503,
+      "ms": 1085,
+      "error": "UNAVAILABLE This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 429,
+      "ms": 211,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativel"
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 429,
+      "ms": 227,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativel"
+    },
+    {
+      "task": "analyse",
+      "model": "gemini-3.6-flash",
+      "status": 429,
+      "ms": 223,
+      "error": "RESOURCE_EXHAUSTED You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativel"
+    }
+  ]
+}
