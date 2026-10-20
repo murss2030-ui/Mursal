@@ -27,7 +27,7 @@ The plan, with the owner's decisions 2–9 (all approved on 19 October 2026), is
 |---|---|
 | Type check (`tsc -b`, strict) | no error |
 | Unit tests (`npm test`, Vitest) | **633 passed** in 43 files, 0 failed |
-| Browser tests (`npm run test:e2e`, Playwright, Pixel 7, production build) | __E2E__ |
+| Browser tests (`npm run test:e2e`, Playwright, Pixel 7, production build) | **36 passed**, 1 skipped (the live run with the real Gemini service, which needs the deployed relay and key), 0 failed |
 
 New for M4:
 
