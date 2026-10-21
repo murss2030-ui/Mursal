@@ -20,6 +20,7 @@ import type { CalcResult } from '../calc/types';
 import type { ReferenceKind } from '../domain/reference';
 import type { ClaimVerification } from '../domain/verdicts';
 import type { EvidenceChunk, LibraryDocument } from '../domain/library';
+import type { ResearchRun } from '../domain/research';
 import { useLiveDecoded } from './hooks';
 
 export const useRotations = () =>
@@ -218,4 +219,12 @@ export const useChunks = (docId: string) =>
     (s) => s.rawChunks(docId),
     (s, rows): Promise<EvidenceChunk[]> => s.decodeChunks(rows),
     [docId],
+  );
+
+/** M5d: every research done in the case (latest version of each run), oldest first. */
+export const useResearchRuns = (caseId: string) =>
+  useLiveDecoded(
+    (s) => s.rawResearchRuns(caseId),
+    (s, rows): Promise<ResearchRun[]> => s.decodeResearchRuns(rows),
+    [caseId],
   );

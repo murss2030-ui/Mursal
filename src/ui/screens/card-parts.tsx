@@ -164,6 +164,8 @@ interface DraftClaim {
   /** M5: the other values the claim rests on (`e:<id>` or `c:<id>`). */
   also?: string[];
   title?: string;
+  /** research only. */
+  quote?: string;
   by?: 'model';
 }
 
@@ -179,6 +181,7 @@ function draftClaims(v: string): DraftClaim[] {
       ...(typeof x.ref === 'string' ? { ref: x.ref } : {}),
       ...(Array.isArray(x.also) && x.also.length ? { also: x.also.filter((y): y is string => typeof y === 'string') } : {}),
       ...(typeof x.title === 'string' ? { title: x.title } : {}),
+      ...(typeof x.quote === 'string' ? { quote: x.quote } : {}),
       ...(x.by === 'model' ? { by: 'model' as const } : {}),
     }));
   } catch {
@@ -246,13 +249,28 @@ export function ClaimsEditor({ b, label, hint, value, onChange, error }: { b: Ca
       {claims.map((c, i) => (
         <div key={i} className="flex flex-col gap-2 rounded-xl border border-line bg-white/70 p-3" data-claim={i}>
           <TextAreaField label={t('claims.text', { n: i + 1 })} value={c.text} onChange={(x) => update(i, { text: x })} rows={2} name={`claim-${i}-text`} />
-          <SelectField
-            label={t('claims.source')}
-            value={c.source}
-            onChange={(x) => update(i, { source: (x || 'none') as ClaimSource, ref: undefined, also: undefined, title: undefined })}
-            name={`claim-${i}-source`}
-            options={CLAIM_SOURCES.map((s) => ({ value: s, label: t(`claims.kind.${s}` as MsgKey) }))}
-          />
+          {c.source === 'research' ? (
+            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-800" dir="auto" data-testid={`claim-${i}-research`}>
+              <span className="font-medium">{t('claims.kind.research')}: </span>
+              {c.title}
+              {c.quote && (
+                <>
+                  <br />
+                  <q className="font-mono text-[11px]">{c.quote}</q>
+                </>
+              )}
+              <br />
+              {t('claims.research.fixed')}
+            </p>
+          ) : (
+            <SelectField
+              label={t('claims.source')}
+              value={c.source}
+              onChange={(x) => update(i, { source: (x || 'none') as ClaimSource, ref: undefined, also: undefined, title: undefined })}
+              name={`claim-${i}-source`}
+              options={CLAIM_SOURCES.filter((s) => s !== 'research').map((s) => ({ value: s, label: t(`claims.kind.${s}` as MsgKey) }))}
+            />
+          )}
           {c.source === 'entry' && (
             <SelectField label={t('claims.ref')} value={c.ref ? `e:${c.ref}` : ''} onChange={(x) => update(i, { ref: x.slice(2) || undefined })} name={`claim-${i}-ref`} options={src.entries} />
           )}

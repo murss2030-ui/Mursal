@@ -39,11 +39,13 @@ import type {
   CardReview,
 } from '../domain/types';
 import { CARD_DECISIONS, DECISIONS_NEEDING_REASON, mustEdit, REGISTER_IDS, SOURCE_DOC_TYPES } from '../domain/types';
-import { claimTargets, parseClaims, parseLinks } from '../domain/card-data';
+import { claimsValue, claimTargets, parseClaims, parseLinks, researchRefOf } from '../domain/card-data';
 import { cardStaleness, contentHash, fromModel, markModelClaims, unverifiedModelClaims, type CardContext } from '../domain/problem-card';
 import type { CardClaim } from '../domain/card-data';
 import { classificationUnanswered } from '../domain/pcne-coherence';
 import { indexVerdicts, passesDraftGate, type ClaimVerification } from '../domain/verdicts';
+import { addable, problemHash, researchKey, researchStaleness as researchStalenessOf, type ResearchRun } from '../domain/research';
+import { sourceCitation } from '../domain/sources';
 import { maySend, normalizeDocumentMeta, type ChunkVector, type DocumentMetaInput, type EvidenceChunk, type LibraryDocument } from '../domain/library';
 import { chunkDocument, type PageText } from '../library/chunk';
 import { resultCurrency } from '../calc/currency';
@@ -143,6 +145,8 @@ export interface NewEntryInput<K extends EntryType = EntryType> {
 export type NewExtractionRun = Omit<ExtractionRun, keyof Versioned | 'id' | 'caseId' | 'runAt'>;
 
 export type NewAnalysis = Omit<CaseAnalysis, keyof Versioned | 'id' | 'caseId' | 'createdAt'>;
+/** A research run as the app hands it over: the store adds its id, the card's version, the dates and the problem fingerprint. */
+export type NewResearchRun = Omit<ResearchRun, keyof Versioned | 'id' | 'caseId' | 'createdAt' | 'itemVersion'>;
 
 export type SuggestionDecisionInput =
   | { kind: 'accept' }
@@ -171,6 +175,11 @@ const REVIEW_ACTION: Record<CardDecision, AuditEvent['action']> = {
 function citedRefs(kind: 'links' | 'claims', v: string | undefined): string[] {
   if (kind === 'links') return parseLinks(v).map((l) => `${l.kind}:${l.id}`);
   return parseClaims(v).flatMap((c) => claimTargets(c).map((l) => `${l.kind}:${l.id}`));
+}
+
+/** The research statements a claims value cites, as `<run id>:<n>`. */
+function researchRefsOf(v: string | undefined): string[] {
+  return parseClaims(v).flatMap((c) => (researchRefOf(c) ? [c.ref!] : []));
 }
 
 /**
@@ -999,7 +1008,20 @@ export class Store {
             // A result must be current when it is cited: one already out of date would make the card stale at once.
             return kind === 'entry' ? current.some((x) => x.id === id) : ctx!.calcResults.some((x) => x.id === id) && !ctx!.calcOutOfDate.has(id);
           });
-        if (!ok) e[f.id] = 'invalidChoice';
+        // M5d: a claim from a research run must name a statement that run holds.
+        const okResearch =
+          f.kind !== 'claims' ||
+          (await (async () => {
+            const before = new Set(researchRefsOf(prev?.[f.id]));
+            const fresh = researchRefsOf(v).filter((r) => !before.has(r));
+            if (!fresh.length) return true;
+            const runs = await this.listResearchRuns(caseId);
+            return fresh.every((r) => {
+              const [runId, n] = [r.slice(0, r.lastIndexOf(':')), Number(r.slice(r.lastIndexOf(':') + 1))];
+              return runs.find((x) => x.id === runId)?.statements[n] !== undefined;
+            });
+          })());
+        if (!ok || !okResearch) e[f.id] = 'invalidChoice';
         continue;
       }
       const ok =
@@ -1020,13 +1042,27 @@ export class Store {
     return parseClaims(a?.suggestions.find((s) => s.id === origin.suggestionId)?.fields?.claims);
   }
 
+  /** M5d: the statements of a research run that a card's claims were added from; a claim with exactly these words stays the model's. */
+  private async researchDrafted(caseId: string, fields: Readonly<Record<string, string>>): Promise<CardClaim[]> {
+    const refs = parseClaims(fields.claims).flatMap((c) => {
+      const r = researchRefOf(c);
+      return r ? [r] : [];
+    });
+    if (!refs.length) return [];
+    const runs = await this.listResearchRuns(caseId);
+    return refs.flatMap((r) => {
+      const st = runs.find((x) => x.id === r.runId)?.statements[r.n];
+      return st ? [{ text: st.text, source: 'research' as const, ref: `${r.runId}:${r.n}` }] : [];
+    });
+  }
+
   async addItem(caseId: string, register: RegisterId, input: Record<string, string>): Promise<RegisterItem> {
     await this.writableCase(caseId);
     if (!(REGISTER_IDS as readonly string[]).includes(register)) throw new ValidationError({ register: 'invalidChoice' });
     const n = normalizeItemFields(register, input);
     if (!n.ok) throw new ValidationError(n.errors);
     // A card the trainee writes holds no model claims, whatever the input says.
-    if (register === 'drp') n.fields = ownedClaims(n.fields, []);
+    if (register === 'drp') n.fields = ownedClaims(n.fields, await this.researchDrafted(caseId, n.fields));
     await this.checkItemRefs(caseId, register, n.fields);
     const id = this.uuid();
     return this.writeVersion<RegisterItem>(
@@ -1059,7 +1095,7 @@ export class Store {
     const n = normalizeItemFields(prev.register, input);
     if (!n.ok) throw new ValidationError(n.errors);
     // M5: a claim stays the model's only while its words are the model's (markModelClaims).
-    if (prev.register === 'drp') n.fields = ownedClaims(n.fields, await this.draftedClaims(prev.origin));
+    if (prev.register === 'drp') n.fields = ownedClaims(n.fields, [...(await this.draftedClaims(prev.origin)), ...(await this.researchDrafted(caseId, n.fields))]);
     await this.checkItemRefs(caseId, prev.register, n.fields, prev.fields);
     if (sameStrings(prev.fields, n.fields)) {
       if (opts.decision) throw new IntegrityError('Nothing was changed. To keep the card as it is, choose Accept.');
@@ -1374,6 +1410,105 @@ export class Store {
       await this.db.audit.add(audit);
     });
     return records;
+  }
+
+  // ------------------------------------------------------------------ M5d: research runs (Section 11)
+
+  rawResearchRuns(caseId: string): Promise<EncryptedRow[]> {
+    return this.db.researchRuns.where('caseId').equals(caseId).toArray();
+  }
+
+  async decodeResearchRuns(rows: EncryptedRow[]): Promise<ResearchRun[]> {
+    const list = await this.decodeLatestOfAll<ResearchRun>('researchRuns', rows);
+    return list.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
+  }
+
+  async listResearchRuns(caseId: string): Promise<ResearchRun[]> {
+    return this.decodeResearchRuns(await this.rawResearchRuns(caseId));
+  }
+
+  /**
+   * Records what a researched question retrieved and what the model drafted
+   * from it. A run is never overwritten: a new research is a new run. The
+   * store refuses what would break the rules the checks enforce — a passage of
+   * a document kept for local search among those sent, a sent passage that is
+   * not one of the retrieved sources, an answer without a statement.
+   */
+  async addResearchRun(caseId: string, input: NewResearchRun): Promise<ResearchRun> {
+    await this.writableCase(caseId);
+    const item = (await this.listItems(caseId)).find((i) => i.id === input.itemId && i.register === 'drp' && i.status === 'active');
+    if (!item) throw new IntegrityError('That Problem Card does not exist in this case.');
+    const byId = new Map(input.sources.map((s) => [s.id, s]));
+    for (const p of input.sent) {
+      const src = byId.get(p.recordId);
+      if (!src) throw new IntegrityError('A passage sent to the model is not among the retrieved sources.');
+      if (src.localOnly) throw new IntegrityError('The text of a document kept for local search is never sent to the AI service.');
+    }
+    if (input.status === 'insufficient' && input.statements.length) throw new IntegrityError('A run with nothing adequate holds no statements.');
+    if (input.status === 'answered' && !input.statements.length) throw new IntegrityError('An answer holds at least one statement.');
+    const id = this.uuid();
+    return this.writeVersion<ResearchRun>(
+      'researchRuns',
+      id,
+      (_p, version, at) => ({ ...input, id, caseId, itemVersion: item.version, createdAt: at, version, versionCreatedAt: at, basedOn: { problemHash: problemHash(item.fields), links: input.basedOn.links } }),
+      (_p, next) => ({
+        entity: 'research_run',
+        entityId: id,
+        caseId,
+        action: 'create',
+        actor: 'model',
+        // Counts and ids only: neither the question's words nor any passage's text.
+        diff: {
+          itemId: next.itemId,
+          model: next.model,
+          promptVersion: next.promptVersion,
+          retrievedChunkIds: next.retrievedChunkIds,
+          sources: next.sources.length,
+          sent: next.sent.length,
+          status: next.status,
+          statements: next.statements.length,
+          flagged: next.statements.filter((s) => s.flags.length > 0).length,
+          dropped: next.dropped,
+          notes: next.notes,
+          usage: next.usage,
+        },
+      }),
+      { caseId },
+    );
+  }
+
+  /** Whether a run's card or the data it cites changed since the run (Section 7, staleness). */
+  async researchStaleness(run: ResearchRun): Promise<ReturnType<typeof researchStalenessOf>> {
+    const [ctx, items] = await Promise.all([this.cardContext(run.caseId), this.listItems(run.caseId)]);
+    return researchStalenessOf(run, items.find((i) => i.id === run.itemId), ctx);
+  }
+
+  /**
+   * Adds one researched statement to a Problem Card's claims, with the source
+   * cited from its record and the quote that shows it. One statement at a
+   * time (never in bulk), only if the statement passed the gate — supported
+   * by the verifier, shown by a literal quote, nothing removed or withheld by
+   * the code checks — and its run is not stale.
+   */
+  async addResearchClaim(caseId: string, itemId: string, runId: string, n: number): Promise<RegisterItem> {
+    await this.writableCase(caseId);
+    const run = await this.latest<ResearchRun>('researchRuns', runId);
+    const st = run?.caseId === caseId ? run.statements[n] : undefined;
+    if (!run || !st) throw new IntegrityError('That researched statement does not exist in this case.');
+    if (run.itemId !== itemId) throw new IntegrityError('That research was done for another Problem Card.');
+    if ((await this.researchStaleness(run)).stale) throw new IntegrityError('The data this research rests on changed. Research the question again before adding from it.');
+    const verdict = indexVerdicts(await this.listClaimChecks(caseId)).byKey.get(researchKey(runId, st));
+    if (!addable(st, verdict)) throw new IntegrityError('Only a statement the verifier found supported, shown by a quote from its source, with nothing removed by the checks, can be added.');
+    const item = (await this.listItems(caseId)).find((i) => i.id === itemId && i.register === 'drp' && i.status === 'active');
+    if (!item) throw new IntegrityError('That Problem Card does not exist in this case.');
+    const ref = `${runId}:${n}`;
+    const claims = parseClaims(item.fields.claims);
+    if (claims.some((c) => c.source === 'research' && c.ref === ref)) throw new IntegrityError('That statement is already among the card’s claims.');
+    const src = run.sources.find((x) => x.id === st.sourceId);
+    if (!src) throw new IntegrityError('Its source is not among those retrieved.');
+    const cite = `${sourceCitation(src)}${st.section ? ` [${st.section}]` : ''}`;
+    const claim: CardClaim = { text: st.text, source: 'research', ref, title: cite.slice(0, 300), quote: st.quote, by: 'model' };
+    return this.updateItem(caseId, itemId, { ...item.fields, claims: claimsValue([...claims, claim]) }, 'Added a researched statement');
   }
 
   /** What a Problem Card's staleness and checks read: every entry, every calculation result and which are out of date, every decision. */

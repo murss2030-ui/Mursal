@@ -38,6 +38,14 @@ export interface SourceRecord {
   fullTextUrl?: string;
   /** Set for the source's own identifiers a trainee may search by (PMID, DOI, set id). */
   ids?: Record<string, string>;
+  /** A library passage only: how it is cited, from the document's own record (library.ts citationOf). */
+  citation?: string;
+  /** A library passage only: the document is the department's primary one for its topic, or a reference document. */
+  role?: 'primary' | 'reference';
+  /** A library passage only: the document is older than five years. */
+  old?: true;
+  /** A library passage only: the document is kept for local search, so its text was shown to the trainee and never sent to the AI service. */
+  localOnly?: true;
 }
 
 /** Studies are evidence to be appraised, not guidance (plan M5c). */
@@ -53,6 +61,7 @@ export const europePmcUrl = (source: string, id: string): string => `https://eur
 
 /** How a source is cited: from its record, with the date it was retrieved. */
 export function sourceCitation(s: SourceRecord): string {
+  if (s.kind === 'library' && s.citation) return s.citation;
   const date = s.date ? `, ${s.date}` : '';
   const authors = s.authors ? `${s.authors}. ` : '';
   const scope = s.scope === 'abstract_only' ? ' (abstract only)' : '';

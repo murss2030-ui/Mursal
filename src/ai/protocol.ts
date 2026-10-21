@@ -5,8 +5,8 @@
  */
 import type { OutputSchema } from './schema';
 
-/** Task routing (Section 12): extraction and verification on cheap tiers, reasoning on the stronger one; M5: embeddings for the evidence library (Section 11). */
-export const MODEL_TASKS = ['extract', 'analyse', 'verify', 'embed'] as const;
+/** Task routing (Section 12): extraction and verification on cheap tiers, reasoning on the stronger one; M5: researching a question from retrieved passages (drafts like `analyse`, so it uses that model when none is chosen) and embeddings for the evidence library (Section 11). */
+export const MODEL_TASKS = ['extract', 'analyse', 'verify', 'research', 'embed'] as const;
 export type ModelTask = (typeof MODEL_TASKS)[number];
 /** The tasks that generate text with a schema; `embed` returns vectors. */
 export type GenerateTask = Exclude<ModelTask, 'embed'>;

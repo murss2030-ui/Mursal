@@ -230,7 +230,7 @@ export function buildCasePayload(input: {
   const ref = (l: { kind: 'entry' | 'calc'; id: string }) => (l.kind === 'entry' ? entryRef.get(l.id) : calcRef.get(l.id));
   const cardValue = (kind: 'links' | 'claims', v: string): string => {
     if (kind === 'links') return parseLinks(v).flatMap((l) => ref(l) ?? []).join(', ');
-    const SOURCE = { entry: 'case data', calc: 'a calculation', dataset: 'the offline interaction check', reading: 'a source the trainee read', none: 'general knowledge' } as const;
+    const SOURCE = { entry: 'case data', calc: 'a calculation', dataset: 'the offline interaction check', reading: 'a source the trainee read', research: 'a source PRECEPTOR retrieved', none: 'general knowledge' } as const;
     return parseClaims(v)
       .map((c) => {
         const r = claimTargets(c).flatMap((l) => ref(l) ?? []);

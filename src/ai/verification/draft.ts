@@ -9,10 +9,11 @@
  * with the reason; a refusal that would refuse every call (offline, budget,
  * settings) is thrown, and nothing is recorded.
  */
-import { claimTargets, parseClaims } from '../../domain/card-data';
+import { claimKeyTargets, claimTargets, parseClaims, researchRefOf } from '../../domain/card-data';
 import { kindKey } from '../../domain/problem-card';
 import { indexTimeline } from '../../domain/timeline';
-import { claimKey, type ClaimVerification, type VerifiedOrigin } from '../../domain/verdicts';
+import { claimKey, normalizeForMatch, type ClaimVerification, type VerifiedOrigin } from '../../domain/verdicts';
+import { sourceCitation } from '../../domain/sources';
 import type { Store } from '../../store/store';
 import { casePayloadFor } from '../analysis/run';
 import { calcSource, caseHeader, entrySource, type CasePayload } from '../analysis/payload';
@@ -29,9 +30,9 @@ export interface VerificationOutcome {
   failures: VerifyRun['failures'];
 }
 
-type Located = { origin: VerifiedOrigin; text: string; targets: string[] };
+export type Located = { origin: VerifiedOrigin; text: string; targets: string[] };
 
-function toRecords(run: VerifyRun, input: VerifyInput, locate: (claimId: string) => Located | undefined): Omit<ClaimVerification, 'id' | 'caseId' | 'at'>[] {
+export function toRecords(run: VerifyRun, input: VerifyInput, locate: (claimId: string) => Located | undefined): Omit<ClaimVerification, 'id' | 'caseId' | 'at'>[] {
   const label = new Map(input.sources.map((s) => [s.id, s.label]));
   const failed = new Map(run.failures.flatMap((f) => f.claimIds.map((id) => [id, f.code] as const)));
   const model = new Map(run.calls.flatMap((c) => c.claimIds.map((id) => [id, c.model] as const)));
@@ -118,7 +119,32 @@ export async function verifyCardClaims(store: Store, caseId: string, itemId: str
   };
   const claims: VerifyClaim[] = [];
   const located = new Map<string, Located>();
+  const runs = await store.listResearchRuns(caseId);
   parseClaims(item.fields.claims).forEach((cl, i) => {
+    // M5d: a claim from a research run is checked against the very passage it was quoted from (the trainee's rewording too).
+    const from = researchRefOf(cl);
+    if (from) {
+      const run = runs.find((r) => r.id === from.runId);
+      const st = run?.statements[from.n];
+      const p = run && st && run.sent.find((x) => x.recordId === st.sourceId && (x.section ?? '') === (st.section ?? ''));
+      if (!run || !st || !p) return;
+      const keyTargets = claimKeyTargets(cl);
+      const current = ctx.verdicts?.get(claimKey(cl.text, keyTargets));
+      if (!opts.all && current && current.verdict !== 'not_checked') return;
+      let sid = sourceOf.get(`passage:${run.id}:${p.id}`);
+      if (!sid) {
+        sid = `S${sources.length}`;
+        sourceOf.set(`passage:${run.id}:${p.id}`, sid);
+        const rec = run.sources.find((x) => x.id === p.recordId);
+        sources.push({ id: sid, label: `${rec ? sourceCitation(rec) : p.recordId}${p.section ? ` [${p.section}]` : ''}`, text: p.text.replace(/\s+/g, ' ').trim() });
+      }
+      const id = `V${claims.length + 1}`;
+      claims.push({ id, text: cl.text, sourceIds: [sid] });
+      // Unchanged, it is the run's own statement (its verdict is shown wherever it appears); reworded, it is this card's claim.
+      const same = normalizeForMatch(cl.text) === normalizeForMatch(st.text);
+      located.set(id, { origin: same ? { kind: 'research', runId: run.id, claim: from.n } : { kind: 'card', itemId, claim: i }, text: cl.text, targets: keyTargets });
+      return;
+    }
     const targets = claimTargets(cl);
     if (!targets.length) return;
     const keyTargets = targets.map((l) => `${l.kind}:${l.id}`);

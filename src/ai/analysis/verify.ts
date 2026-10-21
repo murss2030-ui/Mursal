@@ -59,7 +59,7 @@ export function cardKey(c: { problem?: string; drugs?: string; pcneProblem?: str
   return drugs ? `${drugs}#${c.pcneProblem ?? ''}` : `text#${(c.problem ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()}`;
 }
 
-function numbersIn(s: string): Set<string> {
+export function numbersIn(s: string): Set<string> {
   const out = new Set<string>();
   for (const m of s.matchAll(NUMBER)) out.add(String(Number(m[0])));
   return out;

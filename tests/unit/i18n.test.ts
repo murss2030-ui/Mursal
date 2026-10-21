@@ -3,6 +3,8 @@ import { ALLERGY_KINDS, CULTURE_STATUSES, EVENT_CATEGORIES, HABIT_STATUSES, NOTE
 import type { FormNote, MissingCode } from '../../src/domain/form/derive';
 import { CARD_DECISIONS, COMPETENCY_AREAS, DECISIONS_NEEDING_REASON, DEPARTMENTS, ENTRY_TYPES } from '../../src/domain/types';
 import { CLAIM_SOURCES } from '../../src/domain/card-data';
+import { RESEARCH_FLAGS, RESEARCH_ROLES } from '../../src/domain/research';
+import { SOURCE_KINDS } from '../../src/domain/sources';
 import { CARD_STAGES, type FormExclusion } from '../../src/domain/problem-card';
 import { ar } from '../../src/i18n/ar';
 import { en, type MsgKey } from '../../src/i18n/en';
@@ -61,11 +63,19 @@ describe('bilingual completeness', () => {
       ...[...DECISIONS_NEEDING_REASON].map((x) => `cardReview.reason.${x}`),
       ...CLAIM_SOURCES.flatMap((x) => [`claims.kind.${x}`, `claims.from.${x}`]),
       ...['numbers_found', 'numbers_not_found', 'source_changed', 'source_missing'].map((x) => `claims.check.${x}`),
-      ...['reading', 'none', 'dataset'].map((x) => `claims.check.not_checked.${x}`),
+      ...['reading', 'none', 'dataset', 'research'].map((x) => `claims.check.not_checked.${x}`),
       ...(['stale', 'rejected', 'needs_evidence', 'needs_senior_review', 'undecided', 'no_recommendation', 'not_final', 'untraced_dose'] satisfies FormExclusion[]).map((x) => `form.excluded.${x}`),
       ...(['pcne_map_draft', 'boxes_adjusted'] satisfies FormNote[]).map((x) => `form.note.${x}`),
       ...(['drp_excluded', 'no_final_recommendation'] satisfies MissingCode[]).map((x) => `form.missing.${x}`),
       'caseView.tab.problems',
+      // M5: the research screen.
+      ...RESEARCH_ROLES.map((x) => `research.role.${x}`),
+      ...RESEARCH_FLAGS.map((x) => `research.flag.${x}`),
+      ...SOURCE_KINDS.map((x) => `research.source.kind.${x}`),
+      ...['population', 'intervention', 'comparison', 'outcome'].flatMap((x) => [`research.p.${x}`, `research.p.${x}Hint`]),
+      ...['library_empty', 'library_local_only', 'open_sources_offline', 'open_sources_failed', 'identifier_refused'].map((x) => `research.notes.${x}`),
+      ...['good', 'caution', 'limit'].flatMap((l) => [`research.f.sources.${l}`, `research.f.verification.${l}`]),
+      ...['abstracts', 'age', 'conflict', 'missing', 'local_only', 'offline', 'calculation'].map((x) => `research.f.${x}`),
     ];
     const absent = keys.filter((k) => !(k in en));
     expect(absent).toEqual([]);

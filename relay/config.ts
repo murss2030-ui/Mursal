@@ -59,7 +59,7 @@ function positive(raw: string | undefined, fallback: number, problems: string[],
 
 /**
  * PRECEPTOR_MODELS is a comma-separated list of `model-id:inputUsdPerMillion:outputUsdPerMillion`.
- * PRECEPTOR_SUGGESTED is a comma-separated list of `task=model-id` (task: extract, analyse, verify).
+ * PRECEPTOR_SUGGESTED is a comma-separated list of `task=model-id` (task: extract, analyse, verify, research).
  * PRECEPTOR_THINKING is a comma-separated list of `task=level` (minimal, low, medium, high).
  */
 export function readConfig(env: Record<string, string | undefined>): ConfigResult {

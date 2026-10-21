@@ -76,7 +76,7 @@ function Claims({ b, card, readOnly }: { b: CaseBundle; card: CardModel; readOnl
   const { t, lang } = useI18n();
   const { store } = useSession();
   // M5: the claims citing the case's data that the verifier has not answered yet.
-  const unchecked = card.claims.some(({ claim, verdict }) => claimTargets(claim).length > 0 && (!verdict || verdict.verdict === 'not_checked'));
+  const unchecked = card.claims.some(({ claim, verdict }) => (claimTargets(claim).length > 0 || claim.source === 'research') && (!verdict || verdict.verdict === 'not_checked'));
   const gated = unverifiedModelClaims(card.item.fields, b.cardContext).length > 0;
   return (
     <div className="flex flex-col gap-2">
@@ -100,7 +100,20 @@ function Claims({ b, card, readOnly }: { b: CaseBundle; card: CardModel; readOnl
         return (
           <li key={i} className={`rounded-lg border px-2 py-1.5 ${claim.source === 'none' ? 'border-dashed border-amber-500 bg-amber-50/60' : 'border-line bg-white'}`} data-claim-source={claim.source} data-check={check.kind}>
             <p dir="auto">{claim.text}</p>
-            <p className="mt-1 text-xs text-slate-700">{t(`claims.from.${claim.source}` as MsgKey, { label })}</p>
+            <p className="mt-1 text-xs text-slate-700" dir="auto">{t(`claims.from.${claim.source}` as MsgKey, { label })}</p>
+            {claim.source === 'research' && (
+              <p className="mt-0.5 text-xs text-slate-700" dir="auto" data-testid="claim-quote">
+                {claim.quote && (
+                  <>
+                    <span className="font-medium">{t('claims.research.quote')} </span>
+                    <q className="font-mono text-[11px]">{claim.quote}</q>{' '}
+                  </>
+                )}
+                <a className="text-teal-800 underline" href={`#/cases/${b.case.id}/research/${(claim.ref ?? '').split(':')[0]}`}>
+                  {t('claims.research.open')}
+                </a>
+              </p>
+            )}
             <p className={`mt-0.5 text-xs ${ok ? 'text-teal-900' : unverified ? 'text-amber-900' : check.kind === 'not_checked' ? 'text-slate-700' : 'font-medium text-red-800'}`}>
               {check.kind === 'numbers_not_found'
                 ? t('claims.check.numbers_not_found', { numbers: check.numbers.join(', ') })
@@ -110,7 +123,7 @@ function Claims({ b, card, readOnly }: { b: CaseBundle; card: CardModel; readOnl
               {claim.by === 'model' && ` · ${t('claims.byModel')}`}
             </p>
             {/* M5: the verifier's verdict on exactly these words and sources; a drafted claim with no source can never pass. */}
-            {cited.length > 0 ? <VerdictLine v={verdict} /> : claim.by === 'model' ? <VerdictLine checkable={false} /> : null}
+            {cited.length > 0 || claim.source === 'research' ? <VerdictLine v={verdict} /> : claim.by === 'model' ? <VerdictLine checkable={false} /> : null}
           </li>
         );
       })}
@@ -563,6 +576,9 @@ export function ProblemCardScreen({ caseId, itemId, query }: { caseId: string; i
         <div className="flex flex-wrap gap-2">
           <Button icon="pencil" onClick={() => navigate(`/cases/${b.case.id}/item/${item.id}?back=card${task ? `&task=${task}` : ''}`)}>
             {t('card.edit')}
+          </Button>
+          <Button icon="search" onClick={() => navigate(`/cases/${b.case.id}/card/${item.id}/research`)} data-testid="research-link">
+            {t('research.link')}
           </Button>
         </div>
       )}

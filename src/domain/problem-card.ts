@@ -13,7 +13,7 @@
  * - the rank (owner decision D5) and the staleness (decisions D7 and D8);
  * - whether the card may enter the form's Sections 8 and 9.
  */
-import { claimsValue, claimTargets, parseClaims, parseLinks, type CardClaim, type CardLink } from './card-data';
+import { claimKeyTargets, claimsValue, claimTargets, parseClaims, parseLinks, type CardClaim, type CardLink } from './card-data';
 import { L } from './label';
 import { doseNumbersInText, numbersInText } from './numbers';
 import { PCNE_CODE, type PcneCode } from './pcne';
@@ -45,8 +45,7 @@ export interface CardContext {
 }
 
 /** M5: the latest verdict on one claim of a card: for exactly its words and what it cites. */
-export const claimVerdict = (c: CardClaim, ctx: Pick<CardContext, 'verdicts'>): ClaimVerification | undefined =>
-  ctx.verdicts?.get(claimKey(c.text, claimTargets(c).map((l) => `${l.kind}:${l.id}`)));
+export const claimVerdict = (c: CardClaim, ctx: Pick<CardContext, 'verdicts'>): ClaimVerification | undefined => ctx.verdicts?.get(claimKey(c.text, claimKeyTargets(c)));
 
 /**
  * M5: whose words a claim is, decided by its words, not by the editor: a
@@ -165,7 +164,7 @@ export type ClaimCheck =
   | { kind: 'source_changed' }
   | { kind: 'source_missing' }
   /** A source the trainee read, the offline check (no numbers to compare), or no source: shown as unverified by PRECEPTOR. */
-  | { kind: 'not_checked'; why: 'reading' | 'none' | 'dataset' };
+  | { kind: 'not_checked'; why: 'reading' | 'none' | 'dataset' | 'research' };
 
 export function checkClaim(c: CardClaim, ctx: CardContext, current: ReadonlySet<string>): ClaimCheck {
   switch (c.source) {
@@ -194,6 +193,9 @@ export function checkClaim(c: CardClaim, ctx: CardContext, current: ReadonlySet<
       return { kind: 'not_checked', why: 'dataset' };
     case 'reading':
       return { kind: 'not_checked', why: 'reading' };
+    // A researched statement was checked against the passage it quotes when it was drafted (research/check.ts); its verdict is shown beside it.
+    case 'research':
+      return { kind: 'not_checked', why: 'research' };
     case 'none':
       return { kind: 'not_checked', why: 'none' };
   }
