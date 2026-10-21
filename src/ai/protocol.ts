@@ -5,14 +5,16 @@
  */
 import type { OutputSchema } from './schema';
 
-/** Task routing (Section 12): extraction and verification on cheap tiers, reasoning on the stronger one. */
-export const MODEL_TASKS = ['extract', 'analyse', 'verify'] as const;
+/** Task routing (Section 12): extraction and verification on cheap tiers, reasoning on the stronger one; M5: embeddings for the evidence library (Section 11). */
+export const MODEL_TASKS = ['extract', 'analyse', 'verify', 'embed'] as const;
 export type ModelTask = (typeof MODEL_TASKS)[number];
+/** The tasks that generate text with a schema; `embed` returns vectors. */
+export type GenerateTask = Exclude<ModelTask, 'embed'>;
 
 export type RequestPart = { text: string } | { image: { mime: 'image/jpeg'; data: string } };
 
 export interface ModelRequest {
-  task: ModelTask;
+  task: GenerateTask;
   /** Chosen by the trainee from the relay's allow-list; never a literal in the code. */
   model: string;
   promptVersion: string;
@@ -45,6 +47,31 @@ export interface ModelResponse {
   model: string;
   budget: BudgetState;
 }
+
+/**
+ * M5: vectors for the evidence library's hybrid search, computed once per
+ * passage (Section 11). Only passages of documents whose licence allows
+ * sending them to the AI service, and the research question, are ever sent.
+ */
+export interface EmbedRequest {
+  task: 'embed';
+  model: string;
+  promptVersion: string;
+  caseKind: 'teaching' | 'clinical';
+  installId: string;
+  /** Passages to index, or a question to search with: the provider may embed the two differently. */
+  purpose: 'document' | 'query';
+  texts: string[];
+}
+
+export interface EmbedResponse {
+  vectors: number[][];
+  usage: ModelUsage;
+  model: string;
+  budget: BudgetState;
+}
+
+export const EMBED_LIMITS = { texts: 100, charsPerText: 10_000, totalChars: 300_000 } as const;
 
 export const RELAY_ERROR_CODES = [
   'not_configured',

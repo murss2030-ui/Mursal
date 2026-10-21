@@ -44,6 +44,8 @@ import { cardStaleness, contentHash, fromModel, markModelClaims, unverifiedModel
 import type { CardClaim } from '../domain/card-data';
 import { classificationUnanswered } from '../domain/pcne-coherence';
 import { indexVerdicts, passesDraftGate, type ClaimVerification } from '../domain/verdicts';
+import { maySend, normalizeDocumentMeta, type ChunkVector, type DocumentMetaInput, type EvidenceChunk, type LibraryDocument } from '../domain/library';
+import { chunkDocument, type PageText } from '../library/chunk';
 import { resultCurrency } from '../calc/currency';
 import { DRP_RECORD_FIELDS, normalizeItemFields, REGISTERS } from '../domain/workflow/registers';
 import { normalizeTaskInput, type TaskInput } from '../domain/workflow/tasks';
@@ -225,8 +227,6 @@ export type CalculateOutcome =
 
 type AuditInput = Omit<AuditEvent, 'id' | 'at' | 'actor'> & { actor?: AuditEvent['actor'] };
 
-const APPEND_ONLY = new Set<string>(APPEND_ONLY_TABLES);
-
 /** Tables holding versioned records: one row per version, id `${entityId}@${version}`. */
 export type VersionedTable =
   | 'rotations'
@@ -242,7 +242,16 @@ export type VersionedTable =
   | 'adjustments'
   | 'thresholds'
   | 'oncPairs'
-  | 'causality';
+  | 'causality'
+  | 'documents'
+  | 'researchRuns';
+
+/** Rows never overwritten once written, whose decrypted values may be cached: append-only tables, and a library document's passages and vectors (only ever added or purged). */
+const CACHEABLE = new Set<string>([...APPEND_ONLY_TABLES, 'chunks', 'embeddings']);
+
+/** M5: the largest guideline file the library takes, and the most pages it reads. */
+export const MAX_DOC_BYTES = 60 * 1024 * 1024;
+export const MAX_DOC_PAGES = 1500;
 
 const REFERENCE_TABLE = { formulary: 'formulary', adjustment: 'adjustments', threshold: 'thresholds', onc: 'oncPairs' } as const;
 type ReferenceRecord = FormularyItem | AdjustmentRule | LabThreshold | OncPair;
@@ -294,7 +303,7 @@ export class Store {
 
   async openRow<T>(table: EncryptedTableName, row: EncryptedRow): Promise<T> {
     const ck = `${table}:${row.id}`;
-    const immutable = APPEND_ONLY.has(table);
+    const immutable = CACHEABLE.has(table);
     if (immutable && this.cache.has(ck)) return this.cache.get(ck) as T;
     const { iv, ct, ...index } = row;
     const value = await open<T>(this.key(), { iv, ct }, rowAad(table, index));
@@ -1126,6 +1135,194 @@ export class Store {
 
   async listCardReviews(caseId: string): Promise<CardReview[]> {
     return this.decodeCardReviews(await this.rawCardReviews(caseId));
+  }
+
+  // ------------------------------------------------------------------ M5: the evidence library (Section 11)
+
+  rawDocuments(): Promise<EncryptedRow[]> {
+    return this.db.documents.toArray();
+  }
+
+  async decodeDocuments(rows: EncryptedRow[]): Promise<LibraryDocument[]> {
+    return (await this.decodeLatestOfAll<LibraryDocument>('documents', rows)).sort((a, b) => (a.addedAt < b.addedAt ? -1 : a.addedAt > b.addedAt ? 1 : 0));
+  }
+
+  async listDocuments(): Promise<LibraryDocument[]> {
+    return this.decodeDocuments(await this.rawDocuments());
+  }
+
+  documentHistory(docId: string): Promise<LibraryDocument[]> {
+    return this.history<LibraryDocument>('documents', docId);
+  }
+
+  /**
+   * Adds a guideline the trainee obtained, with the metadata they typed or
+   * confirmed, its file (encrypted, never shared), its SHA-256 and the
+   * passages of its text layer (library/chunk.ts). A scanned PDF is kept and
+   * listed as not searchable. The same file twice is refused.
+   */
+  async addDocument(input: { meta: DocumentMetaInput; file: { name: string; bytes: Uint8Array }; pages: readonly PageText[]; pageCount: number; isDrug?: (word: string) => boolean }): Promise<LibraryDocument> {
+    const m = normalizeDocumentMeta(input.meta, this.today());
+    const e: Errors = m.ok ? {} : { ...(m.errors as Errors) };
+    const bytes = input.file.bytes;
+    if (!bytes.byteLength) e.file = 'required';
+    else if (bytes.byteLength > MAX_DOC_BYTES) e.file = 'tooLarge';
+    else if (new TextDecoder().decode(bytes.subarray(0, 5)) !== '%PDF-') e.file = 'invalidChoice';
+    if (!Number.isInteger(input.pageCount) || input.pageCount < 1 || input.pageCount > MAX_DOC_PAGES) e.file = e.file ?? 'range';
+    if (Object.keys(e).length || !m.ok) throw new ValidationError(e);
+    const sha256 = toHex(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)));
+    const same = (await this.listDocuments()).find((d) => d.status === 'active' && d.file.sha256 === sha256);
+    if (same) throw new IntegrityError(`This file is already in your library: “${same.title}”.`);
+    const drafts = chunkDocument(input.pages.filter((p) => p.page <= input.pageCount), input.isDrug ? { isDrug: input.isDrug } : {});
+    const id = this.uuid();
+    const at = this.nowIso();
+    const doc: LibraryDocument = stripUndefined({
+      id,
+      ...m.value,
+      file: { name: input.file.name.slice(0, 200), bytes: bytes.byteLength, sha256, pages: input.pageCount },
+      textLayer: drafts.length > 0,
+      chunks: drafts.length,
+      status: 'active' as const,
+      addedAt: at,
+      version: 1,
+      versionCreatedAt: at,
+    });
+    const chunks: EvidenceChunk[] = drafts.map((c) => stripUndefined({ id: `${id}:1:${c.n}`, docId: id, docVersion: 1, ...c }));
+    const docRow = await this.sealRow('documents', { id: `${id}@1`, entityId: id, version: 1 }, doc);
+    const fileIndex = { id: `${id}@file`, entityId: id };
+    const sealedFile = await sealBytes(this.key(), bytes, rowAad('docFiles', fileIndex));
+    const chunkRows = await Promise.all(chunks.map((c) => this.sealRow('chunks', { id: c.id, entityId: id }, c)));
+    // The audit records what was added, never the document's text.
+    const audit = await this.auditRow({
+      entity: 'library_document',
+      entityId: id,
+      action: 'create',
+      diff: { title: doc.title, publisher: doc.publisher, year: doc.year, role: doc.role, aiUse: doc.aiUse, licence: doc.licence, pages: input.pageCount, chunks: chunks.length, sha256 },
+    });
+    await this.db.transaction('rw', [this.db.documents, this.db.docFiles, this.db.chunks, this.db.audit], async () => {
+      await this.db.documents.add(docRow);
+      await this.db.docFiles.add({ ...fileIndex, iv: sealedFile.iv, ct: sealedFile.ct });
+      await this.db.chunks.bulkAdd(chunkRows);
+      await this.db.audit.add(audit);
+    });
+    return doc;
+  }
+
+  /** The document's file as uploaded, to open at a page (a citation opens its source). */
+  async documentFile(docId: string): Promise<Uint8Array | undefined> {
+    const row = await this.db.docFiles.get(`${docId}@file`);
+    if (!row) return undefined;
+    return openBytes(this.key(), { iv: row.iv, ct: row.ct }, rowAad('docFiles', { id: row.id, entityId: row.entityId }));
+  }
+
+  rawChunks(docId?: string): Promise<EncryptedRow[]> {
+    return docId ? this.db.chunks.where('entityId').equals(docId).toArray() : this.db.chunks.toArray();
+  }
+
+  async decodeChunks(rows: EncryptedRow[]): Promise<EvidenceChunk[]> {
+    return (await this.openRows<EvidenceChunk>('chunks', rows)).sort((a, b) => (a.docId < b.docId ? -1 : a.docId > b.docId ? 1 : a.n - b.n));
+  }
+
+  /** The passages of one document, or of every document in the library. */
+  async listChunks(docId?: string): Promise<EvidenceChunk[]> {
+    return this.decodeChunks(await this.rawChunks(docId));
+  }
+
+  /**
+   * Corrects a document's metadata, or changes its licence choice: a new
+   * version with the reason. A document no longer allowed to be sent loses
+   * its vectors (local documents are searched by words only).
+   */
+  async updateDocument(docId: string, input: DocumentMetaInput, reason: string): Promise<LibraryDocument> {
+    const r = reason.trim();
+    if (r.length < 3) throw new ValidationError({ reason: 'required' });
+    const m = normalizeDocumentMeta(input, this.today());
+    if (!m.ok) throw new ValidationError(m.errors as Errors);
+    const prev = await this.latest<LibraryDocument>('documents', docId);
+    if (!prev || prev.status !== 'active') throw new IntegrityError('That document is not in your library.');
+    const dropVectors = prev.vectors && m.value.aiUse !== 'may_send';
+    return this.writeVersion<LibraryDocument>(
+      'documents',
+      docId,
+      (p, version, at) => {
+        if (!p || p.status !== 'active') throw new IntegrityError('That document is not in your library.');
+        const { vectors: _v, ...rest } = p;
+        return { ...(dropVectors ? rest : p), ...m.value, ...(m.value.edition ? {} : { edition: undefined }), ...(m.value.url ? {} : { url: undefined }), ...(m.value.topic ? {} : { topic: undefined }), version, versionCreatedAt: at, changeReason: r };
+      },
+      (p, next) => ({ entity: 'library_document', entityId: docId, action: 'update', diff: { reason: r, changed: changedMeta(p, next), vectorsRemoved: Boolean(dropVectors) } }),
+      dropVectors ? { also: { tables: ['embeddings'], run: async () => void (await this.db.embeddings.where('entityId').equals(docId).delete()) } } : {},
+    );
+  }
+
+  /** Removes a document: its file, passages and vectors are purged; its record and the removal stay. */
+  async removeDocument(docId: string, reason: string): Promise<LibraryDocument> {
+    const r = reason.trim();
+    if (r.length < 3) throw new ValidationError({ reason: 'required' });
+    return this.writeVersion<LibraryDocument>(
+      'documents',
+      docId,
+      (p, version, at) => {
+        if (!p || p.status !== 'active') throw new IntegrityError('That document is not in your library.');
+        const { vectors: _v, ...rest } = p;
+        return { ...rest, status: 'removed', version, versionCreatedAt: at, changeReason: r };
+      },
+      (p) => ({ entity: 'library_document', entityId: docId, action: 'remove', diff: { reason: r, title: p?.title, contentPurged: true } }),
+      {
+        also: {
+          tables: ['docFiles', 'chunks', 'embeddings'],
+          run: async () => {
+            await this.db.docFiles.delete(`${docId}@file`);
+            await this.db.chunks.bulkDelete(await this.db.chunks.where('entityId').equals(docId).primaryKeys());
+            await this.db.embeddings.bulkDelete(await this.db.embeddings.where('entityId').equals(docId).primaryKeys());
+          },
+        },
+      },
+    );
+  }
+
+  rawVectors(docId?: string): Promise<EncryptedRow[]> {
+    return docId ? this.db.embeddings.where('entityId').equals(docId).toArray() : this.db.embeddings.toArray();
+  }
+
+  async listVectors(docId?: string): Promise<ChunkVector[]> {
+    return this.openRows<ChunkVector>('embeddings', await this.rawVectors(docId));
+  }
+
+  /**
+   * Stores the vectors of a document's passages, computed once by `model`
+   * (only for a document whose licence allows sending its text). Vectors of
+   * another model are replaced; the document records the model and the date.
+   */
+  async addVectors(docId: string, model: string, items: readonly { chunkId: string; vector: number[] }[]): Promise<LibraryDocument> {
+    const doc = await this.latest<LibraryDocument>('documents', docId);
+    if (!doc || doc.status !== 'active') throw new IntegrityError('That document is not in your library.');
+    if (!maySend(doc)) throw new IntegrityError('This document is for local search only: its text is never sent to the AI service.');
+    const known = new Set((await this.listChunks(docId)).map((c) => c.id));
+    if (items.some((x) => !known.has(x.chunkId))) throw new IntegrityError('A vector names a passage this document does not have.');
+    const at = this.nowIso();
+    const records: ChunkVector[] = items.map((x) => ({ id: `${x.chunkId}#${model}`, chunkId: x.chunkId, docId, model, vector: x.vector, at }));
+    const rows = await Promise.all(records.map((v) => this.sealRow('embeddings', { id: v.id, entityId: docId }, v)));
+    const existing = await this.listVectors(docId);
+    const stale = existing.filter((v) => v.model !== model || records.some((x) => x.id === v.id)).map((v) => v.id);
+    const count = new Set([...existing.filter((v) => v.model === model).map((v) => v.chunkId), ...records.map((v) => v.chunkId)]).size;
+    return this.writeVersion<LibraryDocument>(
+      'documents',
+      docId,
+      (p, version, now) => {
+        if (!p || p.status !== 'active') throw new IntegrityError('That document is not in your library.');
+        return { ...p, vectors: { model, at, chunks: count }, version, versionCreatedAt: now, changeReason: `Search vectors computed (${model})` };
+      },
+      () => ({ entity: 'library_document', entityId: docId, action: 'update', diff: { vectors: { model, chunks: count } } }),
+      {
+        also: {
+          tables: ['embeddings'],
+          run: async () => {
+            await this.db.embeddings.bulkDelete(stale);
+            await this.db.embeddings.bulkAdd(rows);
+          },
+        },
+      },
+    );
   }
 
   // ------------------------------------------------------------------ M5: the verifier's verdicts (Section 12, check 4)
@@ -2009,6 +2206,14 @@ function sameStrings(a: Record<string, string>, b: Record<string, string>): bool
   const ka = Object.keys(a);
   const kb = Object.keys(b);
   return ka.length === kb.length && ka.every((k) => a[k] === b[k]);
+}
+
+const toHex = (b: Uint8Array): string => [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+
+/** The metadata fields a document's new version changed (for the audit log). */
+function changedMeta(prev: LibraryDocument | undefined, next: LibraryDocument): string[] {
+  const keys = ['title', 'publisher', 'year', 'edition', 'url', 'licence', 'aiUse', 'role', 'topic', 'retrievedOn'] as const;
+  return keys.filter((k) => prev?.[k] !== next[k]);
 }
 
 /** A card's fields with each claim marked the model's exactly when its words are a drafted claim's (problem-card.ts). */

@@ -46,7 +46,22 @@ export class ProviderError extends Error {
   }
 }
 
+export interface EmbedInput {
+  model: string;
+  texts: string[];
+  purpose: 'document' | 'query';
+  signal?: AbortSignal;
+}
+
+export interface EmbedOutput {
+  vectors: number[][];
+  /** Tokens as the provider reports them; estimated when it reports none. */
+  usage: { inputTokens: number };
+}
+
 export interface Provider {
   readonly name: string;
   generate(input: GenerateInput): Promise<GenerateOutput>;
+  /** M5: text embeddings (the evidence library). */
+  embed(input: EmbedInput): Promise<EmbedOutput>;
 }

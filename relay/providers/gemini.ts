@@ -4,7 +4,7 @@
  * the relay has already checked against its configured allow-list.
  */
 import type { OutputSchema } from '../../src/ai/schema';
-import { ProviderError, type GenerateInput, type GenerateOutput, type Provider } from './types';
+import { ProviderError, type EmbedInput, type EmbedOutput, type GenerateInput, type GenerateOutput, type Provider } from './types';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -109,9 +109,49 @@ export function readGeminiResponse(status: number, body: unknown): GenerateOutpu
   return { text, usage };
 }
 
+/** M5: the batchEmbedContents body: one request per text, typed as a passage to index or a question to search with. */
+export function buildGeminiEmbedBody(input: EmbedInput): unknown {
+  return {
+    requests: input.texts.map((text) => ({
+      model: `models/${input.model}`,
+      content: { parts: [{ text }] },
+      taskType: input.purpose === 'query' ? 'RETRIEVAL_QUERY' : 'RETRIEVAL_DOCUMENT',
+    })),
+  };
+}
+
+/** Interprets a batchEmbedContents response: one vector per text, in order. The service reports no token count, so it is estimated (4 characters a token). */
+export function readGeminiEmbedResponse(status: number, body: unknown, input: Pick<EmbedInput, 'texts'>): EmbedOutput {
+  if (status < 200 || status >= 300) readGeminiResponse(status, body); // throws the same errors as generateContent
+  const vectors = ((body as { embeddings?: { values?: unknown }[] })?.embeddings ?? []).map((e) => e.values);
+  if (vectors.length !== input.texts.length || vectors.some((v) => !Array.isArray(v) || !v.length || v.some((x) => typeof x !== 'number' || !Number.isFinite(x)))) {
+    throw new ProviderError('provider_rejected', 'The embedding service returned no vector, or the wrong number of vectors.');
+  }
+  return { vectors: vectors as number[][], usage: { inputTokens: Math.ceil(input.texts.reduce((n, t) => n + t.length, 0) / 4) } };
+}
+
 export function geminiProvider(apiKey: string, fetchImpl: typeof fetch = fetch): Provider {
+  const post = async (url: string, body: unknown, signal?: AbortSignal): Promise<{ status: number; body: unknown }> => {
+    let res: Response;
+    try {
+      res = await fetchImpl(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey }, body: JSON.stringify(body), ...(signal ? { signal } : {}) });
+    } catch {
+      if (signal?.aborted) throw new ProviderError('provider_timeout', 'The model took too long to answer.');
+      throw new ProviderError('provider_unavailable', 'The model service could not be reached.');
+    }
+    try {
+      return { status: res.status, body: await res.json() };
+    } catch {
+      if (signal?.aborted) throw new ProviderError('provider_timeout', 'The model took too long to answer.');
+      return { status: res.status, body: null };
+    }
+  };
   return {
     name: 'gemini',
+    async embed(input: EmbedInput): Promise<EmbedOutput> {
+      const r = await post(`${BASE}/${encodeURIComponent(input.model)}:batchEmbedContents`, buildGeminiEmbedBody(input), input.signal);
+      return readGeminiEmbedResponse(r.status, r.body, input);
+    },
     async generate(input: GenerateInput): Promise<GenerateOutput> {
       let res: Response;
       try {

@@ -141,7 +141,7 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
                   label={t(`ai.model.${k}`)}
                   hint={t(`ai.modelHelp.${k}`)}
                   name={`model_${k}`}
-                  optional={k === 'verify'}
+                  optional={k === 'verify' || k === 'embed'}
                   value={models[k] ?? ''}
                   onChange={(x) => {
                     setModels((m) => ({ ...m, [k]: x }));
@@ -155,7 +155,7 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
                   label={t(`ai.model.${k}`)}
                   hint={t(`ai.modelHelp.${k}`)}
                   name={`model_${k}`}
-                  optional={k === 'verify'}
+                  optional={k === 'verify' || k === 'embed'}
                   dir="ltr"
                   value={models[k] ?? ''}
                   onChange={(x) => {

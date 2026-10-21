@@ -10,8 +10,11 @@
  */
 import {
   ACCESS_HEADER,
+  EMBED_LIMITS,
   MODEL_TASKS,
   type BudgetState,
+  type EmbedRequest,
+  type EmbedResponse,
   type ModelRequest,
   type ModelResponse,
   type RelayErrorBody,
@@ -86,7 +89,7 @@ function parseParts(x: unknown): RequestPart[] | null {
 function parseRequest(body: unknown, config: RelayConfig): { ok: true; req: ModelRequest } | { ok: false; message: string } {
   if (typeof body !== 'object' || body === null) return { ok: false, message: 'The request is not a JSON object.' };
   const b = body as Record<string, unknown>;
-  if (!(MODEL_TASKS as readonly unknown[]).includes(b.task)) return { ok: false, message: 'Unknown task.' };
+  if (!(MODEL_TASKS as readonly unknown[]).includes(b.task) || b.task === 'embed') return { ok: false, message: 'Unknown task.' };
   if (typeof b.model !== 'string' || b.model.length > 100) return { ok: false, message: 'A model id is required.' };
   if (typeof b.promptVersion !== 'string' || !/^[a-z0-9._-]{1,40}$/.test(b.promptVersion)) return { ok: false, message: 'A prompt version is required.' };
   if (b.caseKind !== 'teaching' && b.caseKind !== 'clinical') return { ok: false, message: 'The case kind is required.' };
@@ -151,6 +154,8 @@ export async function handleModel(httpReq: Request, deps: RelayDeps): Promise<Re
   } catch {
     return fail(400, 'bad_request', 'The request is not valid JSON.');
   }
+  // M5: embeddings share the endpoint and every guard (allow-list, key class, rate limits, spending cap).
+  if ((body as { task?: unknown } | null)?.task === 'embed') return embed(body, deps, now);
   const parsed = parseRequest(body, config);
   if (!parsed.ok) return fail(400, 'bad_request', parsed.message);
   const req = parsed.req;
@@ -227,6 +232,73 @@ export async function handleModel(httpReq: Request, deps: RelayDeps): Promise<Re
       return fail(status, e.code, message);
     }
     return fail(502, 'provider_unavailable', 'The model service failed. Try again later.');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ------------------------------------------------------------------ M5: embeddings
+
+function parseEmbedRequest(body: unknown): { ok: true; req: EmbedRequest } | { ok: false; message: string } {
+  const b = body as Record<string, unknown>;
+  if (typeof b.model !== 'string' || b.model.length > 100) return { ok: false, message: 'A model id is required.' };
+  if (typeof b.promptVersion !== 'string' || !/^[a-z0-9._-]{1,40}$/.test(b.promptVersion)) return { ok: false, message: 'A prompt version is required.' };
+  if (b.caseKind !== 'teaching' && b.caseKind !== 'clinical') return { ok: false, message: 'The case kind is required.' };
+  if (typeof b.installId !== 'string' || !INSTALL_ID.test(b.installId)) return { ok: false, message: 'An installation id is required.' };
+  if (b.purpose !== 'document' && b.purpose !== 'query') return { ok: false, message: 'The purpose must be "document" or "query".' };
+  const texts = b.texts;
+  if (!Array.isArray(texts) || texts.length < 1 || texts.length > EMBED_LIMITS.texts) return { ok: false, message: `Between 1 and ${EMBED_LIMITS.texts} texts are embedded at a time.` };
+  if (texts.some((t) => typeof t !== 'string' || !t.trim() || t.length > EMBED_LIMITS.charsPerText)) return { ok: false, message: `Each text must be non-empty and at most ${EMBED_LIMITS.charsPerText} characters.` };
+  if ((texts as string[]).reduce((n, t) => n + t.length, 0) > EMBED_LIMITS.totalChars) return { ok: false, message: 'The texts are too long together. Send fewer at a time.' };
+  return { ok: true, req: { task: 'embed', model: b.model, promptVersion: b.promptVersion, caseKind: b.caseKind, installId: b.installId, purpose: b.purpose, texts: texts as string[] } };
+}
+
+async function embed(body: unknown, deps: RelayDeps, now: Date): Promise<Response> {
+  const { config, store } = deps;
+  const parsed = parseEmbedRequest(body);
+  if (!parsed.ok) return fail(400, 'bad_request', parsed.message);
+  const req = parsed.req;
+  const price = priceOf(config, req.model);
+  if (!price) return fail(400, 'model_not_allowed', `The model "${req.model}" is not on this server's allow-list. Choose another in Settings → AI service.`);
+  if (req.caseKind === 'clinical' && config.keyClass !== 'paid') {
+    return fail(403, 'free_key_clinical', 'This server uses a free-tier key. Clinical Cases are never sent with a free-tier key; use a Teaching Case, or configure a paid key.');
+  }
+  const rate = await takeRate(store, now, req.installId, config.perMinute, config.perDay);
+  if (!rate.ok) {
+    return fail(429, 'rate_limited', rate.window === 'minute' ? 'Too many requests this minute. Wait a moment and try again.' : 'The daily request limit is reached. Try again tomorrow.', {
+      retryAfterSeconds: rate.retryAfterSeconds,
+    });
+  }
+  // The same generous estimate as for text: 2.5 characters a token, input only.
+  const inputTokens = Math.ceil(req.texts.reduce((n, t) => n + t.length, 0) / 2.5);
+  const estimateUsd = (inputTokens * price.inputPerM) / 1e6;
+  const reservation = await reserve(store, now, config.monthlyBudgetUsd, estimateUsd, 'embed');
+  if (!reservation.ok) {
+    const b = reservation.budget;
+    return fail(402, 'budget_exhausted', `The monthly AI budget is reached: ${usd(b.spentUsd)} of ${usd(b.budgetUsd)} used, and this request could cost up to ${usd(estimateUsd)}. It resets on ${nextMonthStart(now)}.`, {
+      budget: b,
+    });
+  }
+  const deadline = new AbortController();
+  const timer = setTimeout(() => deadline.abort(), config.providerTimeoutMs);
+  try {
+    const out = await deps.provider!.embed({ model: req.model, texts: req.texts, purpose: req.purpose, signal: deadline.signal });
+    const usage = { inputTokens: out.usage.inputTokens, outputTokens: 0 };
+    const costUsd = costOf(usage, price);
+    const after = await reconcile(store, reservation.month, 'embed', estimateUsd, { ...usage, costUsd });
+    const response: EmbedResponse = { vectors: out.vectors, usage: { ...usage, costUsd }, model: req.model, budget: budgetState(config, reservation.month, after.spentUsd) };
+    return json(200, response);
+  } catch (e) {
+    if (e instanceof ProviderError && e.code === 'provider_timeout') {
+      await reconcile(store, reservation.month, 'embed', estimateUsd, { inputTokens, outputTokens: 0, costUsd: estimateUsd });
+      return fail(504, 'provider_timeout', `The embedding service took longer than ${Math.round(config.providerTimeoutMs / 1000)} seconds. Try again with fewer passages.`);
+    }
+    await reconcile(store, reservation.month, 'embed', estimateUsd, null);
+    if (e instanceof ProviderError) {
+      const status = e.code === 'provider_rate_limited' || e.code === 'provider_quota_exhausted' ? 429 : e.code === 'model_unavailable' ? 404 : 502;
+      return fail(status, e.code, e.code === 'model_unavailable' ? `The model "${req.model}" is not available (it may have been retired). Choose another in Settings → AI service. (${e.message})` : e.message);
+    }
+    return fail(502, 'provider_unavailable', 'The embedding service failed. Try again later.');
   } finally {
     clearTimeout(timer);
   }

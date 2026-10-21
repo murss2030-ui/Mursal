@@ -50,6 +50,9 @@ function provider(fn: (input: GenerateInput) => Promise<{ text: string; usage: {
       calls.push(input);
       return fn(input);
     },
+    async embed(input) {
+      return { vectors: input.texts.map((t) => [t.length, 1, 0]), usage: { inputTokens: Math.ceil(input.texts.join('').length / 4) } };
+    },
   };
 }
 
