@@ -13,7 +13,7 @@
  * - the rank (owner decision D5) and the staleness (decisions D7 and D8);
  * - whether the card may enter the form's Sections 8 and 9.
  */
-import { parseClaims, parseLinks, type CardClaim, type CardLink } from './card-data';
+import { claimTargets, parseClaims, parseLinks, type CardClaim, type CardLink } from './card-data';
 import { L } from './label';
 import { doseNumbersInText, numbersInText } from './numbers';
 import { PCNE_CODE, type PcneCode } from './pcne';
@@ -99,15 +99,13 @@ export function cardCipolle(f: Readonly<Record<string, string>>): CipolleView {
 export const cardLinks = (f: Readonly<Record<string, string>>): CardLink[] => parseLinks(f.supporting);
 export const cardClaims = (f: Readonly<Record<string, string>>): CardClaim[] => parseClaims(f.claims);
 
-export function citedEntryIds(f: Readonly<Record<string, string>>): string[] {
-  const ids = [...cardLinks(f).filter((l) => l.kind === 'entry').map((l) => l.id), ...cardClaims(f).flatMap((c) => (c.source === 'entry' && c.ref ? [c.ref] : []))];
-  return [...new Set(ids)];
-}
+/** The values the card links and its claims cite (a claim may cite several: claimTargets). */
+const citedOf = (f: Readonly<Record<string, string>>, kind: CardLink['kind']): string[] =>
+  [...new Set([...cardLinks(f), ...cardClaims(f).flatMap(claimTargets)].filter((l) => l.kind === kind).map((l) => l.id))];
 
-export function citedCalcIds(f: Readonly<Record<string, string>>): string[] {
-  const ids = [...cardLinks(f).filter((l) => l.kind === 'calc').map((l) => l.id), ...cardClaims(f).flatMap((c) => (c.source === 'calc' && c.ref ? [c.ref] : []))];
-  return [...new Set(ids)];
-}
+export const citedEntryIds = (f: Readonly<Record<string, string>>): string[] => citedOf(f, 'entry');
+
+export const citedCalcIds = (f: Readonly<Record<string, string>>): string[] => citedOf(f, 'calc');
 
 /** Numbers a statement citing this entry may use: its values, its day and its time. */
 export function entryNumbers(e: TimelineEntry): Set<string> {
@@ -142,22 +140,26 @@ export type ClaimCheck =
   | { kind: 'not_checked'; why: 'reading' | 'none' | 'dataset' };
 
 export function checkClaim(c: CardClaim, ctx: CardContext, current: ReadonlySet<string>): ClaimCheck {
-  const compare = (allowed: Set<string>): ClaimCheck => {
-    const missing = [...numbersInText(c.text)].filter((n) => !allowed.has(n));
-    return missing.length ? { kind: 'numbers_not_found', numbers: missing } : { kind: 'numbers_found' };
-  };
   switch (c.source) {
-    case 'entry': {
-      const e = ctx.entries.find((x) => x.id === c.ref);
-      if (!e) return { kind: 'source_missing' };
-      if (!current.has(e.id)) return { kind: 'source_changed' };
-      return compare(entryNumbers(e));
-    }
+    case 'entry':
     case 'calc': {
-      const r = ctx.calcResults.find((x) => x.id === c.ref);
-      if (!r) return { kind: 'source_missing' };
-      if (ctx.calcOutOfDate.has(r.id)) return { kind: 'source_changed' };
-      return compare(calcNumbers(r));
+      // Every value the claim cites must exist and be current; its numbers may come from any of them.
+      const allowed = new Set<string>();
+      for (const t of claimTargets(c)) {
+        if (t.kind === 'entry') {
+          const e = ctx.entries.find((x) => x.id === t.id);
+          if (!e) return { kind: 'source_missing' };
+          if (!current.has(e.id)) return { kind: 'source_changed' };
+          for (const n of entryNumbers(e)) allowed.add(n);
+        } else {
+          const r = ctx.calcResults.find((x) => x.id === t.id);
+          if (!r) return { kind: 'source_missing' };
+          if (ctx.calcOutOfDate.has(r.id)) return { kind: 'source_changed' };
+          for (const n of calcNumbers(r)) allowed.add(n);
+        }
+      }
+      const missing = [...numbersInText(c.text)].filter((n) => !allowed.has(n));
+      return missing.length ? { kind: 'numbers_not_found', numbers: missing } : { kind: 'numbers_found' };
     }
     case 'dataset':
       if (ctx.alertKeys && !ctx.alertKeys.has(c.ref ?? '')) return { kind: 'source_missing' };

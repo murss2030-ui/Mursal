@@ -6,20 +6,25 @@
  */
 import type { CaseAnalysis } from '../../domain/types';
 import { MODULE_BY_ID } from '../../domain/workflow/catalogue';
-import type { Store } from '../../store/store';
+import { analysisStale, type Store } from '../../store/store';
 import { AiError, callModel, type CallDeps } from '../client';
 import { maskIdentifiers } from '../extraction/deid';
 import { ANALYSE_PROMPT_VERSION, ANALYSE_SYSTEM, analyseHeader, analysisSchema, type RawAnalysis } from './contract';
-import { buildCasePayload } from './payload';
+import { buildCasePayload, type DraftedCard } from './payload';
 import { verifyAnalysis } from './verify';
 
 export async function analyseModule(store: Store, caseId: string, moduleId: string, deps: CallDeps = {}): Promise<CaseAnalysis> {
   const c = await store.getCase(caseId);
   const module = MODULE_BY_ID.get(moduleId as never);
   if (!c || !module) throw new AiError('bad_request', 'Unknown case or module.');
-  const [entries, items, tasks, cards] = await Promise.all([store.listEntries(caseId), store.listItems(caseId), store.listTasks(caseId), store.cardContext(caseId)]);
+  const [entries, items, tasks, cards, analyses] = await Promise.all([store.listEntries(caseId), store.listItems(caseId), store.listTasks(caseId), store.cardContext(caseId), store.listAnalyses(caseId)]);
+  // M5: Problem Cards another module drafted on the current data and the trainee has not decided yet: not to be drafted twice.
+  const draftedCards: DraftedCard[] = analyses
+    .filter((a) => a.moduleId !== module.id && !analysisStale(a, entries, items))
+    .flatMap((a) => a.suggestions.filter((s) => s.kind === 'item' && s.register === 'drp' && !s.decision && s.fields?.problem))
+    .map((s) => ({ problem: s.fields!.problem!, ...(s.fields!.drugs ? { drugs: s.fields!.drugs } : {}), ...(s.fields!.pcneProblem ? { pcneProblem: s.fields!.pcneProblem } : {}) }));
   // M4: current calculation results are sent too, so that a Problem Card's claim (and a dose) can cite one.
-  const payload = buildCasePayload({ case: c, entries, items, tasks, module, today: store.today(), calcResults: cards.calcResults, calcOutOfDate: cards.calcOutOfDate });
+  const payload = buildCasePayload({ case: c, entries, items, tasks, module, today: store.today(), calcResults: cards.calcResults, calcOutOfDate: cards.calcOutOfDate, draftedCards });
   // Free text typed into the record could still hold an identifier: masked before it leaves the device.
   const ids = c.kind === 'clinical' ? await store.getIdentifiers(caseId) : undefined;
   const text = maskIdentifiers(payload.text, { patientName: ids?.patientName, mrn: ids?.mrn, roomBed: ids?.roomBed, consultantName: ids?.consultantName }).text;

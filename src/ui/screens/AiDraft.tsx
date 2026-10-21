@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 import { UNDRAFTED_TASKS } from '../../ai/analysis/limits';
-import type { Suggestion, SuggestionCheck } from '../../domain/types';
+import { mustEdit, type Suggestion, type SuggestionCheck } from '../../domain/types';
 import type { TaskDef } from '../../domain/workflow/catalogue';
 import { REGISTERS, type FieldDef } from '../../domain/workflow/registers';
 import { useI18n } from '../../i18n/i18n';
@@ -18,7 +18,7 @@ import { Icon } from '../components/Icon';
 import { ProvenanceBadge } from '../components/ProvenanceBadge';
 import { Banner, Button, LinkButton, Num, TextAreaField, TextField } from '../components/ui';
 import { entryText } from '../format';
-import { parseClaims, parseLinks, type CardClaim } from '../../domain/card-data';
+import { claimTargets, parseClaims, parseLinks, type CardClaim } from '../../domain/card-data';
 import { pcneCoherence } from '../../domain/pcne-coherence';
 import { calcLabel, CoherenceQuestions, entryLabel } from './card-parts';
 import { navigate } from '../router';
@@ -53,9 +53,15 @@ function shownValue(f: FieldDef | undefined, v: string, b: CaseBundle, tl: Retur
 }
 
 function claimLabel(c: CardClaim, b: CaseBundle, t: ReturnType<typeof useI18n>['t']): string {
-  const e = c.source === 'entry' ? b.entries.find((x) => x.id === c.ref) : undefined;
-  const r = c.source === 'calc' ? b.calcResults.find((x) => x.id === c.ref) : undefined;
-  return e ? entryLabel(e, t) : r ? calcLabel(r, 'en', t) : c.title ?? '';
+  const cited = claimTargets(c);
+  if (!cited.length) return c.title ?? '';
+  return cited
+    .map((l) => {
+      const e = l.kind === 'entry' ? b.entries.find((x) => x.id === l.id) : undefined;
+      const r = l.kind === 'calc' ? b.calcResults.find((x) => x.id === l.id) : undefined;
+      return e ? entryLabel(e, t) : r ? calcLabel(r, 'en', t) : l.id;
+    })
+    .join(' · ');
 }
 
 function Basis({ s }: { s: Suggestion }) {
@@ -140,7 +146,7 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
 
   // A card whose classification PRECEPTOR questions is edited first: only the trainee corrects the codes or says why they fit.
   const questions = card ? pcneCoherence(s.fields ?? {}) : [];
-  const incomplete = s.checks.includes('incomplete') || questions.length > 0;
+  const incomplete = mustEdit(s) || questions.length > 0;
   const reg = s.register ? REGISTERS[s.register] : undefined;
   return (
     <li>
@@ -282,7 +288,9 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
             )}
           </div>
         )}
-        {incomplete && <p className="text-xs text-slate-600">{questions.length ? t('draft.questionedHelp') : t('draft.incompleteHelp')}</p>}
+        {incomplete && (
+          <p className="text-xs text-slate-600">{questions.length ? t('draft.questionedHelp') : s.checks.includes('incomplete') ? t('draft.incompleteHelp') : t('draft.actionHelp')}</p>
+        )}
       </section>
     </li>
   );

@@ -20,10 +20,10 @@
  *    did, what happened, outcomes, sources and references.
  */
 import { REGISTERS, type FieldDef } from '../../domain/workflow/registers';
-import { claimsValue, linksValue, MAX_CLAIM_TEXT, MAX_CLAIMS, type CardClaim, type CardLink } from '../../domain/card-data';
+import { claimsValue, linksValue, MAX_CLAIM_ALSO, MAX_CLAIM_TEXT, MAX_CLAIMS, parseClaims, type CardClaim, type CardLink } from '../../domain/card-data';
 import type { TaskDef } from '../../domain/workflow/catalogue';
 import { normalizeItemFields } from '../../domain/workflow/registers';
-import { pcneCoherence } from '../../domain/pcne-coherence';
+import { namedDrugs, pcneCoherence } from '../../domain/pcne-coherence';
 import type { CheckValue, ClaimBasis, Suggestion, SuggestionCheck } from '../../domain/types';
 import type { CasePayload, RefTarget } from './payload';
 import type { RawAnalysis, RawClaim, RawSuggestionBase } from './contract';
@@ -47,6 +47,17 @@ const CITATIONS: readonly RegExp[] = [
   /\bclass\s+(?:I{1,3}|IV)[ab]?\s+recommendation\b/gi,
 ];
 const NAMED_SOURCE = /\b(according to|as recommended by|recommended by|per the|guidelines? (?:from|by|of))\b|\b(IDSA|ATS|KDIGO|ACC\/AHA|AHA|ESC|ADA|GOLD|GINA|CHEST|WHO|ASHP|ACCP|FDA)\b/;
+/** "(R2)", "[E3, E4]", "(see C1)": a payload reference written into a text. */
+const REF_IN_TEXT = /\s*[([]\s*(?:refs?\.?:?\s*|see\s+)?[CEMPR]\d{1,3}(?:\s*(?:[,;/&]|and)\s*[CEMPR]\d{1,3})*\s*[)\]]/gi;
+/** "were reconciled", "was checked": what a person did, which only the trainee records (limits.ts; Section 24). */
+const ACTION =
+  /\b(?:was|were|has been|have been|had been)\s+(?:(?:already|then|also|carefully|fully|not)\s+)?(?:checked|double-checked|reviewed|reconciled|evaluated|assessed|verified|screened|counsell?ed|educated|discussed|communicated|implemented)\b/i;
+
+/** A Problem Card as compared for duplicates: the same drugs and the same PCNE problem, or the same sentence when no drug is named. */
+export function cardKey(c: { problem?: string; drugs?: string; pcneProblem?: string }): string {
+  const drugs = namedDrugs(c.drugs)?.map((d) => d.toLowerCase()).sort().join('+');
+  return drugs ? `${drugs}#${c.pcneProblem ?? ''}` : `text#${(c.problem ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()}`;
+}
 
 function numbersIn(s: string): Set<string> {
   const out = new Set<string>();
@@ -66,7 +77,8 @@ export interface CleanResult {
  */
 export function cleanStatement(text: string, allowed: ReadonlySet<string>, doseAllowed: ReadonlySet<string> = allowed): CleanResult {
   const checks = new Set<SuggestionCheck>();
-  let s = text;
+  // M5: references belong in refs, not in the text (live probe: "Amlodipine (R2)").
+  let s = text.replace(REF_IN_TEXT, '');
   for (const re of CITATIONS) {
     if (re.test(s)) {
       checks.add('citation_removed');
@@ -236,11 +248,18 @@ export function draftClaims(raw: readonly RawClaim[], payload: CasePayload, chec
     for (const x of clean.checks) checks.add(x);
     const text = clean.text.slice(0, MAX_CLAIM_TEXT);
     if (!text) continue;
-    const calc = targets.find((t) => t.kind === 'calc');
-    const entry = targets.find((t) => t.kind === 'entry') ?? targets.find((t) => t.entryId);
-    if (c.basis === 'case_data' && !calc && !entry) checks.add('no_valid_ref');
-    const source: Pick<CardClaim, 'source' | 'ref'> =
-      c.basis !== 'case_data' ? { source: 'none' } : calc ? { source: 'calc', ref: calc.id } : entry ? { source: 'entry', ref: entry.kind === 'entry' ? entry.id : entry.entryId! } : { source: 'none' };
+    // M5: a claim may cite several values (a change cites both); a medication or a problem is cited through its latest entry. A calculation comes first.
+    const links: CardLink[] = [];
+    const order = (t: RefTarget) => (t.kind === 'calc' ? 0 : t.kind === 'entry' ? 1 : 2);
+    for (const t of [...targets].sort((a, b) => order(a) - order(b))) {
+      const link: CardLink | undefined = t.kind === 'calc' || t.kind === 'entry' ? { kind: t.kind, id: t.id } : t.entryId ? { kind: 'entry', id: t.entryId } : undefined;
+      if (link && !links.some((l) => l.kind === link.kind && l.id === link.id)) links.push(link);
+    }
+    if (c.basis === 'case_data' && !links.length) checks.add('no_valid_ref');
+    const [first, ...more] = c.basis === 'case_data' ? links : [];
+    const source: Pick<CardClaim, 'source' | 'ref' | 'also'> = first
+      ? { source: first.kind, ref: first.id, ...(more.length ? { also: more.slice(0, MAX_CLAIM_ALSO).map((l) => `${l.kind === 'entry' ? 'e' : 'c'}:${l.id}`) } : {}) }
+      : { source: 'none' };
     out.push({ text, ...source, by: 'model' });
   }
   return out;
@@ -256,6 +275,7 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
   for (const t of payload.refs.values()) for (const x of numbersIn(t.text)) everything.add(x);
   const noteAllowed = new Set([...everything, ...numbersIn(payload.context)]);
   const next = () => `s${++n}`;
+  const drafted = new Set<string>();
 
   for (const draft of raw.tasks ?? []) {
     const def = payload.tasks.find((t) => t.id === draft.taskId);
@@ -266,6 +286,7 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
     const note = (noteKind: 'summary' | 'missing' | 'question', text: string) => {
       const c = cleanStatement(text, noteAllowed, everything);
       if (!c.text) return;
+      if (ACTION.test(c.text)) c.checks.add('states_action');
       suggestions.push({ id: next(), taskId: def.id, kind: 'note', noteKind, text: c.text, reason: '', basis: 'case_data', refs: [], checks: [...c.checks] });
     };
     if (draft.summary?.trim()) note('summary', draft.summary);
@@ -290,6 +311,8 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
       const label = [...(def.case?.checks ?? []), ...(def.perMedication?.checks ?? []), ...(def.perProblem?.checks ?? [])].find((x) => x.id === ck.checkId)?.label.en ?? '';
       for (const n of numbersIn(label)) r.allowed.add(n);
       const c = cleanStatement(ck.reason ?? '', r.allowed, r.cited);
+      // The reason is shown, not stored: a process statement is flagged so the trainee reads it for what it is.
+      if (ACTION.test(c.text)) c.checks.add('states_action');
       suggestions.push({
         id: next(),
         taskId: def.id,
@@ -323,6 +346,16 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
       if (questioned) checks.add('classification_questioned');
       const valid = normalizeItemFields(it.register as never, fields);
       if (!valid.ok && Object.keys(valid.errors).some((k) => !(questioned && k === 'classificationReason'))) checks.add('incomplete');
+      // M5: a stored text that says something was done is the trainee's to write (Section 24).
+      const def2 = REGISTERS[it.register as keyof typeof REGISTERS];
+      const texts = [...def2.fields.filter((f) => f.kind === 'text' || f.kind === 'longtext').map((f) => fields[f.id] ?? ''), ...parseClaims(fields.claims).map((x) => x.text)];
+      if (texts.some((x) => ACTION.test(x))) checks.add('states_action');
+      // M5: one card per problem (live probe: Tasks 5 and 29 drafted the same four problems).
+      if (it.register === 'drp') {
+        const key = cardKey(fields);
+        if (payload.cards?.some((x) => cardKey(x) === key) || drafted.has(key)) checks.add('duplicate_card');
+        drafted.add(key);
+      }
       suggestions.push({ id: next(), taskId: def.id, kind: 'item', register: it.register as never, fields, reason: c.text, basis: r.basis, refs: r.refs, checks: [...checks] });
     }
 

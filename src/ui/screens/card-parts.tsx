@@ -5,7 +5,7 @@
  * badge and the review state.
  */
 import { useMemo } from 'react';
-import { CLAIM_SOURCES, linksValue, parseLinks, type CardLink, type ClaimSource } from '../../domain/card-data';
+import { CLAIM_SOURCES, linksValue, MAX_CLAIM_ALSO, parseLinks, type CardLink, type ClaimSource } from '../../domain/card-data';
 import { PCNE_MAPS_APPROVED, PCNE_MAPS_DRAFT } from '../../domain/pcne-maps';
 import type { CoherenceIssue } from '../../domain/pcne-coherence';
 import { CARD_STAGES, cardBoxes, type CardModel, type ReviewState, type StageInfo } from '../../domain/problem-card';
@@ -161,6 +161,8 @@ interface DraftClaim {
   text: string;
   source: ClaimSource;
   ref?: string;
+  /** M5: the other values the claim rests on (`e:<id>` or `c:<id>`). */
+  also?: string[];
   title?: string;
   by?: 'model';
 }
@@ -175,12 +177,56 @@ function draftClaims(v: string): DraftClaim[] {
       text: typeof x.text === 'string' ? x.text : '',
       source: (CLAIM_SOURCES as readonly string[]).includes(x.source as string) ? (x.source as ClaimSource) : 'none',
       ...(typeof x.ref === 'string' ? { ref: x.ref } : {}),
+      ...(Array.isArray(x.also) && x.also.length ? { also: x.also.filter((y): y is string => typeof y === 'string') } : {}),
       ...(typeof x.title === 'string' ? { title: x.title } : {}),
       ...(x.by === 'model' ? { by: 'model' as const } : {}),
     }));
   } catch {
     return [];
   }
+}
+
+/** M5: the other values one claim rests on — a change cites both of its values. */
+function ClaimAlso({ b, claim, index, sources, onChange }: { b: CaseBundle; claim: DraftClaim; index: number; sources: ReturnType<typeof useSources>; onChange: (also: string[]) => void }) {
+  const { t } = useI18n();
+  const also = claim.also ?? [];
+  const own = `${claim.source === 'entry' ? 'e' : 'c'}:${claim.ref}`;
+  const taken = new Set([own, ...also]);
+  return (
+    <div className="flex flex-col gap-1.5" data-testid="claim-also">
+      {also.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {parseLinks(also.join('|')).map((l) => (
+            <li key={`${l.kind}:${l.id}`} className="flex items-start justify-between gap-2 rounded-lg border border-line bg-white px-2 py-1 text-sm">
+              <LinkLine b={b} link={l} />
+              <button
+                type="button"
+                className="inline-flex min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+                aria-label={t('links.remove')}
+                onClick={() => onChange(also.filter((x) => x !== `${l.kind === 'entry' ? 'e' : 'c'}:${l.id}`))}
+              >
+                <Icon name="x" className="h-4 w-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {also.length < MAX_CLAIM_ALSO && (
+        <SelectField
+          label={t('claims.also')}
+          hint={t('claims.alsoHint')}
+          value=""
+          onChange={(x) => x && onChange([...also, x])}
+          optional
+          name={`claim-${index}-also`}
+          groups={[
+            { label: t('links.entries'), options: sources.entries.filter((o) => !taken.has(o.value)) },
+            { label: t('links.calcs'), options: sources.calcs.filter((o) => !taken.has(o.value)) },
+          ].filter((g) => g.options.length)}
+        />
+      )}
+    </div>
+  );
 }
 
 /** Field 7: each claim with its source. PRECEPTOR checks what it can in code; the rest is labelled as unverified. */
@@ -203,7 +249,7 @@ export function ClaimsEditor({ b, label, hint, value, onChange, error }: { b: Ca
           <SelectField
             label={t('claims.source')}
             value={c.source}
-            onChange={(x) => update(i, { source: (x || 'none') as ClaimSource, ref: undefined, title: undefined })}
+            onChange={(x) => update(i, { source: (x || 'none') as ClaimSource, ref: undefined, also: undefined, title: undefined })}
             name={`claim-${i}-source`}
             options={CLAIM_SOURCES.map((s) => ({ value: s, label: t(`claims.kind.${s}` as MsgKey) }))}
           />
@@ -212,6 +258,9 @@ export function ClaimsEditor({ b, label, hint, value, onChange, error }: { b: Ca
           )}
           {c.source === 'calc' && (
             <SelectField label={t('claims.ref')} value={c.ref ? `c:${c.ref}` : ''} onChange={(x) => update(i, { ref: x.slice(2) || undefined })} name={`claim-${i}-ref`} options={src.calcs} />
+          )}
+          {(c.source === 'entry' || c.source === 'calc') && c.ref && (
+            <ClaimAlso b={b} claim={c} index={i} sources={src} onChange={(also) => update(i, { also: also.length ? also : undefined })} />
           )}
           {c.source === 'dataset' && (
             <SelectField

@@ -534,7 +534,18 @@ export const SUGGESTION_CHECKS = [
   'incomplete',
   /** M5: a drafted Problem Card whose PCNE classification disagrees with its own problem sentence (pcne-coherence.ts). */
   'classification_questioned',
+  /** M5: a text that says something was done ("were reconciled"): only the trainee records what was done. */
+  'states_action',
+  /** M5: a Problem Card for a problem that already has one (the same drugs and PCNE problem). */
+  'duplicate_card',
 ] as const;
+/**
+ * Whether a suggestion can only be edited or rejected, not accepted as it is:
+ * it is incomplete, its classification is questioned, or a text it would store
+ * says that something was done (a checklist answer stores its answer only).
+ */
+export const mustEdit = (s: Pick<Suggestion, 'kind' | 'checks'>): boolean =>
+  s.checks.includes('incomplete') || s.checks.includes('classification_questioned') || (s.kind !== 'check' && s.checks.includes('states_action'));
 export type SuggestionCheck = (typeof SUGGESTION_CHECKS)[number];
 
 /** One proposal of the model for one task. It changes nothing until the trainee accepts or edits it. */

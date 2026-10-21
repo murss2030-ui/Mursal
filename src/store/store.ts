@@ -38,8 +38,8 @@ import type {
   CardDecision,
   CardReview,
 } from '../domain/types';
-import { CARD_DECISIONS, DECISIONS_NEEDING_REASON, REGISTER_IDS, SOURCE_DOC_TYPES } from '../domain/types';
-import { parseClaims, parseLinks } from '../domain/card-data';
+import { CARD_DECISIONS, DECISIONS_NEEDING_REASON, mustEdit, REGISTER_IDS, SOURCE_DOC_TYPES } from '../domain/types';
+import { claimTargets, parseClaims, parseLinks } from '../domain/card-data';
 import { cardStaleness, contentHash, fromModel, type CardContext } from '../domain/problem-card';
 import { classificationUnanswered } from '../domain/pcne-coherence';
 import { resultCurrency } from '../calc/currency';
@@ -166,7 +166,7 @@ const REVIEW_ACTION: Record<CardDecision, AuditEvent['action']> = {
 /** The timeline entries and calculation results a field cites, as `entry:<id>` / `calc:<id>`. */
 function citedRefs(kind: 'links' | 'claims', v: string | undefined): string[] {
   if (kind === 'links') return parseLinks(v).map((l) => `${l.kind}:${l.id}`);
-  return parseClaims(v).flatMap((c) => ((c.source === 'entry' || c.source === 'calc') && c.ref ? [`${c.source}:${c.ref}`] : []));
+  return parseClaims(v).flatMap((c) => claimTargets(c).map((l) => `${l.kind}:${l.id}`));
 }
 
 /**
@@ -1461,6 +1461,8 @@ export class Store {
     if (pending && !(sg.kind === 'item' && sg.register === 'drp')) throw new ValidationError({ decision: 'invalidChoice' });
     if (pending && d.reason.trim().length < 3) throw new ValidationError({ reason: 'required' });
     if (d.kind !== 'reject' && (await this.isAnalysisStale(a))) throw new IntegrityError('The data changed after this analysis. Re-analyse before accepting its suggestions.');
+    // M5: what the checks hold back is edited (in the trainee's own words) or rejected, never taken as it is.
+    if ((d.kind === 'accept' || pending) && mustEdit(sg)) throw new IntegrityError('This suggestion must be edited or rejected: it cannot be accepted as it is.');
 
     let applied: SuggestionDecision['appliedTo'];
     let also: { tables: EncryptedTableName[]; run: () => Promise<void> } | undefined;

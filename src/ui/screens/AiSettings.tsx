@@ -100,13 +100,14 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
   }, [settings?.installId, status?.configured]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!settings) return null;
   const listOnly = !status?.modelPattern;
+  const chosen = (k: ModelTask) => (models[k] === OTHER ? typed[k] : models[k])?.trim();
 
   const save = async () => {
     setErrors({});
-    const chosen: Partial<Record<ModelTask, string>> = {};
-    for (const k of MODEL_TASKS) chosen[k] = models[k] === OTHER ? typed[k] : models[k];
+    const picked: Partial<Record<ModelTask, string>> = {};
+    for (const k of MODEL_TASKS) picked[k] = chosen(k);
     try {
-      await store.updateAiSettings({ accessCode: code, models: chosen, fallbacks });
+      await store.updateAiSettings({ accessCode: code, models: picked, fallbacks });
       setSaved(true);
       onSaved();
     } catch (e) {
@@ -173,6 +174,12 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
                   value={typed[k] ?? ''}
                   onChange={(x) => setTyped((m) => ({ ...m, [k]: x }))}
                 />
+              )}
+              {/* M5: a second reading by the model that drafted is not independent (Section 12, check 4). */}
+              {k === 'verify' && chosen('verify') && chosen('verify') === chosen('analyse') && (
+                <p className="text-xs text-amber-900" data-testid="verify-same-model">
+                  {t('ai.verifySameModel')}
+                </p>
               )}
               {k === 'verify' && (
                 <TextField

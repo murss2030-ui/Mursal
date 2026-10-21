@@ -6,6 +6,7 @@
  * decided here, on this card alone.
  */
 import { useState, type ReactNode } from 'react';
+import { claimTargets } from '../../domain/card-data';
 import { CIPOLLE_NOT_EQUIVALENT } from '../../domain/pcne-maps';
 import type { CardFieldStatus, CardModel } from '../../domain/problem-card';
 import { buildCard, fromModel } from '../../domain/problem-card';
@@ -74,9 +75,13 @@ function Claims({ b, card }: { b: CaseBundle; card: CardModel }) {
   return (
     <ul className="flex flex-col gap-2" data-testid="card-claims">
       {card.claims.map(({ claim, check }, i) => {
-        const e = claim.source === 'entry' ? b.entries.find((x) => x.id === claim.ref) : undefined;
-        const r = claim.source === 'calc' ? b.calcResults.find((x) => x.id === claim.ref) : undefined;
-        const label = e ? entryLabel(e, t) : r ? calcLabel(r, lang, t) : claim.title ?? '';
+        // Every value the claim cites (a change cites both).
+        const cited = claimTargets(claim).map((l) => {
+          const e = l.kind === 'entry' ? b.entries.find((x) => x.id === l.id) : undefined;
+          const r = l.kind === 'calc' ? b.calcResults.find((x) => x.id === l.id) : undefined;
+          return e ? entryLabel(e, t) : r ? calcLabel(r, lang, t) : t('links.unknown');
+        });
+        const label = cited.length ? cited.join(' · ') : claim.title ?? '';
         const ok = check.kind === 'numbers_found';
         const unverified = check.kind === 'not_checked' && check.why !== 'dataset';
         return (

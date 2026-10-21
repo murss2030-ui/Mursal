@@ -7,9 +7,10 @@
  * reference (E1, M1, P1, R1) so the model can say what each statement rests
  * on, and the code can check that it exists.
  */
-import { parseClaims, parseLinks } from '../../domain/card-data';
+import { claimTargets, parseClaims, parseLinks } from '../../domain/card-data';
 import { hospitalDayOf } from '../../domain/dates';
-import { REGISTERS } from '../../domain/workflow/registers';
+import { REGISTERS, type FieldDef } from '../../domain/workflow/registers';
+import { kindKey } from '../../domain/problem-card';
 import { TASKS, type ModuleDef, type ScopedSection, type TaskDef } from '../../domain/workflow/catalogue';
 import { compareEntries, deriveMedCourses, deriveProblems, indexTimeline, regimenText } from '../../domain/timeline';
 import { CALC_BY_ID } from '../../calc/registry';
@@ -28,6 +29,16 @@ export interface RefTarget {
   text: string;
   /** M4: the timeline entry a Problem Card's claim citing this reference points to (a medication's latest order, a problem's latest note). */
   entryId?: string;
+  /** M5: what it is about (one laboratory test, one vital sign, one medication, one calculator) and its hospital day: two values of one subject show a change (verification/guard.ts). */
+  subject?: string;
+  day?: number;
+}
+
+/** M5: a Problem Card already drafted and waiting for the trainee's decision, so that it is not drafted twice. */
+export interface DraftedCard {
+  problem: string;
+  drugs?: string;
+  pcneProblem?: string;
 }
 
 export interface CasePayload {
@@ -38,9 +49,47 @@ export interface CasePayload {
   refs: Map<string, RefTarget>;
   basedOn: { entryIds: string[]; items: string[] };
   tasks: TaskDef[];
+  /** M5: the case's Problem Cards and those drafted elsewhere and not yet decided, to flag a second card for one problem. */
+  cards?: DraftedCard[];
 }
 
 const tEn = { t: (k: Parameters<typeof translate>[1], v?: Parameters<typeof translate>[2]) => translate('en', k, v) };
+
+/** A field's label as sent: without a parenthesis that carries a number ("department form, Section 4"), which a statement could otherwise borrow. */
+const fieldWords = (f: FieldDef): string => f.label.en.replace(/\s*\([^)]*\d[^)]*\)/g, '').trim();
+
+/** A choice's wording ("Patient interview, Medication containers"), or the value itself. */
+const choiceWords = (f: FieldDef, v: string): string => (f.options ? v.split('|').map((x) => f.options!.find((o) => o.value === x)?.label.en ?? x).join(', ') : v);
+
+/** The inputs of a calculation result, each with its unit and the day of its value: "Weight 70 kg (Day 0), Serum creatinine 2.1 mg/dL (Day 2), Sex male". */
+export function calcInputsText(r: CalcResult): string {
+  const def = CALC_BY_ID.get(r.calc);
+  const specs = [...(def?.requiredInputs ?? []), ...(def?.optionalInputs ?? [])];
+  const keys = [...specs.map((s) => s.key).filter((k) => r.inputs.detail[k]), ...Object.keys(r.inputs.detail).filter((k) => !specs.some((s) => s.key === k))];
+  return keys
+    .map((k) => {
+      const d = r.inputs.detail[k]!;
+      const spec = specs.find((s) => s.key === k);
+      const v =
+        spec?.kind === 'sex'
+          ? d.value === 1
+            ? 'female'
+            : 'male'
+          : spec?.kind === 'boolean'
+            ? d.value === 1
+              ? 'yes'
+              : 'no'
+            : spec?.kind === 'choice'
+              ? spec.options?.find((o) => o.value === d.choice)?.label.en ?? d.choice ?? String(d.value)
+              : spec?.kind === 'time'
+                ? `${String(Math.floor(d.value / 60) % 24).padStart(2, '0')}:${String(d.value % 60).padStart(2, '0')}`
+                : d.recorded
+                  ? show(d.recorded.value, d.recorded.unit, 4)
+                  : show(d.value, d.unit, 4);
+      return `${spec?.label.en ?? k} ${v}${d.source.kind === 'entry' ? ` (Day ${d.source.day})` : ''}`;
+    })
+    .join(', ');
+}
 
 /** Only what the model may answer (limits.ts): checklist items about what a person did are left to the trainee. */
 const askable = (def: TaskDef, checks: readonly { id: string; label: { en: string } }[]) =>
@@ -95,6 +144,8 @@ export function buildCasePayload(input: {
   /** M4: calculation results, and which are current; only current results are sent (C1, C2 …). */
   calcResults?: readonly CalcResult[];
   calcOutOfDate?: ReadonlySet<string>;
+  /** M5: Problem Cards drafted by other modules' analyses and not yet decided. */
+  draftedCards?: readonly DraftedCard[];
 }): CasePayload {
   const c = input.case;
   const refs = new Map<string, RefTarget>();
@@ -111,14 +162,14 @@ export function buildCasePayload(input: {
     medRef.set(m.medId, ref);
     const text = `${m.drug} ${regimenText(m)} from Day ${m.startDay}${m.stopDay !== undefined ? ` to Day ${m.stopDay}` : ''} ${m.status}${m.indication ? ` for ${m.indication}` : ''}`;
     const last = [m.start, ...m.changes, ...(m.stop ? [m.stop] : [])].sort(compareEntries).at(-1)!;
-    refs.set(ref, { kind: 'medication', id: m.medId, label: m.drug, text, entryId: last.id });
+    refs.set(ref, { kind: 'medication', id: m.medId, label: m.drug, text, entryId: last.id, subject: kindKey(last), day: last.hospitalDay });
     return { ref, drug: m.drug, regimen: regimenText(m), startDay: m.startDay, ...(m.stopDay !== undefined ? { stopDay: m.stopDay } : {}), status: m.status, ...(m.indication ? { indication: m.indication } : {}) };
   });
   const probs = problems.map((p, i) => {
     const ref = `P${i + 1}`;
     probRef.set(p.problemId, ref);
     const pl = p.latest.payload;
-    refs.set(ref, { kind: 'problem', id: p.problemId, label: pl.name, text: `${pl.name} ${pl.acuity} ${pl.status}`, entryId: p.latest.id });
+    refs.set(ref, { kind: 'problem', id: p.problemId, label: pl.name, text: `${pl.name} ${pl.acuity} ${pl.status}`, entryId: p.latest.id, subject: kindKey(p.latest), day: p.latest.hospitalDay });
     return { ref, name: pl.name, acuity: pl.acuity, status: pl.status, primary: pl.primaryDiagnosis };
   });
 
@@ -129,21 +180,24 @@ export function buildCasePayload(input: {
       entryRef.set(e.id, ref);
       const tx = entryText(e, tEn);
       const text = [tx.main, ...tx.details].join('; ');
-      refs.set(ref, { kind: 'entry', id: e.id, label: tx.main, text: `Day ${e.hospitalDay} ${e.timeOfDay ?? ''} ${text}` });
+      refs.set(ref, { kind: 'entry', id: e.id, label: tx.main, text: `Day ${e.hospitalDay} ${e.timeOfDay ?? ''} ${text}`, subject: kindKey(e), day: e.hospitalDay });
       return { ref, day: e.hospitalDay, ...(e.timeOfDay ? { time: e.timeOfDay } : {}), type: e.type, text };
     });
 
   // M4: the current calculation results, each with its formula's result, unit and day (a dose may come only from one of these).
+  // M5: with the inputs it used, each with its unit and day (live probe: a statement about the weight or creatinine behind a result could not be checked).
   const calcRef = new Map<string, string>();
   const calculations = (input.calcResults ?? [])
     .filter((r) => !input.calcOutOfDate?.has(r.id))
     .map((r, i) => {
       const ref = `C${i + 1}`;
       calcRef.set(r.id, ref);
-      const name = CALC_BY_ID.get(r.calc)?.name ?? r.calc;
+      const def = CALC_BY_ID.get(r.calc);
+      const name = def?.name ?? r.calc;
       const secondary = (r.secondary ?? []).map((x) => `${x.label.en}: ${show(x.value, x.unit, x.decimals)}`).join('; ');
-      const text = `${name}: ${show(r.value, r.unit, r.decimals)}${r.category ? ` (${r.category.label.en})` : ''}${secondary ? `; ${secondary}` : ''}${r.day !== undefined ? ` — Day ${r.day}` : ''}`;
-      refs.set(ref, { kind: 'calc', id: r.id, label: name, text });
+      const inputs = calcInputsText(r);
+      const text = `${name}: ${show(r.value, r.unit, r.decimals)}${r.category ? ` (${r.category.label.en})` : ''}${secondary ? `; ${secondary}` : ''}${r.day !== undefined ? ` — Day ${r.day}` : ''}${inputs ? `; inputs: ${inputs}` : ''}`;
+      refs.set(ref, { kind: 'calc', id: r.id, label: name, text, subject: `calc:${r.calc}`, ...(r.day !== undefined ? { day: r.day } : {}) });
       return { ref, text };
     });
 
@@ -154,12 +208,13 @@ export function buildCasePayload(input: {
     const SOURCE = { entry: 'case data', calc: 'a calculation', dataset: 'the offline interaction check', reading: 'a source the trainee read', none: 'general knowledge' } as const;
     return parseClaims(v)
       .map((c) => {
-        const r = (c.source === 'entry' || c.source === 'calc') && c.ref ? ref({ kind: c.source, id: c.ref }) : undefined;
-        return `${c.text} [${r ?? SOURCE[c.source]}]`;
+        const r = claimTargets(c).flatMap((l) => ref(l) ?? []);
+        return `${c.text} [${r.length ? r.join(', ') : SOURCE[c.source]}]`;
       })
       .join(' | ');
   };
 
+  // M5: each row with its fields' labels and its choices' wording (live probe: "patient|containers" did not say these were the sources of a medication history).
   const rows = input.items
     .filter((r) => r.status === 'active')
     .map((r, i) => {
@@ -170,7 +225,7 @@ export function buildCasePayload(input: {
         const v = r.fields[f.id];
         if (v === undefined || f.kind === 'confirm') continue;
         // References inside rows are given as the references of this payload, never as internal ids.
-        fields[f.id] =
+        const shown =
           f.kind === 'medRef'
             ? medRef.get(v) ?? ''
             : f.kind === 'problemRef'
@@ -179,11 +234,17 @@ export function buildCasePayload(input: {
                 ? entryRef.get(v) ?? ''
                 : f.kind === 'links' || f.kind === 'claims'
                   ? cardValue(f.kind, v)
-                  : v;
+                  : choiceWords(f, v);
+        if (shown) fields[fieldWords(f)] = shown;
       }
-      refs.set(ref, { kind: 'item', id: r.id, label: `${def.title.en}: ${r.fields[def.titleField] ?? ''}`, text: Object.values(fields).join(' ') });
-      return { ref, register: r.register, fields };
+      const text = Object.entries(fields)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join('; ');
+      refs.set(ref, { kind: 'item', id: r.id, label: `${def.title.en}: ${r.fields[def.titleField] ?? ''}`, text: `${def.title.en} — ${text}` });
+      return { ref, list: def.title.en, fields };
     });
+  // M5: cards drafted by another module's analysis and not decided yet, so that the same problem is not drafted twice.
+  const cardsAwaitingDecision = (input.draftedCards ?? []).map((d) => ({ problem: d.problem, ...(d.drugs ? { drugs: d.drugs } : {}) }));
 
   const tasks = input.module.tasks.filter((id) => !UNDRAFTED_TASKS.has(id)).map((id) => TASKS.get(id)!).filter(Boolean);
   const byTask = new Map(input.tasks.map((t) => [t.taskId, t]));
@@ -202,14 +263,22 @@ export function buildCasePayload(input: {
     problems: probs,
     calculations,
     registerRows: rows,
+    ...(cardsAwaitingDecision.length ? { cardsAwaitingDecision } : {}),
     module: { id: input.module.id, title: input.module.title.en },
     tasks: tasks.map((d) => taskSpec(d, byTask.get(d.id))),
   };
+  const cards: DraftedCard[] = [
+    ...input.items
+      .filter((r) => r.status === 'active' && r.register === 'drp')
+      .map((r) => ({ problem: r.fields.problem ?? '', ...(r.fields.drugs ? { drugs: r.fields.drugs } : {}), ...(r.fields.pcneProblem ? { pcneProblem: r.fields.pcneProblem } : {}) })),
+    ...(input.draftedCards ?? []),
+  ];
   return {
     text: JSON.stringify(payload),
     context: JSON.stringify(payload.case),
     refs,
     basedOn: { entryIds: current.map((e) => e.id).sort(), items: input.items.filter((r) => r.status === 'active').map((r) => `${r.id}@${r.version}`).sort() },
     tasks,
+    ...(cards.length ? { cards } : {}),
   };
 }

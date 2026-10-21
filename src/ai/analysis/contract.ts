@@ -10,7 +10,8 @@ import type { TaskDef } from '../../domain/workflow/catalogue';
 import { S, type OutputSchema } from '../schema';
 import { modelMayAddTo, modelMayAnswer } from './limits';
 
-export const ANALYSE_PROMPT_VERSION = 'analyse-v3';
+/** v4 (M5, after the live probe of 20 October 2026): data, not process; no references in the text; a claim may cite several values; one card per problem; PCNE coherence; time words. */
+export const ANALYSE_PROMPT_VERSION = 'analyse-v4';
 
 export interface RawSuggestionBase {
   reason: string;
@@ -54,7 +55,7 @@ const BASE = {
 
 const BASE_CLAIM = {
   basis: BASE.basis,
-  refs: S.arr(S.str(), 8, 'References such as E1, C1, M2, P1'),
+  refs: S.arr(S.str(), 8, 'References such as E1, C1, M2, P1 — every value the statement uses (a change cites both values)'),
 };
 
 export function analysisSchema(tasks: readonly TaskDef[]): OutputSchema {
@@ -96,16 +97,18 @@ export function analysisSchema(tasks: readonly TaskDef[]): OutputSchema {
 export const ANALYSE_SYSTEM = `You prepare, for a supervised clinical pharmacy trainee, a first draft of the tasks of one module of their case workup. It is an educational exercise: the trainee checks and decides every item; you never decide, and nothing you write is used until the trainee accepts it.
 
 Rules:
-1. Base statements on the case data provided and list in refs the references (E1, M2, P1, R3 …) each one rests on. Use basis "case_data" only when the statement follows from those references.
-2. You may add general clinical knowledge when it helps; then set basis to "general_knowledge" — it will be shown as "no source — unverified".
-3. Never state a dose, concentration, rate, interval, duration, threshold or score that is not already in the case data. Write "dose to be calculated" instead. Numbers that are not found in the case data are removed automatically.
-4. Never cite: no guideline names with years, study titles, authors, years, DOIs, URLs, PMIDs or grades of recommendation.
-5. Do not invent data. When something needed is missing, put it in missingData. Put the questions the trainee should ask the team or the patient in questions.
-6. Checklist answers: "ok" only when the data shows the check is satisfied, "issue" when the data shows a problem, "na" only when it clearly does not apply. Leave out a check you cannot answer from the data. For per-medication or per-problem checks give scopeRef (M# or P#).
-7. Register rows only for the registers listed for that task, with only the listed field ids and allowed values.
-8. Never state that something was done or happened unless the data says so: interviews, counselling, communication with the team, discussions, double-checks, reports, implementation and outcomes are recorded by the trainee alone. A recommendation you propose is a proposal, never an implemented one.
-9. Be concise. Write in English. There are no names or identifiers in the data; never invent any.
-10. Drug-related problems (register drp) are Problem Cards. Classify each with PCNE V9.1 using only the allowed codes: pcneProblem (the problem), pcneType (potential or manifest) and pcneCauses (every cause that applies, joined with "|"; C9.3 if there is no obvious cause) — the problem and its cause are separate. Put in "supporting" the references of the values it rests on (E#, C#), comma-separated. List in "claims" each statement the card rests on, with its basis and refs. Propose the priority with its reason, and urgency, significance and impact (high, medium or low). Write "teaching" as the clinical question this problem teaches the trainee to ask (general knowledge). A dose may appear only if it is in a calculation result (C#) you cite. Never propose a review decision, communication, implementation or outcome.
+1. Base statements on the case data provided and list in refs the references (E1, M2, P1, R3, C1 …) each one rests on — every value it uses. Use basis "case_data" only when the statement follows from those references. Write references only in refs, never inside a text ("amlodipine (R2)" is wrong).
+2. State the data itself, never what was done with it: "Creatinine 2.1 mg/dL on Day 2, up from 1.0 mg/dL on Day 0", not "renal function was assessed" or "medications were reconciled".
+3. Each of these is a claim of its own and needs a reference that states it, or basis "general_knowledge": a property of a drug (nephrotoxic, renally cleared, interacts with …), a reason or purpose ("for the management of", "due to"), an absence ("not ordered", "not documented"), a judgement ("requires", "significant"). Give each value with its hospital day; write "currently", "still" or "now" only for a value recorded on today's hospital day (hospitalDayToday). A change ("rose", "fell", "improved") cites both values.
+4. You may add general clinical knowledge when it helps; then set basis to "general_knowledge" — it will be shown as "no source — unverified".
+5. Never state a dose, concentration, rate, interval, duration, threshold or score that is not already in the case data. Write "dose to be calculated" instead. Numbers that are not found in the case data are removed automatically.
+6. Never cite: no guideline names with years, study titles, authors, years, DOIs, URLs, PMIDs or grades of recommendation.
+7. Do not invent data. When something needed is missing, put it in missingData. Put the questions the trainee should ask the team or the patient in questions.
+8. Checklist answers: "ok" only when the data shows the check is satisfied, "issue" when the data shows a problem, "na" only when it clearly does not apply. Leave out a check you cannot answer from the data. For per-medication or per-problem checks give scopeRef (M# or P#). The reason gives the data that answers the check.
+9. Register rows only for the registers listed for that task, with only the listed field ids and allowed values.
+10. Never state that something was done or happened unless the data says so: interviews, counselling, communication with the team, discussions, double-checks, reports, implementation and outcomes are recorded by the trainee alone. A recommendation you propose is a proposal, never an implemented one.
+11. Be concise. Write in English. There are no names or identifiers in the data; never invent any.
+12. Drug-related problems (register drp) are Problem Cards — one card per problem. Do not draft a card for a problem that already has one in registerRows or cardsAwaitingDecision, and never two cards for one problem. Classify each with PCNE V9.1 using only the allowed codes: pcneProblem (the problem), pcneType (potential or manifest) and pcneCauses (every cause that applies, joined with "|"; C9.3 only if there is no obvious cause, never with another cause) — the problem and its cause are separate. Keep the codes consistent with the problem sentence: P1 is the effect of treatment or its lack, P2.1 an adverse drug event (harm, toxicity); C3.1 means the dose is too low and C3.2 too high, so a card about toxicity is never C3.1; "potential" means it may happen and "manifest" that it has happened, so a sentence beginning "Risk of" or "Potential" is potential. Put in "supporting" the references of the values it rests on (E#, C#), comma-separated. List in "claims" each statement the card rests on, with its basis and every reference it uses. Propose the priority with its reason, and urgency, significance and impact (high, medium or low). Write "teaching" as the clinical question this problem teaches the trainee to ask (general knowledge). A dose may appear only if it is in a calculation result (C#) you cite. Never propose a review decision, communication, implementation or outcome.
 Return JSON only.`;
 
 export function analyseHeader(moduleId: string, taskIds: readonly string[]): string {

@@ -10,7 +10,7 @@
  * reference; the case's header (age, sex, height, today's hospital day) is a
  * source every statement may use.
  */
-import { parseClaims } from '../../domain/card-data';
+import { claimTargets, parseClaims } from '../../domain/card-data';
 import type { Suggestion } from '../../domain/types';
 import type { CasePayload, RefTarget } from '../analysis/payload';
 import type { VerifyClaim, VerifyInput, VerifySource } from './contract';
@@ -46,7 +46,7 @@ export function claimsFromSuggestions(suggestions: readonly Suggestion[], payloa
     if (!id) {
       id = `S${sources.length}`;
       sourceOf.set(key, id);
-      sources.push({ id, label: t.label, text: t.text.replace(/\s+/g, ' ').trim() });
+      sources.push({ id, label: t.label, text: t.text.replace(/\s+/g, ' ').trim(), ...(t.subject ? { subject: t.subject } : {}), ...(t.day !== undefined ? { day: t.day } : {}) });
     }
     return id;
   };
@@ -71,9 +71,9 @@ export function claimsFromSuggestions(suggestions: readonly Suggestion[], payloa
       );
     if (s.kind === 'item' && s.register === 'drp' && s.fields?.claims) {
       parseClaims(s.fields.claims).forEach((c, i) => {
-        if ((c.source !== 'entry' && c.source !== 'calc') || !c.ref) return;
-        const t = c.source === 'calc' ? byKey.get(`calc:${c.ref}`) : byEntry.get(c.ref);
-        add(c.text, [source(t)], { suggestionId: s.id, taskId: s.taskId, part: { claim: i } });
+        // Every value the claim cites (a change cites both).
+        const ts = claimTargets(c).map((l) => (l.kind === 'calc' ? byKey.get(`calc:${l.id}`) : byEntry.get(l.id)));
+        if (ts.length) add(c.text, ts.map(source), { suggestionId: s.id, taskId: s.taskId, part: { claim: i } });
       });
     }
   }

@@ -109,10 +109,10 @@ describe('the model drafts Problem Cards: the checks in code', () => {
     const drp = draftableRegisters(TASKS.get('t05')!).find((r) => r.register === 'drp')!;
     const ids = drp.fields.map((f) => f.id);
     expect(ids).toEqual(expect.arrayContaining(['pcneProblem', 'pcneType', 'pcneCauses', 'supporting', 'urgency', 'teaching']));
-    for (const never of ['category', 'boxes', 'boxesReason', 'claims', 'implemented', 'goalMet', 'response', 'references']) expect(ids).not.toContain(never);
+    for (const never of ['category', 'boxes', 'boxesReason', 'classificationReason', 'claims', 'implemented', 'goalMet', 'response', 'references']) expect(ids).not.toContain(never);
     expect(drp.fields.find((f) => f.id === 'pcneCauses')!.allowed).toHaveLength(38);
     expect(drp.fields.find((f) => f.id === 'recStatus')!.allowed).toEqual(['draft']);
-    expect(ANALYSE_PROMPT_VERSION).toBe('analyse-v3');
+    expect(ANALYSE_PROMPT_VERSION).toBe('analyse-v4');
     expect(ANALYSE_SYSTEM).toMatch(/PCNE V9\.1/);
   });
 

@@ -404,7 +404,7 @@ describe('analysing a module and deciding its suggestions', () => {
     const item = a.suggestions.find((x) => x.kind === 'item')!;
     expect(item.fields).not.toHaveProperty('target');
     expect(item.checks).toEqual(expect.arrayContaining(['trainee_only_removed', 'incomplete']));
-    await expect(store.decideSuggestion(c.id, a.id, item.id, { kind: 'accept' })).rejects.toBeInstanceOf(ValidationError); // incomplete: the target is missing
+    await expect(store.decideSuggestion(c.id, a.id, item.id, { kind: 'accept' })).rejects.toThrow(/edited or rejected/); // incomplete: the target is missing
     const edited = await store.decideSuggestion(c.id, a.id, item.id, { kind: 'edit', fields: { ...item.fields, target: 'From the reference I read' } });
     const row = (await store.listItems(c.id)).find((r) => r.register === 'tdm')!;
     expect(row.origin).toEqual({ kind: 'suggestion', analysisId: a.id, suggestionId: item.id });

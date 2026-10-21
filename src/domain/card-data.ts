@@ -47,6 +47,8 @@ export interface CardClaim {
   source: ClaimSource;
   /** entry: a timeline entry id; calc: a calculation result id; dataset: the interaction alert's key. */
   ref?: string;
+  /** M5, entry or calc only: the other values the claim rests on, as `e:<entry id>` or `c:<result id>` — a change cites both of its values. */
+  also?: string[];
   /** dataset: what the check said when it was cited; reading: the source the trainee read. */
   title?: string;
   /** Drafted by the model; otherwise written by the trainee. */
@@ -55,8 +57,18 @@ export interface CardClaim {
 
 export const MAX_CLAIMS = 15;
 export const MAX_CLAIM_TEXT = 600;
+/** Values one claim may cite besides its first. */
+export const MAX_CLAIM_ALSO = 6;
 const MAX_REF = 200;
 const MAX_TITLE = 300;
+
+/** Every timeline entry and calculation result a claim cites: its source, then the other values. */
+export function claimTargets(c: Pick<CardClaim, 'source' | 'ref' | 'also'>): CardLink[] {
+  if ((c.source !== 'entry' && c.source !== 'calc') || !c.ref) return [];
+  const first: CardLink = { kind: c.source, id: c.ref };
+  const more = parseLinks((c.also ?? []).join('|')).filter((l) => !(l.kind === first.kind && l.id === first.id));
+  return [first, ...more];
+}
 
 const str = (x: unknown): string => (typeof x === 'string' ? x.trim() : '');
 
@@ -93,11 +105,20 @@ function toClaim(x: unknown): { ok: true; claim: CardClaim } | { ok: false; erro
   if ((source === 'entry' || source === 'calc') && !ID.test(ref)) return { ok: false, error: 'invalidChoice' };
   if (source === 'reading' && !title) return { ok: false, error: 'required' };
   if (o.by !== undefined && o.by !== 'model') return { ok: false, error: 'invalidChoice' };
+  let also: string[] = [];
+  if (o.also !== undefined) {
+    if (!Array.isArray(o.also) || (source !== 'entry' && source !== 'calc')) return { ok: false, error: 'invalidChoice' };
+    if (o.also.length > MAX_CLAIM_ALSO) return { ok: false, error: 'tooLong' };
+    also = o.also.map(str);
+    const own = `${source === 'entry' ? 'e' : 'c'}:${ref}`;
+    if (parseLinks(also.join('|')).length !== also.length || also.some((x) => !x || x === own) || new Set(also).size !== also.length) return { ok: false, error: 'invalidChoice' };
+  }
   // A fixed key order, so that an unchanged claim list is the same string (an unchanged card writes no new version).
   const claim: CardClaim = {
     text,
     source,
     ...(source === 'entry' || source === 'calc' || source === 'dataset' ? { ref } : {}),
+    ...(also.length ? { also } : {}),
     ...((source === 'reading' || source === 'dataset') && title ? { title } : {}),
     ...(o.by === 'model' ? { by: 'model' as const } : {}),
   };
