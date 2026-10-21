@@ -47,9 +47,11 @@ describe('the verifier’s request', () => {
     // A source id that was never sent is refused by the schema check (Section 21: a fabricated identifier is caught).
     const forged = { results: [answer({ claimId: 'V1', verdict: 'supported', quotes: [{ sourceId: 'S9', text: '2.1 mg/dL' }] })] };
     expect(validateOutput(forged, schema)).toEqual([{ path: '$.results[0].quotes[0].sourceId', problem: 'not an allowed value' }]);
-    expect(VERIFY_PROMPT_VERSION).toBe('verify-v1');
+    expect(VERIFY_PROMPT_VERSION).toBe('verify-v2');
     expect(VERIFY_SYSTEM).toMatch(/never from your own knowledge/);
     expect(VERIFY_SYSTEM).toMatch(/Judge meaning, not shared words or numbers/);
+    // v2: what the live probe saw let through — each named as an assertion of its own.
+    for (const word of ['nephrotoxic', 'currently', 'increased', 'for the management of', 'not ordered', 'requires']) expect(VERIFY_SYSTEM).toContain(word);
   });
 
   it('lets a claim that cites many sources be shown by a quote from each', () => {
@@ -113,7 +115,8 @@ describe('the verifier’s answer, checked in code', () => {
       { results: [answer({ claimId: 'V1', verdict: 'supported', quotes: [{ sourceId: 'S1', text: 'Serum creatinine: 2.1 mg/dL' }, { sourceId: 'S2', text: 'Serum creatinine: 2.6 mg/dL' }] })] },
       oneSource,
     );
-    expect(v).toMatchObject({ verdict: 'partial', quotes: [{ sourceId: 'S1', text: 'Serum creatinine: 2.1 mg/dL' }], flags: ['quote_from_other_source'] });
+    // The guard sees it too: a rise with one of its two values in the cited source.
+    expect(v).toMatchObject({ verdict: 'partial', quotes: [{ sourceId: 'S1', text: 'Serum creatinine: 2.1 mg/dL' }], flags: ['quote_from_other_source', 'unsourced_assertion'] });
   });
 
   it('a quote from a source the claim does not cite is not its support; a two-letter quote proves nothing', () => {
@@ -188,7 +191,7 @@ describe('verifying claims through callModel (task "verify")', () => {
     expect(run.calls).toEqual([{ model: 'verifier-test', usage: { inputTokens: 900, outputTokens: 200, costUsd: 0.0006 }, claims: 2 }]);
     expect(run.failures).toEqual([]);
     const audit = (await store.listAudit(c.id)).filter((e) => e.entity === 'model_call');
-    expect(audit.map((e) => e.diff)).toEqual([expect.objectContaining({ task: 'verify', promptVersion: 'verify-v1', outcome: 'ok' })]);
+    expect(audit.map((e) => e.diff)).toEqual([expect.objectContaining({ task: 'verify', promptVersion: 'verify-v2', outcome: 'ok' })]);
   });
 
   it('a batch the service could not answer leaves its claims "not checked" and keeps the others; a budget refusal stops the run', async () => {
@@ -213,6 +216,28 @@ describe('verifying claims through callModel (task "verify")', () => {
 
     const broke = (async () => new Response(JSON.stringify({ error: { code: 'budget_exhausted', message: 'Budget used up.' } }), { status: 402, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch;
     await expect(verifyClaims(store, { caseId: c.id, caseKind: 'teaching' }, many, { fetch: broke, online: () => true })).rejects.toMatchObject({ code: 'budget_exhausted' });
+  });
+
+  it('a batch the chosen model cannot answer goes to the trainee\'s fallback models, in order', async () => {
+    const { store, c } = await session();
+    await store.updateAiSettings({ models: { analyse: 'drafter-test', verify: 'verifier-a' }, fallbacks: { verify: 'verifier-b, verifier-c' } });
+    expect((await store.getAiSettings()).fallbacks).toEqual({ verify: ['verifier-b', 'verifier-c'] });
+    const tried: string[] = [];
+    const busyThenOk = (async (_u: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      tried.push(body.model);
+      if (body.model !== 'verifier-c') return new Response(JSON.stringify({ error: { code: body.model === 'verifier-a' ? 'provider_quota_exhausted' : 'model_unavailable', message: 'No.' } }), { status: 429, headers: { 'content-type': 'application/json' } });
+      const output = { results: [answer({ claimId: 'V1', verdict: 'supported', quotes: [{ sourceId: 'S1', text: 'Serum creatinine: 2.1 mg/dL' }, { sourceId: 'S2', text: 'Serum creatinine: 2.6 mg/dL' }] })] };
+      return new Response(JSON.stringify({ output, usage: { inputTokens: 1, outputTokens: 1, costUsd: 0 }, model: 'verifier-c', budget: { month: '2026-10', budgetUsd: 5, spentUsd: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as unknown as typeof fetch;
+    const run = await verifyClaims(store, { caseId: c.id, caseKind: 'teaching' }, { sources: INPUT.sources, claims: [INPUT.claims[0]!] }, { fetch: busyThenOk, online: () => true, sleep: async () => undefined });
+    expect(tried).toEqual(['verifier-a', 'verifier-b', 'verifier-c']);
+    expect(run.verdicts.map((v) => v.verdict)).toEqual(['supported']);
+    expect(run.calls.map((x) => x.model)).toEqual(['verifier-c']);
+    expect(run.failures).toEqual([]);
+    // At most three fallbacks; each an allowed model id.
+    await expect(store.updateAiSettings({ models: { verify: 'a' }, fallbacks: { verify: 'b, c, d, e' } })).rejects.toMatchObject({ errors: { fallback_verify: 'tooMany' } });
+    await expect(store.updateAiSettings({ models: { verify: 'a' }, fallbacks: { verify: 'not a model' } })).rejects.toMatchObject({ errors: { fallback_verify: 'modelId' } });
   });
 
   it('Section 21: an answer citing a source id that was never sent is refused whole: its claims are not checked', async () => {
@@ -311,5 +336,12 @@ describe('the semantic benchmark (M5 preparation)', () => {
     }).map((b) => b.id);
     expect(passNumberCheck).toEqual(expect.arrayContaining(['b02', 'b04', 'b13', 'b17', 'b23', 'b25', 'b35', 'b36', 'b37']));
     expect(passNumberCheck.length).toBeGreaterThanOrEqual(15);
+  });
+
+  it('holds an item for each kind of assertion the live probe saw let through (verify-v2)', () => {
+    const kinds = new Set(BENCH_ITEMS.map((b) => b.kind));
+    for (const k of ['property', 'time', 'change', 'reason', 'absence', 'judgement'] as const) expect(kinds.has(k), k).toBe(true);
+    // Among them, the probe's medical error: metformin described as nephrotoxic must never be "supported".
+    expect(BENCH_ITEMS.filter((b) => /metformin/i.test(b.claim) && /nephrotoxic/i.test(b.claim)).every((b) => !b.expected.includes('supported'))).toBe(true);
   });
 });

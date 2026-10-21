@@ -57,7 +57,9 @@ export type FieldError =
   | 'confirm'
   | 'modelId'
   /** M2: the Verify gate is not satisfied (required data not recorded). */
-  | 'gate';
+  | 'gate'
+  /** M5: more entries than allowed (e.g. fallback models). */
+  | 'tooMany';
 
 export type Values = Record<string, string>;
 export type Errors = Record<string, FieldError>;

@@ -51,6 +51,8 @@ export interface CallModelInput {
   temperature?: number;
   /** Evidence chunks the prompt was built from (none until the evidence library exists). */
   retrievedChunkIds?: string[];
+  /** A model other than the task's chosen one (one of its fallbacks); the relay's allow-list still applies. */
+  model?: string;
 }
 
 export interface CallModelResult<T> {
@@ -89,7 +91,7 @@ async function relayError(res: Response): Promise<AiError> {
 export async function callModel<T>(store: Store, input: CallModelInput, deps: CallDeps = {}): Promise<CallModelResult<T>> {
   if (!(deps.online ?? isOnline)()) throw new AiError('offline', 'You are offline. Reading documents and drafting need a connection; everything else keeps working.');
   const settings = await store.getAiSettings();
-  const model = settings.models[input.task];
+  const model = input.model ?? settings.models[input.task];
   if (!model) throw new AiError('no_model', 'Choose a model for this task in Settings → AI service.');
   const request: ModelRequest = {
     task: input.task,

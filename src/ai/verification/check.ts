@@ -11,7 +11,8 @@
  * Only whitespace, quotation marks and dashes are normalised for the
  * comparison — encoding differences, not meaning. Near-matches fail.
  */
-import type { RawVerdict, RawVerification, Verdict, VerifyInput } from './contract';
+import type { RawVerdict, RawVerification, Verdict, VerifyInput, VerifySource } from './contract';
+import { unsourcedAssertions } from './guard';
 
 export const FINAL_VERDICTS = ['supported', 'partial', 'unsupported', 'contradicted', 'not_checked'] as const;
 export type FinalVerdict = (typeof FINAL_VERDICTS)[number];
@@ -25,6 +26,8 @@ export const VERDICT_FLAGS = [
   'part_not_in_claim',
   'support_not_shown',
   'contradiction_not_shown',
+  /** The claim asserts a property, a time, a change, a reason or an absence that no source it cites makes (guard.ts). */
+  'unsourced_assertion',
 ] as const;
 export type VerdictFlag = (typeof VERDICT_FLAGS)[number];
 
@@ -55,6 +58,7 @@ const MIN_QUOTE_CHARS = 4;
 
 export function checkVerification(raw: RawVerification, input: VerifyInput): ClaimVerdict[] {
   const sources = new Map(input.sources.map((s) => [s.id, normalizeForMatch(s.text)]));
+  const byId = new Map<string, VerifySource>(input.sources.map((s) => [s.id, s]));
   const context = new Set(input.sources.filter((s) => s.context).map((s) => s.id));
   const answers = new Map<string, RawVerdict[]>();
   for (const r of raw.results ?? []) answers.set(r.claimId, [...(answers.get(r.claimId) ?? []), r]);
@@ -105,6 +109,13 @@ export function checkVerification(raw: RawVerification, input: VerifyInput): Cla
     if (a.contradicted) {
       if (quotes.length) verdict = 'contradicted';
       else flags.add('contradiction_not_shown');
+    }
+    // Whatever the verifier said: an assertion no cited source makes keeps the claim at most partly supported.
+    const unsourced = unsourcedAssertions(claim.text, own.map((id) => byId.get(id)!));
+    if (unsourced.length) {
+      flags.add('unsourced_assertion');
+      if (verdict === 'supported') verdict = 'partial';
+      for (const h of unsourced) if (!parts.some((p) => p.toLowerCase().includes(h.text.toLowerCase()))) parts.push(h.text);
     }
     return { claimId: claim.id, verdict, answered: { verdict: a.verdict, contradicted: Boolean(a.contradicted) }, quotes, unsupportedParts: parts, flags: [...flags] };
   });

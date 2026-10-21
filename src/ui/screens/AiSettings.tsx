@@ -88,6 +88,7 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
   const [code, setCode] = useState('');
   const [models, setModels] = useState<Partial<Record<ModelTask, string>>>({});
   const [typed, setTyped] = useState<Partial<Record<ModelTask, string>>>({});
+  const [fallbacks, setFallbacks] = useState<Partial<Record<ModelTask, string>>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
   useEffect(() => {
@@ -95,6 +96,7 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
     setCode(settings.accessCode ?? '');
     // The operator's suggestions fill empty choices; nothing is used until the trainee saves.
     setModels({ ...(status?.suggested ?? {}), ...settings.models });
+    setFallbacks(Object.fromEntries(Object.entries(settings.fallbacks ?? {}).map(([k, v]) => [k, (v ?? []).join(', ')])));
   }, [settings?.installId, status?.configured]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!settings) return null;
   const listOnly = !status?.modelPattern;
@@ -104,7 +106,7 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
     const chosen: Partial<Record<ModelTask, string>> = {};
     for (const k of MODEL_TASKS) chosen[k] = models[k] === OTHER ? typed[k] : models[k];
     try {
-      await store.updateAiSettings({ accessCode: code, models: chosen });
+      await store.updateAiSettings({ accessCode: code, models: chosen, fallbacks });
       setSaved(true);
       onSaved();
     } catch (e) {
@@ -170,6 +172,21 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
                   dir="ltr"
                   value={typed[k] ?? ''}
                   onChange={(x) => setTyped((m) => ({ ...m, [k]: x }))}
+                />
+              )}
+              {k === 'verify' && (
+                <TextField
+                  label={t('ai.fallbacks')}
+                  hint={t('ai.fallbacksHelp')}
+                  optional
+                  name={`fallback_${k}`}
+                  dir="ltr"
+                  value={fallbacks[k] ?? ''}
+                  onChange={(x) => {
+                    setFallbacks((m) => ({ ...m, [k]: x }));
+                    setSaved(false);
+                  }}
+                  error={errText(errors[`fallback_${k}`] as never)}
                 />
               )}
             </div>

@@ -15,7 +15,8 @@
  */
 import { S, type OutputSchema } from '../schema';
 
-export const VERIFY_PROMPT_VERSION = 'verify-v1';
+/** v2 (M5, after the live probe of 20 October 2026): descriptions, time words, changes, reasons, absences and judgements each need their own support. */
+export const VERIFY_PROMPT_VERSION = 'verify-v2';
 
 /** A source as the verifier reads it: case data (an entry, a medication, a calculation) or, from M5, a retrieved passage. */
 export interface VerifySource {
@@ -25,6 +26,9 @@ export interface VerifySource {
   text: string;
   /** Context every claim may use (the case header): a quote from it alone does not show a claim's support. */
   context?: boolean;
+  /** What the source is about (a test, a vital sign, a drug) and its hospital day: two values of one subject show a change. */
+  subject?: string;
+  day?: number;
 }
 
 export interface VerifyClaim {
@@ -80,6 +84,15 @@ Set "contradicted" to true when a source states the opposite of the claim, or so
 
 Judge meaning, not shared words or numbers. A claim is not supported when it reuses its sources' words or numbers but changes a threshold or range, the direction of a change or an effect, the drug or drug class, the population, a condition or exception, a dose, its unit, route or frequency, or the certainty (stating as certain what a source says may happen).
 A clinical interpretation, judgement or recommendation that a source does not state — for example naming a diagnosis from a laboratory value, or saying that a dose must change — is not supported by a source that only reports the value.
+
+Each of these is an assertion of its own, and is not supported unless a source states it — even when the rest of the claim is supported and even when you know it to be true:
+- a property of a drug or drug class: nephrotoxic, hepatotoxic, renally cleared, high-alert, contraindicated, narrow therapeutic index, interacts with another drug;
+- a time: currently, still, now, recently, on day N, after or before an event — the source must give that time (a value recorded on an earlier day is not current);
+- a change: rose, fell, increased, improved, worsened, was changed, was converted — the sources must give both values, or state the change;
+- a reason or purpose: because, due to, for the management of, to prevent, in order to;
+- an absence: not ordered, not prescribed, not documented, no plan, none — the sources only show what is recorded, so an absence is unsupported unless a source states it;
+- a judgement or need: requires, should, must, needs review, significant, abnormal, above or below a target or range that the source does not give.
+When such an assertion is unsupported, the claim is at best "partial": list those words among the unsupported parts.
 
 Quotes: copy exact words from the source, character for character — the shortest span that shows the support or the contradiction. Give at least one quote for "supported" and "partial", and one for a contradiction.
 Unsupported parts: copy exact words from the claim.

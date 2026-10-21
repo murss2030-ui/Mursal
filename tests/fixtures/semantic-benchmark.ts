@@ -11,6 +11,12 @@
  * manner of product-label wording; they are not sources for practice and are
  * never shown in the app. The expected verdicts were written by the coding
  * agent and are to be reviewed by the owner.
+ *
+ * Items b38–b46 (21 October 2026) cover what the live probe showed the
+ * verifier letting through in real drafts — a drug property, a time word, a
+ * change with one value cited, a reason, an absence, a judgement — for prompt
+ * verify-v2. They have not been run against a real model yet: the owner
+ * deferred live runs until the application is complete.
  */
 import type { FinalVerdict } from '../../src/ai/verification/check';
 import type { VerifySource } from '../../src/ai/verification/contract';
@@ -35,7 +41,13 @@ export interface BenchItem {
     | 'population'
     | 'certainty'
     | 'frequency'
-    | 'route';
+    | 'route'
+    | 'property'
+    | 'time'
+    | 'change'
+    | 'reason'
+    | 'absence'
+    | 'judgement';
   claim: string;
   sources: string[];
   /** Every verdict a careful reader could defend; the first is the most likely. */
@@ -54,6 +66,14 @@ export const BENCH_SOURCES: readonly VerifySource[] = [
   { id: 'E5', label: 'Weight', text: 'Day 0 Weight: 72 kg (measured)' },
   { id: 'E6', label: 'INR Day 2', text: 'Day 2 INR: 3.8' },
   { id: 'M1', label: 'Enoxaparin', text: 'enoxaparin 40 mg SC once daily from Day 0 active for VTE prophylaxis' },
+  { id: 'M2', label: 'Ibuprofen', text: 'ibuprofen 400 mg PO three times daily from Day 0 active for fever and pain' },
+  { id: 'M3', label: 'Metformin', text: 'metformin 1000 mg PO twice daily from Day 0 active for type 2 diabetes' },
+  { id: 'M4', label: 'Furosemide (hospital)', text: 'furosemide 40 mg IV twice daily from Day 0 active for heart failure' },
+  { id: 'M5', label: 'Furosemide (home)', text: 'Pre-admission medication: furosemide; dose, route and frequency: 40 mg PO once daily; indication: heart failure' },
+  { id: 'M6', label: 'Spironolactone', text: 'spironolactone 25 mg PO once daily from Day 0 active for heart failure' },
+  { id: 'P1', label: 'AKI', text: 'Acute kidney injury on chronic kidney disease acute active' },
+  { id: 'E7', label: 'Blood pressure Day 0', text: 'Day 0 Blood pressure: 98/60 mmHg' },
+  { id: 'E8', label: 'Potassium (case B)', text: 'Day 2 Potassium: 3.4 mmol/L; reference range 3.5–5.0 mmol/L; low' },
   { id: 'C1', label: 'CrCl Day 1', text: 'Creatinine clearance (Cockcroft–Gault): 26 mL/min — Day 1' },
   { id: 'C2', label: 'CrCl (another patient)', text: 'Creatinine clearance (Cockcroft–Gault): 45 mL/min — Day 1' },
   {
@@ -136,4 +156,15 @@ export const BENCH_ITEMS: readonly BenchItem[] = [
   { id: 'b35', kind: 'unit', claim: 'In severe renal impairment, the prophylactic enoxaparin dose is 30 units once daily.', sources: s('G1'), expected: ['contradicted', 'unsupported'], why: 'The passage gives 30 mg.' },
   { id: 'b36', kind: 'frequency', claim: 'In severe renal impairment, the prophylactic enoxaparin dose is 30 mg twice daily.', sources: s('G1'), expected: ['contradicted'], why: 'The passage gives once daily.' },
   { id: 'b37', kind: 'route', claim: 'In severe renal impairment, the prophylactic enoxaparin dose is 30 mg once daily given intravenously.', sources: s('G1'), expected: ['contradicted', 'unsupported'], why: 'The passage gives subcutaneous injection.' },
+
+  // ---------------------------------------------------------------- what the live probe saw let through (verify-v2)
+  { id: 'b38', kind: 'property', claim: 'Nephrotoxic agents like ibuprofen and metformin are still active.', sources: s('M2', 'M3'), expected: ['partial'], why: 'Both orders are active; no source says either drug is nephrotoxic (and metformin is not).' },
+  { id: 'b39', kind: 'property', claim: 'Metformin, a nephrotoxic drug, is continued in acute kidney injury.', sources: s('M3', 'P1'), expected: ['partial'], why: 'The order and the problem are in the data; the property is not.' },
+  { id: 'b40', kind: 'time', claim: 'Blood pressure is currently 98/60 mmHg.', sources: s('E7'), expected: ['partial', 'unsupported'], why: 'The value is from Day 0; today is Day 2.' },
+  { id: 'b41', kind: 'change', claim: 'The INR increased to 3.8 on Day 2.', sources: s('E6'), expected: ['partial'], why: 'Only the Day 2 value is cited; a rise needs an earlier value.' },
+  { id: 'b42', kind: 'reason', claim: 'Furosemide was changed to the IV route for the management of acute decompensation.', sources: s('M4', 'M5'), expected: ['partial'], why: 'The change of route is in the sources; the reason is not.' },
+  { id: 'b43', kind: 'absence', claim: 'No potassium supplement is prescribed.', sources: s('E8', 'M6'), expected: ['unsupported'], why: 'The sources show what is recorded; they cannot show that nothing else is prescribed.' },
+  { id: 'b44', kind: 'judgement', claim: 'The INR of 3.8 requires a reduction of the warfarin dose.', sources: s('E6'), expected: ['partial', 'unsupported'], why: 'The value is in the data; the need is a judgement no source states.' },
+  { id: 'b45', kind: 'time', claim: 'On Day 0 the blood pressure was 98/60 mmHg.', sources: s('E7'), expected: ['supported'], why: 'The day and the value are both in the source.' },
+  { id: 'b46', kind: 'property', claim: 'NSAIDs carry a risk of worsening renal function in advanced renal disease.', sources: s('G6'), expected: ['supported'], why: 'The passage states the risk.' },
 ];

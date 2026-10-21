@@ -14,6 +14,12 @@
 
 Decision 11 (the paid key) is the owner's to act on. The build follows the owner's review of the live probe's final results.
 
+**The owner's decisions after the live probe (21 October 2026):**
+
+- **The seven proposals of the probe are approved** — in particular a verifier strict about descriptions and time words (to prevent errors such as "nephrotoxic … metformin") and a strict check of the PCNE classification's coherence.
+- **The free key stays during the build;** the owner will move to a paid key once the whole application is built.
+- **M5 is verified by unit tests and by tests with stand-ins and recorded fixtures only,** so that no free-key quota is used. **No live run at the end of M5:** the final live run is deferred until the application is complete.
+
 ## 1. What M5 must deliver
 
 From the specification:
