@@ -73,6 +73,8 @@ export const FIELD_LIMITS: Partial<Record<RegisterId, Readonly<Record<string, Fi
     category: 'never',
     boxes: 'never',
     boxesReason: 'never',
+    // M5: only the trainee says why a classification PRECEPTOR questions still fits (pcne-coherence.ts).
+    classificationReason: 'never',
     // M4: the claims come as their own list, each checked (verify.ts), never as a field value.
     claims: 'never',
     references: 'never',

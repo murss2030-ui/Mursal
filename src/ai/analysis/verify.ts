@@ -23,6 +23,7 @@ import { REGISTERS, type FieldDef } from '../../domain/workflow/registers';
 import { claimsValue, linksValue, MAX_CLAIM_TEXT, MAX_CLAIMS, type CardClaim, type CardLink } from '../../domain/card-data';
 import type { TaskDef } from '../../domain/workflow/catalogue';
 import { normalizeItemFields } from '../../domain/workflow/registers';
+import { pcneCoherence } from '../../domain/pcne-coherence';
 import type { CheckValue, ClaimBasis, Suggestion, SuggestionCheck } from '../../domain/types';
 import type { CasePayload, RefTarget } from './payload';
 import type { RawAnalysis, RawClaim, RawSuggestionBase } from './contract';
@@ -178,7 +179,9 @@ function itemFields(
       else checks.add('invalid_value_removed');
     } else if (f.kind === 'multi') {
       const given = v.split(/[|,]/).map((x) => x.trim()).filter(Boolean);
-      const parts = [...new Set(given.filter((x) => f.options?.some((o) => o.value === x)))];
+      let parts = [...new Set(given.filter((x) => f.options?.some((o) => o.value === x)))];
+      // "No obvious cause" beside named causes: the named causes are kept.
+      if (parts.length > 1 && f.exclusive) parts = parts.filter((x) => !f.exclusive!.includes(x));
       if (parts.length < given.length) checks.add('invalid_value_removed');
       if (parts.length) out[f.id] = parts.join('|');
     } else if (f.kind === 'links') {
@@ -315,7 +318,11 @@ export function verifyAnalysis(raw: RawAnalysis, payload: CasePayload): { sugges
       }
       const c = cleanStatement(it.reason ?? '', r.allowed, r.cited);
       for (const x of c.checks) checks.add(x);
-      if (!normalizeItemFields(it.register as never, fields).ok) checks.add('incomplete');
+      // M5: a card whose classification disagrees with its own problem sentence is never accepted as it is; only the trainee gives the reason.
+      const questioned = it.register === 'drp' && pcneCoherence(fields).length > 0;
+      if (questioned) checks.add('classification_questioned');
+      const valid = normalizeItemFields(it.register as never, fields);
+      if (!valid.ok && Object.keys(valid.errors).some((k) => !(questioned && k === 'classificationReason'))) checks.add('incomplete');
       suggestions.push({ id: next(), taskId: def.id, kind: 'item', register: it.register as never, fields, reason: c.text, basis: r.basis, refs: r.refs, checks: [...checks] });
     }
 

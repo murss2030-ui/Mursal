@@ -23,7 +23,7 @@ import { Banner, Button, CheckboxField, Chip, DayLabel, LinkButton, Num, PageTit
 import { navigate } from '../router';
 import { useSession } from '../session-context';
 import { useCaseRules } from '../rules/useCaseRules';
-import { BoxList, LinkLine, MapDraftNote, ReviewChip, StaleBadge, StageStepper, calcLabel, entryLabel } from './card-parts';
+import { BoxList, CoherenceQuestions, LinkLine, MapDraftNote, ReviewChip, StaleBadge, StageStepper, calcLabel, entryLabel } from './card-parts';
 import { ItemHistory } from './ItemEditor';
 
 const PRIORITY_TONE = { critical: 'red', important: 'amber', informational: 'slate' } as const;
@@ -132,6 +132,8 @@ function ReviewPanel({ b, card, readOnly }: { b: CaseBundle; card: CardModel; re
 
   const editHref = `#/cases/${b.case.id}/item/${card.item.id}?back=card&review=edit`;
   const stale = card.staleness.stale;
+  // M5: a classification PRECEPTOR questions, with no reason, is edited before the card is accepted.
+  const questioned = card.coherence.length > 0 && !card.item.fields.classificationReason;
   const buttons: { d: CardDecision; label: MsgKey; icon: Parameters<typeof Icon>[0]['name'] }[] = [
     { d: 'accepted', label: 'cardReview.accept', icon: 'check' },
     { d: 'edited', label: 'cardReview.edit', icon: 'pencil' },
@@ -161,7 +163,7 @@ function ReviewPanel({ b, card, readOnly }: { b: CaseBundle; card: CardModel; re
                   key={d}
                   icon={icon}
                   variant={open === d ? 'primary' : 'secondary'}
-                  disabled={busy || (d === 'accepted' && stale)}
+                  disabled={busy || (d === 'accepted' && (stale || questioned))}
                   data-decision={d}
                   onClick={() => {
                     setError(undefined);
@@ -179,6 +181,7 @@ function ReviewPanel({ b, card, readOnly }: { b: CaseBundle; card: CardModel; re
             )}
           </div>
           {stale && <p className="text-xs text-amber-900">{t('cardReview.staleNoAccept')}</p>}
+          {questioned && <p className="text-xs text-red-900">{t('cardReview.questionedNoAccept')}</p>}
           {open && (
             <div className="flex flex-col gap-2 rounded-lg border border-slate-300 bg-white p-3" data-testid="review-confirm" data-decision={open}>
               {REASON_DECISIONS.includes(open) && (
@@ -380,6 +383,7 @@ export function CardBody({ b, card, readOnly }: { b: CaseBundle; card: CardModel
             )}
           </div>
         )}
+        <CoherenceQuestions issues={card.coherence} reason={f.classificationReason} />
         <div className="mt-1 flex flex-col gap-1.5 rounded-lg border border-line p-2" data-testid="card-boxes" data-source={card.boxes.source}>
           <p className="text-xs font-medium text-slate-700">{t('card.f5.boxes')}</p>
           <BoxList boxes={card.boxes.boxes} />

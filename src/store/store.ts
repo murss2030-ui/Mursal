@@ -41,6 +41,7 @@ import type {
 import { CARD_DECISIONS, DECISIONS_NEEDING_REASON, REGISTER_IDS, SOURCE_DOC_TYPES } from '../domain/types';
 import { parseClaims, parseLinks } from '../domain/card-data';
 import { cardStaleness, contentHash, fromModel, type CardContext } from '../domain/problem-card';
+import { classificationUnanswered } from '../domain/pcne-coherence';
 import { resultCurrency } from '../calc/currency';
 import { DRP_RECORD_FIELDS, normalizeItemFields, REGISTERS } from '../domain/workflow/registers';
 import { normalizeTaskInput, type TaskInput } from '../domain/workflow/tasks';
@@ -1185,6 +1186,10 @@ export class Store {
     const review = this.newReview(caseId, item, input.decision, input.reason, input.withPreceptor);
     if (input.decision === 'accepted' && cardStaleness(item, await this.cardContext(caseId)).stale) {
       throw new IntegrityError('The data this card rests on changed. Review it again on the current data before accepting it.');
+    }
+    // M5: a card saved before the coherence check, whose classification it questions, is edited before it is accepted.
+    if (input.decision === 'accepted' && classificationUnanswered(item.fields)) {
+      throw new IntegrityError('Its PCNE classification disagrees with the problem as written: edit the card to correct the codes or to say why they fit, then accept it.');
     }
     const row = await this.sealRow('cardReviews', { id: review.id, caseId }, review);
     const audit = await this.reviewAudit(review);

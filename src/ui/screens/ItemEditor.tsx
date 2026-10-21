@@ -22,7 +22,8 @@ import { ChoicePills, MultiPills } from './choice-controls';
 import { SourcePeek } from './SourceViewer';
 import { itemTitle } from './RegisterList';
 import { CausalityPanel } from '../rules/Causality';
-import { BoxesControl, ClaimsEditor, LinksPicker } from './card-parts';
+import { BoxesControl, ClaimsEditor, CoherenceQuestions, LinksPicker } from './card-parts';
+import { pcneCoherence } from '../../domain/pcne-coherence';
 
 type Mode =
   | { kind: 'new'; register: string }
@@ -343,6 +344,8 @@ function EditorBody({
                     {tl(heading)}
                   </h2>
                 )}
+                {/* M5: the questions PRECEPTOR asks of the classification, live, above the reason they call for. */}
+                {register === 'drp' && f.id === 'classificationReason' && <CoherenceQuestions issues={pcneCoherence(v)} editing />}
                 <FieldControl f={f} b={b} register={register} value={v[f.id] ?? ''} values={v} set={(x) => draft.set(f.id, x)} error={errText(errors[f.id])} />
               </div>
             );

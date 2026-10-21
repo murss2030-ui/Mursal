@@ -7,6 +7,7 @@
 import { useMemo } from 'react';
 import { CLAIM_SOURCES, linksValue, parseLinks, type CardLink, type ClaimSource } from '../../domain/card-data';
 import { PCNE_MAPS_APPROVED, PCNE_MAPS_DRAFT } from '../../domain/pcne-maps';
+import type { CoherenceIssue } from '../../domain/pcne-coherence';
 import { CARD_STAGES, cardBoxes, type CardModel, type ReviewState, type StageInfo } from '../../domain/problem-card';
 import { DRP_CATEGORIES } from '../../domain/workflow/registers';
 import type { CalcResult } from '../../calc/types';
@@ -24,6 +25,38 @@ import { useCaseRules } from '../rules/useCaseRules';
 import { MultiPills } from './choice-controls';
 
 type T = ReturnType<typeof useI18n>['t'];
+
+// ---------------------------------------------------------------- field 5: the questions PRECEPTOR asks of a classification (M5)
+
+/** Where the codes and the problem as written disagree (pcne-coherence.ts), with the trainee's reason when given. */
+export function CoherenceQuestions({ issues, reason, editing }: { issues: readonly CoherenceIssue[]; reason?: string; editing?: boolean }) {
+  const { t } = useI18n();
+  const tl = useL();
+  if (!issues.length) return null;
+  return (
+    <div className={`flex flex-col gap-1 rounded-lg border p-2 text-xs ${reason ? 'border-slate-300 bg-slate-50 text-slate-800' : 'border-red-300 bg-red-50 text-red-950'}`} data-testid="pcne-questions" data-answered={!!reason} role={editing ? 'note' : undefined}>
+      <p className="flex items-center gap-1.5 font-semibold">
+        <Icon name="alert-triangle" className="h-3.5 w-3.5 shrink-0" />
+        {t('coherence.title')}
+      </p>
+      <ul className="flex flex-col gap-1 ps-5">
+        {issues.map((x, i) => (
+          <li key={i} className="list-disc" data-rule={x.rule}>
+            {tl(x.message)}
+          </li>
+        ))}
+      </ul>
+      {editing ? null : reason ? (
+        <p dir="auto" data-testid="pcne-reason">
+          <span className="font-medium">{t('coherence.reason')} </span>
+          {reason}
+        </p>
+      ) : (
+        <p className="font-medium">{t('coherence.unanswered')}</p>
+      )}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------- what a link or a claim points to, as the trainee reads it
 

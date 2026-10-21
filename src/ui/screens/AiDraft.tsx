@@ -19,7 +19,8 @@ import { ProvenanceBadge } from '../components/ProvenanceBadge';
 import { Banner, Button, LinkButton, Num, TextAreaField, TextField } from '../components/ui';
 import { entryText } from '../format';
 import { parseClaims, parseLinks, type CardClaim } from '../../domain/card-data';
-import { calcLabel, entryLabel } from './card-parts';
+import { pcneCoherence } from '../../domain/pcne-coherence';
+import { calcLabel, CoherenceQuestions, entryLabel } from './card-parts';
 import { navigate } from '../router';
 import { useSession } from '../session-context';
 
@@ -137,7 +138,9 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
     );
   }
 
-  const incomplete = s.checks.includes('incomplete');
+  // A card whose classification PRECEPTOR questions is edited first: only the trainee corrects the codes or says why they fit.
+  const questions = card ? pcneCoherence(s.fields ?? {}) : [];
+  const incomplete = s.checks.includes('incomplete') || questions.length > 0;
   const reg = s.register ? REGISTERS[s.register] : undefined;
   return (
     <li>
@@ -205,6 +208,7 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
           </p>
         )}
         <Checks checks={s.checks} />
+        {questions.length > 0 && <CoherenceQuestions issues={questions} />}
         {error && (
           <Banner tone="danger" role="alert">
             {error}
@@ -278,7 +282,7 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
             )}
           </div>
         )}
-        {incomplete && <p className="text-xs text-slate-600">{t('draft.incompleteHelp')}</p>}
+        {incomplete && <p className="text-xs text-slate-600">{questions.length ? t('draft.questionedHelp') : t('draft.incompleteHelp')}</p>}
       </section>
     </li>
   );

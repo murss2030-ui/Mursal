@@ -532,6 +532,8 @@ export const SUGGESTION_CHECKS = [
   'invalid_value_removed',
   'trainee_only_removed',
   'incomplete',
+  /** M5: a drafted Problem Card whose PCNE classification disagrees with its own problem sentence (pcne-coherence.ts). */
+  'classification_questioned',
 ] as const;
 export type SuggestionCheck = (typeof SUGGESTION_CHECKS)[number];
 

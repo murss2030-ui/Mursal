@@ -17,6 +17,7 @@ import { parseClaims, parseLinks, type CardClaim, type CardLink } from './card-d
 import { L } from './label';
 import { doseNumbersInText, numbersInText } from './numbers';
 import { PCNE_CODE, type PcneCode } from './pcne';
+import { classificationUnanswered, pcneCoherence, type CoherenceIssue } from './pcne-coherence';
 import { cipolleFor, formBoxesFor, type CipolleView } from './pcne-maps';
 import { compareEntries, indexTimeline } from './timeline';
 import type { CardDecision, CardReview, RegisterItem, TimelineEntry } from './types';
@@ -408,6 +409,10 @@ const M = {
   legacy: L('No PCNE codes: this card has the department’s category only (recorded before M4). Edit it to classify it.', 'لا رموز PCNE: لهذه البطاقة فئة القسم فقط (سُجّلت قبل M4). عدّلها لتصنيفها.'),
   causes: L('No PCNE cause code (C9.3 if there is no obvious cause).', 'لا رمز سبب وفق PCNE (C9.3 إن لم يوجد سبب واضح).'),
   type: L('Potential or manifest is not said.', 'لم يُحدَّد إن كانت محتملة أم قائمة.'),
+  questioned: L(
+    'The codes and the problem as written disagree, and no reason is given: correct one of them, or say why both are right. Until then the card stays out of the department form.',
+    'الرموز والمشكلة كما كُتبت لا تتفقان، ولم يُذكر سبب: صحّح أحدهما، أو اذكر لماذا كلاهما صحيح. حتى ذلك الحين تبقى البطاقة خارج نموذج القسم.',
+  ),
   priority: L('No priority.', 'لا أولوية.'),
   priorityReason: L('The reason for this priority is not given.', 'لم يُذكر سبب هذه الأولوية.'),
   claims: L('No claim with its source yet: add the statements this card rests on, each with its source.', 'لا ادعاءات مع مصادرها بعد: أضف العبارات التي تستند إليها البطاقة، كلٌّ مع مصدره.'),
@@ -436,6 +441,8 @@ export function cardFields(item: RegisterItem, ctx: CardContext, review: ReviewS
   else {
     if (!p.causes.length) at(5).notes.push(M.causes);
     if (!p.type) at(5).notes.push(M.type);
+    // M5: a classification that disagrees with the problem as written, with no reason given (pcne-coherence.ts).
+    if (classificationUnanswered(f)) at(5).notes.push(M.questioned);
   }
   if (!f.priority) miss(6, M.priority);
   else if (!f.priorityReason) at(6).notes.push(M.priorityReason);
@@ -497,7 +504,9 @@ export type FormExclusion =
   | 'undecided'
   | 'no_recommendation'
   | 'not_final'
-  | 'untraced_dose';
+  | 'untraced_dose'
+  /** M5: its PCNE classification disagrees with the problem as written, and no reason was given. */
+  | 'classification';
 
 export interface CardFormStatus {
   /** Undefined: the card enters Section 8 (its boxes and its line). */
@@ -510,7 +519,8 @@ export interface CardFormStatus {
 
 /**
  * A stale card never enters the form (Section 7); neither does a rejected one,
- * one waiting for evidence or a senior review, or a model draft not decided.
+ * one waiting for evidence or a senior review, a model draft not decided, or
+ * one whose PCNE classification PRECEPTOR questions with no reason given.
  * Section 9 takes only the final recommendations of the cards that remain,
  * with every dose traced to its source (Section 12).
  */
@@ -521,6 +531,7 @@ export function cardFormStatus(item: RegisterItem, ctx: CardContext): CardFormSt
   if (staleness.stale) s8 = 'stale';
   else if (review.kind === 'undecided') s8 = 'undecided';
   else if (review.kind === 'decided' && (review.decision === 'rejected' || review.decision === 'needs_evidence' || review.decision === 'needs_senior_review')) s8 = review.decision;
+  else if (classificationUnanswered(item.fields)) s8 = 'classification';
   let s9 = s8;
   if (!s9) {
     if (!item.fields.recommendation) s9 = 'no_recommendation';
@@ -535,6 +546,8 @@ export function cardFormStatus(item: RegisterItem, ctx: CardContext): CardFormSt
 export interface CardModel {
   item: RegisterItem;
   pcne: CardPcne;
+  /** M5: the questions PRECEPTOR asks of its classification (pcne-coherence.ts). */
+  coherence: CoherenceIssue[];
   boxes: CardBoxes;
   cipolle: CipolleView;
   links: { link: CardLink; entry?: TimelineEntry; result?: CalcResult; current: boolean }[];
@@ -556,6 +569,7 @@ export function buildCard(item: RegisterItem, ctx: CardContext): CardModel {
   return {
     item,
     pcne: cardPcne(item.fields),
+    coherence: pcneCoherence(item.fields),
     boxes: cardBoxes(item.fields),
     cipolle: cardCipolle(item.fields),
     links: cardLinks(item.fields).map((link) => {

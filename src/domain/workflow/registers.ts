@@ -16,6 +16,7 @@ import { isValidHospitalDay, isValidTimeOfDay } from '../dates';
 import { DRP_CHECKBOXES } from '../form/spec';
 import { L } from '../label';
 import { PCNE_CAUSES, PCNE_DOMAIN, PCNE_PROBLEMS } from '../pcne';
+import { pcneCoherence } from '../pcne-coherence';
 import type { RegisterId } from '../types';
 
 export type FieldKind =
@@ -66,6 +67,10 @@ export interface FieldDef {
   showIf?: Condition;
   /** Shown only when the named field has a value (e.g. the reason for an adjustment). Hidden values are dropped on save. */
   showWhenSet?: string;
+  /** Shown, and required, only when this holds of the row's values (the reason for a classification PRECEPTOR questions). Hidden values are dropped on save. */
+  askWhen?: (values: Readonly<Record<string, string>>) => boolean;
+  /** A multiple choice's values that cannot be combined with any other (C9.3 No obvious cause). */
+  exclusive?: readonly string[];
   /** Kept only to read rows saved before a change of the register: never shown, dropped on the next save. */
   legacy?: true;
   /** Heading under which the field is shown (the Problem Card's numbered fields). */
@@ -364,6 +369,19 @@ const DRP: RegisterDef = {
       hint: L('Every cause that applies. If there is none, choose C9.3 No obvious cause.', 'كل سبب ينطبق. إن لم يوجد سبب فاختر C9.3 No obvious cause.'),
       options: PCNE_CAUSES.map(pcneChoice),
       groups: CAUSE_GROUPS,
+      exclusive: ['C9.3'],
+    },
+    {
+      // M5 (owner decision of 21 October 2026): a classification that disagrees with the problem as written needs the trainee's reason.
+      id: 'classificationReason',
+      kind: 'text',
+      askWhen: (v) => pcneCoherence(v).length > 0,
+      group: cardSection(5),
+      label: L('Why this classification fits the problem as written', 'لماذا يناسب هذا التصنيف المشكلة كما كُتبت'),
+      hint: L(
+        'PRECEPTOR found that the codes and the problem sentence disagree (above). Correct the codes or the sentence — or, if both are right, say why.',
+        'وجد PRECEPTOR أن الرموز وجملة المشكلة لا تتفقان (أعلاه). صحّح الرموز أو الجملة — أو، إن كان الاثنان صحيحين، اذكر السبب.',
+      ),
     },
     {
       id: 'boxes',
@@ -1141,7 +1159,7 @@ export const REGISTERS: Readonly<Record<RegisterId, RegisterDef>> = {
 
 // ---------------------------------------------------------------- validation
 
-export type ItemFieldError = 'required' | 'invalidChoice' | 'hospitalDay' | 'time' | 'tooLong' | 'unknownField' | 'confirm';
+export type ItemFieldError = 'required' | 'invalidChoice' | 'hospitalDay' | 'time' | 'tooLong' | 'unknownField' | 'confirm' | 'exclusive';
 export type ItemErrors = Record<string, ItemFieldError>;
 
 export const MAX_TEXT = 300;
@@ -1154,12 +1172,13 @@ function matches(cond: Condition | undefined, values: Record<string, string>): b
 
 /** Whether a field is currently shown, given the other values. */
 export function isFieldVisible(def: FieldDef, values: Record<string, string>): boolean {
-  return !def.legacy && matches(def.showIf, values) && (!def.showWhenSet || !!values[def.showWhenSet]);
+  return !def.legacy && matches(def.showIf, values) && (!def.showWhenSet || !!values[def.showWhenSet]) && (!def.askWhen || def.askWhen(values));
 }
 
 /** Whether a field must have a value, given the other values. */
 export function isFieldRequired(def: FieldDef, values: Record<string, string>): boolean {
   if (def.required) return true;
+  if (def.askWhen?.(values)) return true;
   if (def.requiredIf && matches(def.requiredIf, values)) return true;
   if (def.requiredUnless && !values[def.requiredUnless]) return true;
   return !!def.requiredWhenSet && !!values[def.requiredWhenSet];
@@ -1211,6 +1230,7 @@ export function normalizeItemFields(
         if (parts.length === 0 && required) errors[f.id] = 'required';
         if (parts.some((p) => !f.options?.some((o) => o.value === p))) errors[f.id] = 'invalidChoice';
         if (new Set(parts).size !== parts.length) errors[f.id] = 'invalidChoice';
+        else if (parts.length > 1 && parts.some((p) => f.exclusive?.includes(p))) errors[f.id] = 'exclusive';
         break;
       }
       case 'day': {
