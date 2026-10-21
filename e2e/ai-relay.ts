@@ -26,8 +26,8 @@ export const TEST_KEY = 'test-key-not-a-real-key';
 export const RELAY_ENV: Record<string, string> = {
   GEMINI_API_KEY: TEST_KEY,
   // reader-test-0 is on the allow-list but retired at the provider (the stand-in answers 404).
-  PRECEPTOR_MODELS: 'reader-test-1:0.30:2.50,drafter-test-1:1.25:10.00,reader-test-0:0.10:0.40',
-  PRECEPTOR_SUGGESTED: 'extract=reader-test-1,analyse=drafter-test-1',
+  PRECEPTOR_MODELS: 'reader-test-1:0.30:2.50,drafter-test-1:1.25:10.00,reader-test-0:0.10:0.40,verifier-test-1:0.10:0.40',
+  PRECEPTOR_SUGGESTED: 'extract=reader-test-1,analyse=drafter-test-1,verify=verifier-test-1',
   PRECEPTOR_KEY_CLASS: 'free',
   PRECEPTOR_MONTHLY_BUDGET_USD: '5',
   PRECEPTOR_RATE_PER_MINUTE: '60',

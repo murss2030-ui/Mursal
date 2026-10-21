@@ -8,6 +8,9 @@
 import { useState } from 'react';
 import { UNDRAFTED_TASKS } from '../../ai/analysis/limits';
 import { mustEdit, type Suggestion, type SuggestionCheck } from '../../domain/types';
+import { draftStatements, originKey, passesDraftGate, type DraftPart } from '../../domain/verdicts';
+import { verifyDraft } from '../../ai/verification/draft';
+import { CheckButton, VerdictLine } from './verdict-parts';
 import type { TaskDef } from '../../domain/workflow/catalogue';
 import { REGISTERS, type FieldDef } from '../../domain/workflow/registers';
 import { useI18n } from '../../i18n/i18n';
@@ -147,6 +150,12 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
   // A card whose classification PRECEPTOR questions is edited first: only the trainee corrects the codes or says why they fit.
   const questions = card ? pcneCoherence(s.fields ?? {}) : [];
   const incomplete = mustEdit(s) || questions.length > 0;
+  // M5, decision 6: accepted as it is only when the verifier found every statement supported, with a quote.
+  const statements = draftStatements(s);
+  const verdictOf = (part: DraftPart) => b.verdictAt({ kind: 'suggestion', analysisId, suggestionId: s.id, part });
+  const gated = !passesDraftGate(s, analysisId, b.verdictsByOrigin);
+  const reasonStatement = statements.find((x) => x.part === 'reason');
+  const claimStatement = (i: number) => statements.find((x) => typeof x.part === 'object' && x.part.claim === i);
   const reg = s.register ? REGISTERS[s.register] : undefined;
   return (
     <li>
@@ -183,14 +192,18 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
                     <dd dir="auto" className="text-slate-900">
                       {f?.kind === 'claims' ? (
                         <ul className="flex flex-col gap-1" data-testid="draft-claims">
-                          {parseClaims(v).map((c, i) => (
-                            <li key={i} className={`rounded-lg border px-2 py-1 ${c.source === 'none' ? 'border-dashed border-amber-500 bg-amber-50' : 'border-violet-200 bg-white'}`} data-claim-source={c.source}>
-                              {c.text}
-                              <span className="block text-xs text-slate-600">
-                                {c.source === 'none' ? t('claims.from.none') : t(`claims.from.${c.source}` as MsgKey, { label: claimLabel(c, b, t) })}
-                              </span>
-                            </li>
-                          ))}
+                          {parseClaims(v).map((c, i) => {
+                            const st = claimStatement(i);
+                            return (
+                              <li key={i} className={`flex flex-col gap-1 rounded-lg border px-2 py-1 ${c.source === 'none' ? 'border-dashed border-amber-500 bg-amber-50' : 'border-violet-200 bg-white'}`} data-claim-source={c.source}>
+                                {c.text}
+                                <span className="block text-xs text-slate-600">
+                                  {c.source === 'none' ? t('claims.from.none') : t(`claims.from.${c.source}` as MsgKey, { label: claimLabel(c, b, t) })}
+                                </span>
+                                {st && <VerdictLine v={verdictOf(st.part)} checkable={st.checkable} />}
+                              </li>
+                            );
+                          })}
                         </ul>
                       ) : (
                         shownValue(f, v, b, tl, { t })
@@ -208,11 +221,13 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
             {s.text}
           </p>
         )}
+        {s.kind === 'note' && statements[0] && <VerdictLine v={verdictOf('text')} />}
         {s.reason && (
           <p className="text-sm italic text-slate-700" dir="auto">
             {s.reason}
           </p>
         )}
+        {reasonStatement && <VerdictLine v={verdictOf('reason')} checkable={reasonStatement.checkable} />}
         <Checks checks={s.checks} />
         {questions.length > 0 && <CoherenceQuestions issues={questions} />}
         {error && (
@@ -260,7 +275,7 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
         ) : (
           <div className="flex flex-wrap gap-2">
             {/* Never pre-selected, never focused: each acceptance is deliberate. */}
-            <Button variant="secondary" icon="check" disabled={busy || stale || incomplete} onClick={() => void decide({ kind: 'accept' })}>
+            <Button variant="secondary" icon="check" disabled={busy || stale || incomplete || gated} onClick={() => void decide({ kind: 'accept' })}>
               {s.kind === 'note' ? t('draft.addToNotes') : t('draft.accept')}
             </Button>
             {s.kind === 'item' && (
@@ -291,6 +306,11 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
         {incomplete && (
           <p className="text-xs text-slate-600">{questions.length ? t('draft.questionedHelp') : s.checks.includes('incomplete') ? t('draft.incompleteHelp') : t('draft.actionHelp')}</p>
         )}
+        {!incomplete && gated && (
+          <p className="text-xs text-slate-600" data-testid="draft-gate">
+            {s.kind === 'check' ? t('verdict.gateHelpCheck') : t('verdict.gateHelp')}
+          </p>
+        )}
       </section>
     </li>
   );
@@ -298,6 +318,7 @@ function SuggestionCard({ s, def, b, analysisId, stale }: { s: Suggestion; def: 
 
 export function AiDraft({ def, b }: { def: TaskDef; b: CaseBundle }) {
   const { t, when } = useI18n();
+  const { store } = useSession();
   const d = b.draftOf(def.module);
   if (UNDRAFTED_TASKS.has(def.id)) {
     return (
@@ -323,6 +344,16 @@ export function AiDraft({ def, b }: { def: TaskDef; b: CaseBundle }) {
   const mine = d.analysis.suggestions.filter((s) => s.taskId === def.id);
   const pending = mine.filter((s) => !s.decision);
   const decided = mine.filter((s) => s.decision);
+  // M5: statements of this module's draft the verifier has not answered yet (never checked, or the service did not answer).
+  const unchecked = d.analysis.suggestions
+    .filter((s) => !s.decision)
+    .some((s) =>
+      draftStatements(s).some((st) => {
+        if (!st.checkable) return false;
+        const v = b.verdictsByOrigin.get(originKey({ kind: 'suggestion', analysisId: d.analysis.id, suggestionId: s.id, part: st.part }));
+        return !v || v.verdict === 'not_checked';
+      }),
+    );
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-violet-200 bg-white p-4 shadow-card" data-testid="ai-draft" data-state={d.stale ? 'stale' : 'current'}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -335,6 +366,9 @@ export function AiDraft({ def, b }: { def: TaskDef; b: CaseBundle }) {
         </span>
       </div>
       <p className="text-xs text-slate-600">{t('draft.lead')}</p>
+      {unchecked && !d.stale && b.case.status !== 'archived' && (
+        <CheckButton label={t('verdict.checkDraft')} testId="check-draft" run={() => verifyDraft(store, b.case.id, d.analysis.id)} />
+      )}
       {d.stale && (
         <Banner tone="warning">
           <span className="flex flex-col items-start gap-2" data-testid="draft-stale">

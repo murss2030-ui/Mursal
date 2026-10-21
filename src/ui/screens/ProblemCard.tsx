@@ -9,7 +9,9 @@ import { useState, type ReactNode } from 'react';
 import { claimTargets } from '../../domain/card-data';
 import { CIPOLLE_NOT_EQUIVALENT } from '../../domain/pcne-maps';
 import type { CardFieldStatus, CardModel } from '../../domain/problem-card';
-import { buildCard, fromModel } from '../../domain/problem-card';
+import { buildCard, fromModel, unverifiedModelClaims } from '../../domain/problem-card';
+import { verifyCardClaims } from '../../ai/verification/draft';
+import { CheckButton, VerdictLine } from './verdict-parts';
 import type { CardDecision } from '../../domain/types';
 import { ValidationError } from '../../domain/validation';
 import { choiceLabel } from '../../domain/workflow/registers';
@@ -70,11 +72,22 @@ const choice = (field: string, v: string | undefined) => (v ? choiceLabel('drp',
 
 // ---------------------------------------------------------------- field 7: claims with their source and their check
 
-function Claims({ b, card }: { b: CaseBundle; card: CardModel }) {
+function Claims({ b, card, readOnly }: { b: CaseBundle; card: CardModel; readOnly: boolean }) {
   const { t, lang } = useI18n();
+  const { store } = useSession();
+  // M5: the claims citing the case's data that the verifier has not answered yet.
+  const unchecked = card.claims.some(({ claim, verdict }) => claimTargets(claim).length > 0 && (!verdict || verdict.verdict === 'not_checked'));
+  const gated = unverifiedModelClaims(card.item.fields, b.cardContext).length > 0;
   return (
+    <div className="flex flex-col gap-2">
+    {gated && (
+      <p className="flex items-start gap-1.5 rounded-lg border border-red-300 bg-red-50 px-2 py-1.5 text-xs text-red-900" data-testid="card-claims-gate">
+        <Icon name="alert-triangle" className="mt-px h-3.5 w-3.5 shrink-0" />
+        {t('verdict.cardGate')}
+      </p>
+    )}
     <ul className="flex flex-col gap-2" data-testid="card-claims">
-      {card.claims.map(({ claim, check }, i) => {
+      {card.claims.map(({ claim, check, verdict }, i) => {
         // Every value the claim cites (a change cites both).
         const cited = claimTargets(claim).map((l) => {
           const e = l.kind === 'entry' ? b.entries.find((x) => x.id === l.id) : undefined;
@@ -96,10 +109,14 @@ function Claims({ b, card }: { b: CaseBundle; card: CardModel }) {
                   : t(`claims.check.${check.kind}` as MsgKey)}
               {claim.by === 'model' && ` · ${t('claims.byModel')}`}
             </p>
+            {/* M5: the verifier's verdict on exactly these words and sources; a drafted claim with no source can never pass. */}
+            {cited.length > 0 ? <VerdictLine v={verdict} /> : claim.by === 'model' ? <VerdictLine checkable={false} /> : null}
           </li>
         );
       })}
     </ul>
+    {unchecked && !readOnly && <CheckButton label={t('verdict.checkCard')} testId="check-card" run={() => verifyCardClaims(store, b.case.id, card.item.id)} />}
+    </div>
   );
 }
 
@@ -137,8 +154,9 @@ function ReviewPanel({ b, card, readOnly }: { b: CaseBundle; card: CardModel; re
 
   const editHref = `#/cases/${b.case.id}/item/${card.item.id}?back=card&review=edit`;
   const stale = card.staleness.stale;
-  // M5: a classification PRECEPTOR questions, with no reason, is edited before the card is accepted.
+  // M5: a classification PRECEPTOR questions, with no reason, is edited before the card is accepted; so is a drafted claim not found supported.
   const questioned = card.coherence.length > 0 && !card.item.fields.classificationReason;
+  const unverified = unverifiedModelClaims(card.item.fields, b.cardContext).length > 0;
   const buttons: { d: CardDecision; label: MsgKey; icon: Parameters<typeof Icon>[0]['name'] }[] = [
     { d: 'accepted', label: 'cardReview.accept', icon: 'check' },
     { d: 'edited', label: 'cardReview.edit', icon: 'pencil' },
@@ -168,7 +186,7 @@ function ReviewPanel({ b, card, readOnly }: { b: CaseBundle; card: CardModel; re
                   key={d}
                   icon={icon}
                   variant={open === d ? 'primary' : 'secondary'}
-                  disabled={busy || (d === 'accepted' && (stale || questioned))}
+                  disabled={busy || (d === 'accepted' && (stale || questioned || unverified))}
                   data-decision={d}
                   onClick={() => {
                     setError(undefined);
@@ -187,6 +205,7 @@ function ReviewPanel({ b, card, readOnly }: { b: CaseBundle; card: CardModel; re
           </div>
           {stale && <p className="text-xs text-amber-900">{t('cardReview.staleNoAccept')}</p>}
           {questioned && <p className="text-xs text-red-900">{t('cardReview.questionedNoAccept')}</p>}
+          {unverified && <p className="text-xs text-red-900">{t('cardReview.unverifiedNoAccept')}</p>}
           {open && (
             <div className="flex flex-col gap-2 rounded-lg border border-slate-300 bg-white p-3" data-testid="review-confirm" data-decision={open}>
               {REASON_DECISIONS.includes(open) && (
@@ -424,7 +443,7 @@ export function CardBody({ b, card, readOnly }: { b: CaseBundle; card: CardModel
       </Field>
 
       <Field status={st(7)}>
-        <Claims b={b} card={card} />
+        <Claims b={b} card={card} readOnly={readOnly} />
         {f.references && <p className="text-xs text-slate-700">{t('card.f7.references', { refs: f.references })}</p>}
         <p className="text-xs text-slate-600">{t('card.f7.limits')}</p>
       </Field>

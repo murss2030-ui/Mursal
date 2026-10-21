@@ -11,25 +11,11 @@
  * Only whitespace, quotation marks and dashes are normalised for the
  * comparison — encoding differences, not meaning. Near-matches fail.
  */
+import { normalizeForMatch, type FinalVerdict, type VerdictFlag } from '../../domain/verdicts';
 import type { RawVerdict, RawVerification, Verdict, VerifyInput, VerifySource } from './contract';
 import { unsourcedAssertions } from './guard';
 
-export const FINAL_VERDICTS = ['supported', 'partial', 'unsupported', 'contradicted', 'not_checked'] as const;
-export type FinalVerdict = (typeof FINAL_VERDICTS)[number];
-
-export const VERDICT_FLAGS = [
-  'no_source',
-  'no_answer',
-  'answered_twice',
-  'quote_not_found',
-  'quote_from_other_source',
-  'part_not_in_claim',
-  'support_not_shown',
-  'contradiction_not_shown',
-  /** The claim asserts a property, a time, a change, a reason or an absence that no source it cites makes (guard.ts). */
-  'unsourced_assertion',
-] as const;
-export type VerdictFlag = (typeof VERDICT_FLAGS)[number];
+export { FINAL_VERDICTS, VERDICT_FLAGS, normalizeForMatch, type FinalVerdict, type VerdictFlag } from '../../domain/verdicts';
 
 export interface ClaimVerdict {
   claimId: string;
@@ -41,16 +27,6 @@ export interface ClaimVerdict {
   /** Parts of the claim its sources do not state, as they appear in the claim. */
   unsupportedParts: string[];
   flags: VerdictFlag[];
-}
-
-export function normalizeForMatch(s: string): string {
-  return s
-    .normalize('NFC')
-    .replace(/[‘’‚‛′]/g, "'")
-    .replace(/[“”„‟″]/g, '"')
-    .replace(/[‐-―−]/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 /** A quote must carry some text: "mg" is in every dose table. */

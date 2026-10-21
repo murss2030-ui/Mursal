@@ -15,12 +15,13 @@ import { buildCasePayload, calcInputsText, type CasePayload, type DraftedCard } 
 import { analyseModule } from '../../src/ai/analysis/run';
 import { cardKey, cleanStatement, verifyAnalysis } from '../../src/ai/analysis/verify';
 import { claimsFromSuggestions } from '../../src/ai/verification/claims';
+import { verifyDraft } from '../../src/ai/verification/draft';
 import { checkVerification } from '../../src/ai/verification/check';
 import { claimTargets, normalizeClaims, parseClaims } from '../../src/domain/card-data';
 import { buildCard, cardStaleness, citedEntryIds } from '../../src/domain/problem-card';
 import { MODULE_BY_ID } from '../../src/domain/workflow/catalogue';
 import { mustEdit } from '../../src/domain/types';
-import { newCase, newSession } from './helpers';
+import { newCase, newSession, standInVerifier } from './helpers';
 
 const ALL_VALID: ReadonlyMap<CalculatorId, Calculator> = new Map(CALCULATOR_DEFS.map((d) => [d.id, makeCalculator(d, { validated: true, passed: 1, at: 'test' })]));
 
@@ -150,8 +151,11 @@ describe('the checks in code on the draft', () => {
     expect(claim).toMatchObject({ source: 'entry', ref: ctx.scr0.id, also: [`e:${ctx.scr2.id}`], by: 'model' });
     expect(claimTargets(claim!).map((l) => l.id)).toEqual([ctx.scr0.id, ctx.scr2.id]);
 
-    // Accepted, the card checks the claim against both values.
-    await ctx.store.decideSuggestion(ctx.c.id, (await ctx.store.addAnalysis(ctx.c.id, analysisOf(suggestions, p.basedOn))).id, suggestions[0]!.id, { kind: 'accept' });
+    // Verified (a stand-in that finds every statement supported) and accepted, the card checks the claim against both values.
+    const a = await ctx.store.addAnalysis(ctx.c.id, analysisOf(suggestions, p.basedOn));
+    await ctx.store.updateAiSettings({ models: { verify: 'verifier-stand-in' } });
+    await verifyDraft(ctx.store, ctx.c.id, a.id, { fetch: standInVerifier().f, online: () => true }, p);
+    await ctx.store.decideSuggestion(ctx.c.id, a.id, suggestions[0]!.id, { kind: 'accept' });
     const item = (await ctx.store.listItems(ctx.c.id)).find((r) => r.register === 'drp')!;
     const cardCtx = await ctx.store.cardContext(ctx.c.id);
     expect(buildCard(item, cardCtx).claims[0]!.check).toEqual({ kind: 'numbers_found' });

@@ -226,13 +226,38 @@ export function draftModule(data: CaseData): unknown {
   };
 }
 
+// ---------------------------------------------------------------- the verifier's answers (M5)
+
+interface VerifyRequest {
+  sources: { id: string; text: string }[];
+  claims: { id: string; text: string; sources: string[] }[];
+}
+
+/**
+ * The verifier as a careful model would answer: each claim supported by a
+ * quote copied from the start of each source it cites (never the case
+ * header) — except a statement of what "may be needed", a judgement no source
+ * states, which is partly supported. The checks in code (check.ts, guard.ts)
+ * still run on every answer.
+ */
+export function verifyAnswer(req: VerifyRequest): unknown {
+  const text = (id: string) => req.sources.find((s) => s.id === id)?.text ?? '';
+  return {
+    results: req.claims.map((c) => {
+      const quotes = c.sources.filter((s) => s !== 'H').map((s) => ({ sourceId: s, text: text(s).slice(0, 24) }));
+      if (/may be needed/.test(c.text)) return { claimId: c.id, verdict: 'partial', contradicted: false, quotes, unsupportedParts: ['may be needed'] };
+      return { claimId: c.id, verdict: 'supported', contradicted: false, quotes, unsupportedParts: [] };
+    }),
+  };
+}
+
 // ---------------------------------------------------------------- the provider stand-in
 
 export interface ProviderCall {
   url: string;
   model: string;
   apiKey: string | null;
-  task: 'extract' | 'analyse' | 'other';
+  task: 'extract' | 'analyse' | 'verify' | 'other';
   pass?: number;
   module?: string;
   /** Every text part, joined. */
@@ -242,7 +267,7 @@ export interface ProviderCall {
 }
 
 /** Models the stand-in "knows"; any other id answers 404 like a retired model. */
-export const PROVIDER_MODELS = ['reader-test-1', 'drafter-test-1'];
+export const PROVIDER_MODELS = ['reader-test-1', 'drafter-test-1', 'verifier-test-1'];
 
 function geminiError(status: number, code: string, message: string): Response {
   return new Response(JSON.stringify({ error: { code: status, status: code, message } }), { status, headers: { 'content-type': 'application/json' } });
@@ -269,7 +294,7 @@ export function describeGeminiRequest(input: string | URL | Request, init?: Requ
       url,
       model: m ? decodeURIComponent(m[1]!) : '',
       apiKey: headers.get('x-goog-api-key'),
-      task: /^TASK: extract/m.test(header) ? 'extract' : /^TASK: analyse/m.test(header) ? 'analyse' : 'other',
+      task: /^TASK: extract/m.test(header) ? 'extract' : /^TASK: analyse/m.test(header) ? 'analyse' : /^TASK: verify/m.test(header) ? 'verify' : 'other',
       pass: Number(/^PASS: (\d)/m.exec(header)?.[1]) || undefined,
       module: /^MODULE: (\w+)/m.exec(header)?.[1],
       text: texts.join('\n'),
@@ -304,6 +329,8 @@ export function fakeGemini(calls: ProviderCall[], expectedKey: string): typeof f
       else if (texts.some((t) => t.includes('ADMISSION NOTE (synthetic teaching case)'))) output = readAdmissionNote(call.pass ?? 1);
     } else if (call.task === 'analyse') {
       output = draftModule(JSON.parse(texts[1] ?? '{}') as CaseData);
+    } else if (call.task === 'verify') {
+      output = verifyAnswer(JSON.parse(texts[1] ?? '{}') as VerifyRequest);
     }
     const out = JSON.stringify(output);
     const prompt = Math.ceil((texts.join('').length + (body.systemInstruction?.parts?.[0]?.text ?? '').length) / 4) + images.length * 1290;

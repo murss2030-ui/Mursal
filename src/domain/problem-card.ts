@@ -13,11 +13,12 @@
  * - the rank (owner decision D5) and the staleness (decisions D7 and D8);
  * - whether the card may enter the form's Sections 8 and 9.
  */
-import { claimTargets, parseClaims, parseLinks, type CardClaim, type CardLink } from './card-data';
+import { claimsValue, claimTargets, parseClaims, parseLinks, type CardClaim, type CardLink } from './card-data';
 import { L } from './label';
 import { doseNumbersInText, numbersInText } from './numbers';
 import { PCNE_CODE, type PcneCode } from './pcne';
 import { classificationUnanswered, pcneCoherence, type CoherenceIssue } from './pcne-coherence';
+import { claimKey, normalizeForMatch, passesGate, type ClaimVerification } from './verdicts';
 import { cipolleFor, formBoxesFor, type CipolleView } from './pcne-maps';
 import { compareEntries, indexTimeline } from './timeline';
 import type { CardDecision, CardReview, RegisterItem, TimelineEntry } from './types';
@@ -39,7 +40,34 @@ export interface CardContext {
   alertKeys?: ReadonlySet<string>;
   /** A calculator's name, for the reasons shown. */
   calcName?: (calcId: string) => L | undefined;
+  /** M5: the latest verdict of each checked statement, by its key (verdicts.ts). */
+  verdicts?: ReadonlyMap<string, ClaimVerification>;
 }
+
+/** M5: the latest verdict on one claim of a card: for exactly its words and what it cites. */
+export const claimVerdict = (c: CardClaim, ctx: Pick<CardContext, 'verdicts'>): ClaimVerification | undefined =>
+  ctx.verdicts?.get(claimKey(c.text, claimTargets(c).map((l) => `${l.kind}:${l.id}`)));
+
+/**
+ * M5: whose words a claim is, decided by its words, not by the editor: a
+ * claim is the model's exactly when its text is one the model drafted for this
+ * card (whitespace, quotes and dashes aside); rewritten, it is the trainee's.
+ * A card the trainee wrote has no model claims.
+ */
+export function markModelClaims(value: string | undefined, drafted: readonly CardClaim[]): string | undefined {
+  if (!value) return value;
+  const words = new Set(drafted.map((c) => normalizeForMatch(c.text)));
+  const claims = parseClaims(value).map(({ by: _by, ...c }) => (words.has(normalizeForMatch(c.text)) ? { ...c, by: 'model' as const } : c));
+  return claimsValue(claims);
+}
+
+/**
+ * M5, decision 6: the claims the model drafted that have not passed the gate —
+ * "supported", shown by a literal quote. A claim the trainee wrote or rewrote
+ * is theirs: it shows its verdict when checked, and is not gated.
+ */
+export const unverifiedModelClaims = (f: Readonly<Record<string, string>>, ctx: Pick<CardContext, 'verdicts'>): CardClaim[] =>
+  cardClaims(f).filter((c) => c.by === 'model' && !passesGate(claimVerdict(c, ctx)));
 
 // ---------------------------------------------------------------- PCNE and the two mappings
 
@@ -508,7 +536,9 @@ export type FormExclusion =
   | 'not_final'
   | 'untraced_dose'
   /** M5: its PCNE classification disagrees with the problem as written, and no reason was given. */
-  | 'classification';
+  | 'classification'
+  /** M5, decision 6: a claim the model drafted is not "supported" with a literal quote. */
+  | 'claims_not_verified';
 
 export interface CardFormStatus {
   /** Undefined: the card enters Section 8 (its boxes and its line). */
@@ -521,8 +551,10 @@ export interface CardFormStatus {
 
 /**
  * A stale card never enters the form (Section 7); neither does a rejected one,
- * one waiting for evidence or a senior review, a model draft not decided, or
- * one whose PCNE classification PRECEPTOR questions with no reason given.
+ * one waiting for evidence or a senior review, a model draft not decided, one
+ * whose PCNE classification PRECEPTOR questions with no reason given, or one
+ * with a claim the model drafted that the verifier has not found supported
+ * with a literal quote (decision 6).
  * Section 9 takes only the final recommendations of the cards that remain,
  * with every dose traced to its source (Section 12).
  */
@@ -534,6 +566,7 @@ export function cardFormStatus(item: RegisterItem, ctx: CardContext): CardFormSt
   else if (review.kind === 'undecided') s8 = 'undecided';
   else if (review.kind === 'decided' && (review.decision === 'rejected' || review.decision === 'needs_evidence' || review.decision === 'needs_senior_review')) s8 = review.decision;
   else if (classificationUnanswered(item.fields)) s8 = 'classification';
+  else if (unverifiedModelClaims(item.fields, ctx).length) s8 = 'claims_not_verified';
   let s9 = s8;
   if (!s9) {
     if (!item.fields.recommendation) s9 = 'no_recommendation';
@@ -553,7 +586,8 @@ export interface CardModel {
   boxes: CardBoxes;
   cipolle: CipolleView;
   links: { link: CardLink; entry?: TimelineEntry; result?: CalcResult; current: boolean }[];
-  claims: { claim: CardClaim; check: ClaimCheck }[];
+  /** Each claim with the checks in code and, once checked, the verifier's latest verdict on exactly these words and sources. */
+  claims: { claim: CardClaim; check: ClaimCheck; verdict?: ClaimVerification }[];
   reviews: CardReview[];
   review: ReviewState;
   stage: StageInfo;
@@ -582,7 +616,10 @@ export function buildCard(item: RegisterItem, ctx: CardContext): CardModel {
       const result = ctx.calcResults.find((r) => r.id === link.id);
       return { link, ...(result ? { result } : {}), current: !!result && !ctx.calcOutOfDate.has(result.id) };
     }),
-    claims: cardClaims(item.fields).map((claim) => ({ claim, check: checkClaim(claim, ctx, current) })),
+    claims: cardClaims(item.fields).map((claim) => {
+      const verdict = claimVerdict(claim, ctx);
+      return { claim, check: checkClaim(claim, ctx, current), ...(verdict ? { verdict } : {}) };
+    }),
     reviews: reviewsOf(item.id, ctx.reviews),
     review,
     stage: cardStage(item, review),

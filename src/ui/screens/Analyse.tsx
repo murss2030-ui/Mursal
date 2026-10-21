@@ -9,6 +9,7 @@
  */
 import { useMemo, useState } from 'react';
 import { analyseModule } from '../../ai/analysis/run';
+import { verifyDraft } from '../../ai/verification/draft';
 import { AiError, clinicalCaseBlocked } from '../../ai/client';
 import { readDocument } from '../../ai/extraction/run';
 import type { Attachment, CaseAnalysis, ExtractionRun } from '../../domain/types';
@@ -69,8 +70,10 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
   const entries = useEntries(caseId);
   const items = useItems(caseId);
   const [reading, setReading] = useState<{ i: number; n: number; label: string } | null>(null);
-  const [drafting, setDrafting] = useState<{ i: number; n: number; label: string } | null>(null);
+  const [drafting, setDrafting] = useState<{ i: number; n: number; label: string; verifying?: boolean } | null>(null);
   const [failures, setFailures] = useState<Record<string, string>>({});
+  /** M5: modules drafted but not checked by the verifier, with the reason. */
+  const [unverified, setUnverified] = useState<Record<string, string>>({});
   const [stopped, setStopped] = useState<string>();
   const [spent, setSpent] = useState(0);
 
@@ -137,6 +140,21 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
           const { [m.id]: _gone, ...rest } = f;
           return rest;
         });
+        // M5: the verifier checks the draft at once (decision 6). If it cannot, the draft is kept and says so; it can be checked later.
+        setDrafting({ i: i + 1, n: list.length, label: tl(m.title), verifying: true });
+        try {
+          await verifyDraft(store, caseId, a.id);
+          setUnverified((f) => {
+            const { [m.id]: _gone, ...rest } = f;
+            return rest;
+          });
+        } catch (e) {
+          setUnverified((f) => ({ ...f, [m.id]: t('analyse.verifyFailed', { reason: errorText(e, t) }) }));
+          if (e instanceof AiError && STOPPING.has(e.code) && e.code !== 'no_model') {
+            setStopped(errorText(e, t));
+            break;
+          }
+        }
       } catch (e) {
         setFailures((f) => ({ ...f, [m.id]: errorText(e, t) }));
         if (e instanceof AiError && STOPPING.has(e.code)) {
@@ -306,13 +324,18 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
                     {failures[m.id]}
                   </span>
                 )}
+                {!failures[m.id] && unverified[m.id] && (
+                  <span className="w-full text-xs text-amber-900" data-testid="analyse-module-unverified">
+                    {unverified[m.id]}
+                  </span>
+                )}
               </li>
             );
           })}
         </ul>
         {drafting && (
           <div className="flex flex-col gap-1.5" role="status" data-testid="analyse-progress">
-            <span className="text-sm text-slate-800">{t('analyse.drafting', { i: drafting.i, n: drafting.n, module: drafting.label })}</span>
+            <span className="text-sm text-slate-800">{t(drafting.verifying ? 'analyse.verifying' : 'analyse.drafting', { i: drafting.i, n: drafting.n, module: drafting.label })}</span>
             <ProgressBar value={drafting.i - 1} total={drafting.n} label={t('analyse.step3')} />
           </div>
         )}

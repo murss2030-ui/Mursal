@@ -11,6 +11,7 @@
  */
 import type { CaseKind } from '../../domain/types';
 import type { Store } from '../../store/store';
+import { maskForCase } from '../analysis/run';
 import { AiError, callModel, type AiErrorCode, type CallDeps } from '../client';
 import { modelsFor } from '../settings';
 import type { ModelUsage } from '../protocol';
@@ -25,7 +26,7 @@ const STOPS: ReadonlySet<AiErrorCode> = new Set(['offline', 'network', 'no_model
 
 export interface VerifyRun {
   verdicts: ClaimVerdict[];
-  calls: { model: string; usage: ModelUsage; claims: number }[];
+  calls: { model: string; usage: ModelUsage; claims: number; claimIds: string[] }[];
   /** Batches the service could not answer: their claims are "not checked". */
   failures: { claimIds: string[]; code: AiErrorCode; message: string }[];
 }
@@ -50,6 +51,8 @@ export async function verifyClaims(store: Store, scope: { caseId: string; caseKi
   for (const batch of batches(input)) {
     let output: RawVerification = { results: [] }; // until a model answers: every claim of the batch not checked
     let last: AiError | undefined;
+    // As for drafting: free text typed into the record could still hold an identifier, masked before it leaves the device.
+    const text = await maskForCase(store, scope.caseId, verifyRequestText(batch));
     for (const model of models.length ? models : [undefined]) {
       try {
         const res = await callModel<RawVerification>(
@@ -61,14 +64,14 @@ export async function verifyClaims(store: Store, scope: { caseId: string; caseKi
             caseId: scope.caseId,
             caseKind: scope.caseKind,
             system: VERIFY_SYSTEM,
-            parts: [{ text: verifyHeader(batch.claims.length) }, { text: verifyRequestText(batch) }],
+            parts: [{ text: verifyHeader(batch.claims.length) }, { text }],
             schema: verificationSchema(batch),
             maxOutputTokens: 8192,
             temperature: 0,
           },
           deps,
         );
-        calls.push({ model: res.model, usage: res.usage, claims: batch.claims.length });
+        calls.push({ model: res.model, usage: res.usage, claims: batch.claims.length, claimIds: batch.claims.map((c) => c.id) });
         output = res.output;
         last = undefined;
         break;

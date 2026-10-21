@@ -61,6 +61,36 @@ const fieldWords = (f: FieldDef): string => f.label.en.replace(/\s*\([^)]*\d[^)]
 /** A choice's wording ("Patient interview, Medication containers"), or the value itself. */
 const choiceWords = (f: FieldDef, v: string): string => (f.options ? v.split('|').map((x) => f.options!.find((o) => o.value === x)?.label.en ?? x).join(', ') : v);
 
+/** The case as every statement may use it: kind, age (a band over 89), sex, height, status, today's hospital day. No identifier. */
+export function caseHeader(c: Case, today: string) {
+  return {
+    kind: c.kind,
+    age: c.demographics.ageYears >= 90 ? ('90 or older' as const) : c.demographics.ageYears,
+    sex: c.demographics.sex,
+    ...(c.demographics.heightCm ? { heightCm: c.demographics.heightCm } : {}),
+    status: c.status,
+    hospitalDayToday: c.status === 'active' ? hospitalDayOf(c.admissionDay0, today) : null,
+  };
+}
+
+/** A timeline entry as sent: its label, its text, and the text with its day and time (what a statement citing it is checked against). */
+export function entrySource(e: TimelineEntry): { label: string; body: string; text: string } {
+  const tx = entryText(e, tEn);
+  const body = [tx.main, ...tx.details].join('; ');
+  return { label: tx.main, body, text: `Day ${e.hospitalDay} ${e.timeOfDay ?? ''} ${body}` };
+}
+
+/** A calculation result as sent: its value and unit, category, secondary values, day and inputs. */
+export function calcSource(r: CalcResult): { label: string; text: string } {
+  const name = CALC_BY_ID.get(r.calc)?.name ?? r.calc;
+  const secondary = (r.secondary ?? []).map((x) => `${x.label.en}: ${show(x.value, x.unit, x.decimals)}`).join('; ');
+  const inputs = calcInputsText(r);
+  return {
+    label: name,
+    text: `${name}: ${show(r.value, r.unit, r.decimals)}${r.category ? ` (${r.category.label.en})` : ''}${secondary ? `; ${secondary}` : ''}${r.day !== undefined ? ` — Day ${r.day}` : ''}${inputs ? `; inputs: ${inputs}` : ''}`,
+  };
+}
+
 /** The inputs of a calculation result, each with its unit and the day of its value: "Weight 70 kg (Day 0), Serum creatinine 2.1 mg/dL (Day 2), Sex male". */
 export function calcInputsText(r: CalcResult): string {
   const def = CALC_BY_ID.get(r.calc);
@@ -178,10 +208,9 @@ export function buildCasePayload(input: {
     .map((e, i) => {
       const ref = `E${i + 1}`;
       entryRef.set(e.id, ref);
-      const tx = entryText(e, tEn);
-      const text = [tx.main, ...tx.details].join('; ');
-      refs.set(ref, { kind: 'entry', id: e.id, label: tx.main, text: `Day ${e.hospitalDay} ${e.timeOfDay ?? ''} ${text}`, subject: kindKey(e), day: e.hospitalDay });
-      return { ref, day: e.hospitalDay, ...(e.timeOfDay ? { time: e.timeOfDay } : {}), type: e.type, text };
+      const s = entrySource(e);
+      refs.set(ref, { kind: 'entry', id: e.id, label: s.label, text: s.text, subject: kindKey(e), day: e.hospitalDay });
+      return { ref, day: e.hospitalDay, ...(e.timeOfDay ? { time: e.timeOfDay } : {}), type: e.type, text: s.body };
     });
 
   // M4: the current calculation results, each with its formula's result, unit and day (a dose may come only from one of these).
@@ -192,12 +221,8 @@ export function buildCasePayload(input: {
     .map((r, i) => {
       const ref = `C${i + 1}`;
       calcRef.set(r.id, ref);
-      const def = CALC_BY_ID.get(r.calc);
-      const name = def?.name ?? r.calc;
-      const secondary = (r.secondary ?? []).map((x) => `${x.label.en}: ${show(x.value, x.unit, x.decimals)}`).join('; ');
-      const inputs = calcInputsText(r);
-      const text = `${name}: ${show(r.value, r.unit, r.decimals)}${r.category ? ` (${r.category.label.en})` : ''}${secondary ? `; ${secondary}` : ''}${r.day !== undefined ? ` — Day ${r.day}` : ''}${inputs ? `; inputs: ${inputs}` : ''}`;
-      refs.set(ref, { kind: 'calc', id: r.id, label: name, text, subject: `calc:${r.calc}`, ...(r.day !== undefined ? { day: r.day } : {}) });
+      const { label, text } = calcSource(r);
+      refs.set(ref, { kind: 'calc', id: r.id, label, text, subject: `calc:${r.calc}`, ...(r.day !== undefined ? { day: r.day } : {}) });
       return { ref, text };
     });
 
@@ -248,16 +273,8 @@ export function buildCasePayload(input: {
 
   const tasks = input.module.tasks.filter((id) => !UNDRAFTED_TASKS.has(id)).map((id) => TASKS.get(id)!).filter(Boolean);
   const byTask = new Map(input.tasks.map((t) => [t.taskId, t]));
-  const age = c.demographics.ageYears >= 90 ? '90 or older' : c.demographics.ageYears;
   const payload = {
-    case: {
-      kind: c.kind,
-      age,
-      sex: c.demographics.sex,
-      ...(c.demographics.heightCm ? { heightCm: c.demographics.heightCm } : {}),
-      status: c.status,
-      hospitalDayToday: c.status === 'active' ? hospitalDayOf(c.admissionDay0, input.today) : null,
-    },
+    case: caseHeader(c, input.today),
     timeline,
     medications: meds,
     problems: probs,

@@ -40,8 +40,10 @@ import type {
 } from '../domain/types';
 import { CARD_DECISIONS, DECISIONS_NEEDING_REASON, mustEdit, REGISTER_IDS, SOURCE_DOC_TYPES } from '../domain/types';
 import { claimTargets, parseClaims, parseLinks } from '../domain/card-data';
-import { cardStaleness, contentHash, fromModel, type CardContext } from '../domain/problem-card';
+import { cardStaleness, contentHash, fromModel, markModelClaims, unverifiedModelClaims, type CardContext } from '../domain/problem-card';
+import type { CardClaim } from '../domain/card-data';
 import { classificationUnanswered } from '../domain/pcne-coherence';
+import { indexVerdicts, passesDraftGate, type ClaimVerification } from '../domain/verdicts';
 import { resultCurrency } from '../calc/currency';
 import { DRP_RECORD_FIELDS, normalizeItemFields, REGISTERS } from '../domain/workflow/registers';
 import { normalizeTaskInput, type TaskInput } from '../domain/workflow/tasks';
@@ -1002,11 +1004,20 @@ export class Store {
     if (Object.keys(e).length) throw new ValidationError(e);
   }
 
+  /** M5: the claims the model drafted for a card that came from a draft (none for the trainee's own card). */
+  private async draftedClaims(origin: RegisterItem['origin']): Promise<CardClaim[]> {
+    if (origin?.kind !== 'suggestion') return [];
+    const a = await this.latest<CaseAnalysis>('analyses', origin.analysisId);
+    return parseClaims(a?.suggestions.find((s) => s.id === origin.suggestionId)?.fields?.claims);
+  }
+
   async addItem(caseId: string, register: RegisterId, input: Record<string, string>): Promise<RegisterItem> {
     await this.writableCase(caseId);
     if (!(REGISTER_IDS as readonly string[]).includes(register)) throw new ValidationError({ register: 'invalidChoice' });
     const n = normalizeItemFields(register, input);
     if (!n.ok) throw new ValidationError(n.errors);
+    // A card the trainee writes holds no model claims, whatever the input says.
+    if (register === 'drp') n.fields = ownedClaims(n.fields, []);
     await this.checkItemRefs(caseId, register, n.fields);
     const id = this.uuid();
     return this.writeVersion<RegisterItem>(
@@ -1038,6 +1049,8 @@ export class Store {
     if (opts.decision && prev.register !== 'drp') throw new IntegrityError('Only a Problem Card is reviewed.');
     const n = normalizeItemFields(prev.register, input);
     if (!n.ok) throw new ValidationError(n.errors);
+    // M5: a claim stays the model's only while its words are the model's (markModelClaims).
+    if (prev.register === 'drp') n.fields = ownedClaims(n.fields, await this.draftedClaims(prev.origin));
     await this.checkItemRefs(caseId, prev.register, n.fields, prev.fields);
     if (sameStrings(prev.fields, n.fields)) {
       if (opts.decision) throw new IntegrityError('Nothing was changed. To keep the card as it is, choose Accept.');
@@ -1115,11 +1128,62 @@ export class Store {
     return this.decodeCardReviews(await this.rawCardReviews(caseId));
   }
 
+  // ------------------------------------------------------------------ M5: the verifier's verdicts (Section 12, check 4)
+
+  rawClaimChecks(caseId: string): Promise<EncryptedRow[]> {
+    return this.db.claimChecks.where('caseId').equals(caseId).toArray();
+  }
+
+  async decodeClaimChecks(rows: EncryptedRow[]): Promise<ClaimVerification[]> {
+    return (await this.openRows<ClaimVerification>('claimChecks', rows)).sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : 1));
+  }
+
+  async listClaimChecks(caseId: string): Promise<ClaimVerification[]> {
+    return this.decodeClaimChecks(await this.rawClaimChecks(caseId));
+  }
+
+  /**
+   * Records the verdicts of one run of the verifier, append-only: a later check
+   * of the same statement is a new record, and the latest one is shown. The
+   * audit event records the counts, the model and the prompt — never the text.
+   */
+  async addClaimChecks(caseId: string, checks: readonly Omit<ClaimVerification, 'id' | 'caseId' | 'at'>[]): Promise<ClaimVerification[]> {
+    await this.writableCase(caseId);
+    if (!checks.length) return [];
+    const at = this.nowIso();
+    const records: ClaimVerification[] = checks.map((x) => stripUndefined({ ...x, id: this.uuid(), caseId, at }));
+    const rows = await Promise.all(records.map((r) => this.sealRow('claimChecks', { id: r.id, caseId }, r)));
+    const count = (v: string) => records.filter((r) => r.verdict === v).length;
+    const audit = await this.auditRow({
+      entity: 'claim_check',
+      entityId: records[0]!.id,
+      caseId,
+      action: 'create',
+      actor: 'model',
+      diff: {
+        statements: records.length,
+        supported: count('supported'),
+        partial: count('partial'),
+        unsupported: count('unsupported'),
+        contradicted: count('contradicted'),
+        notChecked: count('not_checked'),
+        models: [...new Set(records.flatMap((r) => (r.model ? [r.model] : [])))],
+        promptVersion: records[0]!.promptVersion,
+        origins: [...new Set(records.map((r) => r.origin.kind))],
+      },
+    });
+    await this.db.transaction('rw', [this.db.claimChecks, this.db.audit], async () => {
+      await this.db.claimChecks.bulkAdd(rows);
+      await this.db.audit.add(audit);
+    });
+    return records;
+  }
+
   /** What a Problem Card's staleness and checks read: every entry, every calculation result and which are out of date, every decision. */
   async cardContext(caseId: string): Promise<CardContext> {
     const c = await this.getCase(caseId);
     if (!c) throw new IntegrityError(`Case ${caseId} does not exist.`);
-    const [entries, calcResults, reviews] = await Promise.all([this.listEntries(caseId), this.listCalcResults(caseId), this.listCardReviews(caseId)]);
+    const [entries, calcResults, reviews, checks] = await Promise.all([this.listEntries(caseId), this.listCalcResults(caseId), this.listCardReviews(caseId), this.listClaimChecks(caseId)]);
     const ctx = { demographics: c.demographics, current: indexTimeline(entries).current };
     const calcOutOfDate = new Set(
       calcResults
@@ -1133,7 +1197,7 @@ export class Store {
       const def = this.calculators.get(id as CalculatorId);
       return def ? { en: def.name, ar: def.nameAr } : undefined;
     };
-    return { entries, calcResults, calcOutOfDate, reviews, calcName };
+    return { entries, calcResults, calcOutOfDate, reviews, calcName, verdicts: indexVerdicts(checks).byKey };
   }
 
   /**
@@ -1190,6 +1254,10 @@ export class Store {
     // M5: a card saved before the coherence check, whose classification it questions, is edited before it is accepted.
     if (input.decision === 'accepted' && classificationUnanswered(item.fields)) {
       throw new IntegrityError('Its PCNE classification disagrees with the problem as written: edit the card to correct the codes or to say why they fit, then accept it.');
+    }
+    // M5, decision 6: a claim the model drafted is accepted only once the verifier found it supported, with a quote.
+    if (input.decision === 'accepted' && unverifiedModelClaims(item.fields, await this.cardContext(caseId)).length) {
+      throw new IntegrityError('A claim the AI drafted has not been found supported by its source: check the claims with the verifier, or edit them in your own words, then accept the card.');
     }
     const row = await this.sealRow('cardReviews', { id: review.id, caseId }, review);
     const audit = await this.reviewAudit(review);
@@ -1463,6 +1531,16 @@ export class Store {
     if (d.kind !== 'reject' && (await this.isAnalysisStale(a))) throw new IntegrityError('The data changed after this analysis. Re-analyse before accepting its suggestions.');
     // M5: what the checks hold back is edited (in the trainee's own words) or rejected, never taken as it is.
     if ((d.kind === 'accept' || pending) && mustEdit(sg)) throw new IntegrityError('This suggestion must be edited or rejected: it cannot be accepted as it is.');
+    // M5, decision 6: a drafted statement is accepted as it is only when the verifier found it supported, shown by a literal quote.
+    // (A Problem Card may still be kept as waiting for evidence or for a senior review: it then stays out of the form.)
+    const gated = !passesDraftGate(sg, analysisId, indexVerdicts(await this.listClaimChecks(caseId)).byOrigin);
+    if (d.kind === 'accept' && gated) {
+      throw new IntegrityError('The verifier has not found every statement of this suggestion supported by its source: edit it in your own words, or reject it.');
+    }
+    if (d.kind === 'edit' && (gated || mustEdit(sg))) {
+      const unchanged = sg.kind === 'item' ? sameStrings(trimmedValues(sg.fields ?? {}), trimmedValues(d.fields ?? sg.fields ?? {})) : (d.text ?? '').trim() === (sg.text ?? '').trim();
+      if (unchanged) throw new IntegrityError('Nothing was changed: a suggestion the checks hold back is edited in your own words, or rejected.');
+    }
 
     let applied: SuggestionDecision['appliedTo'];
     let also: { tables: EncryptedTableName[]; run: () => Promise<void> } | undefined;
@@ -1472,6 +1550,7 @@ export class Store {
         const fields = (d.kind === 'edit' ? d.fields : undefined) ?? sg.fields ?? {};
         const n = normalizeItemFields(sg.register!, fields);
         if (!n.ok) throw new ValidationError(n.errors);
+        if (sg.register === 'drp') n.fields = ownedClaims(n.fields, parseClaims(sg.fields?.claims));
         await this.checkItemRefs(caseId, sg.register!, n.fields);
         const id = this.uuid();
         const now = this.nowIso();
@@ -1930,6 +2009,19 @@ function sameStrings(a: Record<string, string>, b: Record<string, string>): bool
   const ka = Object.keys(a);
   const kb = Object.keys(b);
   return ka.length === kb.length && ka.every((k) => a[k] === b[k]);
+}
+
+/** A card's fields with each claim marked the model's exactly when its words are a drafted claim's (problem-card.ts). */
+function ownedClaims(fields: Record<string, string>, drafted: readonly CardClaim[]): Record<string, string> {
+  if (!fields.claims) return fields;
+  const { claims: _old, ...rest } = fields;
+  const claims = markModelClaims(fields.claims, drafted);
+  return claims ? { ...rest, claims } : rest;
+}
+
+/** Values as compared for "nothing was changed": trimmed, empty ones left out. */
+function trimmedValues(r: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(r).flatMap(([k, v]) => (v?.trim() ? [[k, v.trim()]] : [])));
 }
 
 function sameTask(prev: TaskRecord, next: TaskInput): boolean {

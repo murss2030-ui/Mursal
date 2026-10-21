@@ -703,7 +703,13 @@ export type AuditEntity =
   | 'onc'
   | 'alert'
   | 'causality'
-  | 'card_review';
+  | 'card_review'
+  /** M5: the verifier's verdicts on a set of statements. */
+  | 'claim_check'
+  /** M5: a document of the trainee's evidence library. */
+  | 'library_document'
+  /** M5: research on one question. */
+  | 'research_run';
 
 export type AuditAction =
   | 'create'

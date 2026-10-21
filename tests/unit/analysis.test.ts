@@ -4,13 +4,14 @@ import { FIELD_LIMITS, TRAINEE_ONLY_CHECKS, TRAINEE_ONLY_REGISTERS, UNDRAFTED_TA
 import { buildCasePayload } from '../../src/ai/analysis/payload';
 import { analyseModule } from '../../src/ai/analysis/run';
 import { cleanStatement, verifyAnalysis } from '../../src/ai/analysis/verify';
+import { verifyDraft } from '../../src/ai/verification/draft';
 import type { ModelResponse } from '../../src/ai/protocol';
 import { validateOutput } from '../../src/ai/schema';
 import { MODULE_BY_ID, TASKS } from '../../src/domain/workflow/catalogue';
 import { REGISTERS } from '../../src/domain/workflow/registers';
 import { ValidationError } from '../../src/domain/validation';
 import { IntegrityError } from '../../src/store/store';
-import { newCase, newSession } from './helpers';
+import { newCase, newSession, standInVerifier } from './helpers';
 
 async function caseWithData(kind: 'teaching' | 'clinical' = 'clinical', age = 64) {
   const ctx = await newSession();
@@ -394,6 +395,10 @@ describe('analysing a module and deciding its suggestions', () => {
   it('applies one accepted suggestion at a time, and records a rejection only with its reason', async () => {
     const { a, store, c } = await analysed();
     const check = a.suggestions.find((x) => x.kind === 'check')!;
+    // M5, decision 6: not before the verifier has found its reason supported by the data it cites.
+    await expect(store.decideSuggestion(c.id, a.id, check.id, { kind: 'accept' })).rejects.toThrow(/verifier/);
+    await store.updateAiSettings({ models: { analyse: 'model-a', verify: 'verifier-stand-in' } });
+    await verifyDraft(store, c.id, a.id, { fetch: standInVerifier().f, online: () => true });
     const after = await store.decideSuggestion(c.id, a.id, check.id, { kind: 'accept' });
     const task = (await store.listTasks(c.id)).find((t) => t.taskId === 't08')!;
     expect(task.checks[check.checkId!]).toBe('issue');

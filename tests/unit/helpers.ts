@@ -48,6 +48,39 @@ export async function newCase(store: Store, over: Partial<Parameters<Store['crea
   });
 }
 
+/**
+ * A stand-in for the relay answering the verifier (task "verify"): by default
+ * every claim is supported, shown by a quote of the first characters of each
+ * source it cites (never the case header). `answer` can return another verdict
+ * for a claim. Every request body is kept.
+ */
+export function standInVerifier(
+  answer?: (claim: { id: string; text: string; sources: string[] }, sourceText: (id: string) => string) => Record<string, unknown> | undefined,
+) {
+  const bodies: { task: string; parts: { text: string }[] }[] = [];
+  const f = (async (_url: string, init: RequestInit = {}) => {
+    const body = JSON.parse(String(init.body)) as { task: string; parts: { text: string }[] };
+    bodies.push(body);
+    const req = JSON.parse(body.parts[1]!.text) as { sources: { id: string; text: string }[]; claims: { id: string; text: string; sources: string[] }[] };
+    const text = (id: string) => req.sources.find((s) => s.id === id)?.text ?? '';
+    const results = req.claims.map(
+      (c) =>
+        answer?.(c, text) ?? {
+          claimId: c.id,
+          verdict: 'supported',
+          contradicted: false,
+          quotes: c.sources.filter((s) => s !== 'H').map((s) => ({ sourceId: s, text: text(s).slice(0, 24) })),
+          unsupportedParts: [],
+        },
+    );
+    return new Response(JSON.stringify({ output: { results }, usage: { inputTokens: 100, outputTokens: 50, costUsd: 0.0001 }, model: 'verifier-stand-in', budget: { month: '2026-10', budgetUsd: 5, spentUsd: 0 } }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  }) as unknown as typeof fetch;
+  return { f, bodies };
+}
+
 /** All raw bytes and plain fields stored in IndexedDB, as one searchable string. */
 export async function rawDump(db: PreceptorDB): Promise<string> {
   const dec = new TextDecoder('utf-8', { fatal: false });

@@ -31,6 +31,7 @@ import type {
 import { choiceLabel, DRP_CATEGORIES } from '../workflow/registers';
 import { cardBoxes, cardFormStatus, cardPcne, rankCards, type CardContext, type FormExclusion } from '../problem-card';
 import { PCNE_MAPS_APPROVED } from '../pcne-maps';
+import type { ClaimVerification } from '../verdicts';
 import type { CalcResult } from '../../calc/types';
 import { show } from '../../calc/units';
 import { DRP_CHECKBOXES, FIELD_LABELS, FORM_DEPENDENCIES, SECTION_TITLES, type FieldKey, type FormLabel } from './spec';
@@ -166,6 +167,8 @@ export interface FormContext {
   calcOutOfDate?: ReadonlySet<string>;
   /** M4: the decisions on the Problem Cards (Sections 8 and 9 take only cards that are current and not disputed). */
   reviews?: readonly CardReview[];
+  /** M5: the verifier's latest verdicts by statement: a card enters Sections 8 and 9 only with its drafted claims supported (decision 6). */
+  verdicts?: ReadonlyMap<string, ClaimVerification>;
   /**
    * M2: the rules engine's interaction check for Section 7, kept apart from
    * the trainee's rows. `checked: false` when no interaction dataset is
@@ -694,7 +697,7 @@ function section7(ctx: FormContext): FormSectionView {
 
 /** Every active Problem Card, ranked, with whether it may enter Sections 8 and 9 (problem-card.ts). */
 function cardsForForm(ctx: FormContext) {
-  const cardCtx: CardContext = { entries: ctx.entries, calcResults: ctx.calcResults ?? [], calcOutOfDate: ctx.calcOutOfDate ?? new Set(), reviews: ctx.reviews ?? [] };
+  const cardCtx: CardContext = { entries: ctx.entries, calcResults: ctx.calcResults ?? [], calcOutOfDate: ctx.calcOutOfDate ?? new Set(), reviews: ctx.reviews ?? [], ...(ctx.verdicts ? { verdicts: ctx.verdicts } : {}) };
   return rankCards(activeItems(ctx, 'drp')).map((item) => ({ item, status: cardFormStatus(item, cardCtx) }));
 }
 

@@ -11,7 +11,8 @@ import type { Attachment, CardReview, Case, CaseAnalysis, CaseIdentifiers, Causa
 import { analysisStale } from '../store/store';
 import { indexTasks } from '../domain/workflow/tasks';
 import { buildCard, rankCards, type CardContext, type CardModel } from '../domain/problem-card';
-import { useAnalyses, useAttachments, useCalcResults, useCardReviews, useCausality, useCaseVersions, useEntries, useExtractions, useIdentifiers, useItems, useTasks } from './data';
+import { useAnalyses, useAttachments, useCalcResults, useCardReviews, useCausality, useCaseVersions, useClaimChecks, useEntries, useExtractions, useIdentifiers, useItems, useTasks } from './data';
+import { indexVerdicts, originKey, type ClaimVerification, type VerifiedOrigin } from '../domain/verdicts';
 import { pendingFromRuns, resultCurrency } from '../calc/currency';
 import type { GatherContext } from '../calc/gather';
 import { CALC_BY_ID } from '../calc/registry';
@@ -52,6 +53,10 @@ export interface CaseBundle {
   cards: CardModel[];
   /** The model's suggestion a register row was accepted from, if any. */
   suggestionOf: (item: RegisterItem) => Suggestion | undefined;
+  /** M5: the verifier's latest verdict on a statement, by where it is (a draft's reason, note or claim; a card's claim). */
+  verdictAt: (origin: VerifiedOrigin) => ClaimVerification | undefined;
+  /** M5: the verdicts by where they are, for the gate on drafts (verdicts.ts). */
+  verdictsByOrigin: ReadonlyMap<string, ClaimVerification>;
 }
 
 export type BundleState = { status: 'loading' } | { status: 'error'; error: Error } | { status: 'missing' } | { status: 'ready'; b: CaseBundle };
@@ -74,9 +79,10 @@ export function useCaseBundle(caseId: string): BundleState {
   const runs = useExtractions(caseId);
   const causality = useCausality(caseId);
   const reviews = useCardReviews(caseId);
+  const checks = useClaimChecks(caseId);
   const today = store.today();
   return useMemo((): BundleState => {
-    const all = [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, reviews];
+    const all = [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, reviews, checks];
     const err = all.find((x) => x.status === 'error');
     if (err && err.status === 'error') return { status: 'error', error: err.error };
     if (
@@ -90,10 +96,12 @@ export function useCaseBundle(caseId: string): BundleState {
       calcs.status !== 'ready' ||
       runs.status !== 'ready' ||
       causality.status !== 'ready' ||
-      reviews.status !== 'ready'
+      reviews.status !== 'ready' ||
+      checks.status !== 'ready'
     ) {
       return { status: 'loading' };
     }
+    const verdicts = indexVerdicts(checks.data);
     const c = versions.data.at(-1);
     if (!c) return { status: 'missing' };
     const current = indexTimeline(entries.data).current;
@@ -112,7 +120,7 @@ export function useCaseBundle(caseId: string): BundleState {
         })
         .map((r) => r.id),
     );
-    const cardContext: CardContext = { entries: entries.data, calcResults: calcs.data, calcOutOfDate, reviews: reviews.data, calcName };
+    const cardContext: CardContext = { entries: entries.data, calcResults: calcs.data, calcOutOfDate, reviews: reviews.data, calcName, verdicts: verdicts.byKey };
     return {
       status: 'ready',
       b: {
@@ -144,7 +152,9 @@ export function useCaseBundle(caseId: string): BundleState {
           if (o?.kind !== 'suggestion') return undefined;
           return analyses.data.find((a) => a.id === o.analysisId)?.suggestions.find((x) => x.id === o.suggestionId);
         },
+        verdictAt: (o) => verdicts.byOrigin.get(originKey(o)),
+        verdictsByOrigin: verdicts.byOrigin,
       },
     };
-  }, [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, reviews, today]);
+  }, [versions, entries, tasks, items, atts, ids, analyses, calcs, runs, causality, reviews, checks, today]);
 }

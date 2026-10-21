@@ -188,7 +188,7 @@ describe('verifying claims through callModel (task "verify")', () => {
       ['V2', 'unsupported'],
       ['V3', 'unsupported'],
     ]);
-    expect(run.calls).toEqual([{ model: 'verifier-test', usage: { inputTokens: 900, outputTokens: 200, costUsd: 0.0006 }, claims: 2 }]);
+    expect(run.calls).toEqual([{ model: 'verifier-test', usage: { inputTokens: 900, outputTokens: 200, costUsd: 0.0006 }, claims: 2, claimIds: ['V1', 'V2'] }]);
     expect(run.failures).toEqual([]);
     const audit = (await store.listAudit(c.id)).filter((e) => e.entity === 'model_call');
     expect(audit.map((e) => e.diff)).toEqual([expect.objectContaining({ task: 'verify', promptVersion: 'verify-v2', outcome: 'ok' })]);
@@ -254,7 +254,7 @@ describe('verifying claims through callModel (task "verify")', () => {
 // ---------------------------------------------------------------- the statements of a drafted module
 
 describe('the statements of a drafted module that rest on case data', () => {
-  it('become claims with the data they cite and the case header; general knowledge and notes are not sent', async () => {
+  it('become claims with the data they cite and the case header; general knowledge, missing data and questions are not sent; a summary is checked against the whole case', async () => {
     const { store, c } = await session();
     const scr = await store.addEntry(c.id, { type: 'lab', hospitalDay: 1, payload: { analyte: 'scr', analyteName: 'Serum creatinine', result: { kind: 'numeric', value: 2.6 }, unit: 'mg/dL' } });
     await store.addEntry(c.id, {
@@ -300,7 +300,15 @@ describe('the statements of a drafted module that rest on case data', () => {
     expect(validateOutput(raw, analysisSchema(p.tasks))).toEqual([]);
     const { suggestions } = verifyAnalysis(raw, p);
     const { input, origin } = claimsFromSuggestions(suggestions, p);
-    expect(input.claims.map((x) => x.text)).toEqual(['Creatinine has risen while enoxaparin continues.', 'Serum creatinine is 2.6 mg/dL on Day 1.', 'Enoxaparin 40 mg SC once daily is ordered.']);
+    expect(input.claims.map((x) => x.text)).toEqual([
+      'Creatinine has risen while enoxaparin continues.',
+      'Serum creatinine is 2.6 mg/dL on Day 1.',
+      'Enoxaparin 40 mg SC once daily is ordered.',
+      // M5: the summary, last, against every entry, medication, problem and calculation sent.
+      'Creatinine 2.6 mg/dL on Day 1.',
+    ]);
+    const summary = input.claims[3]!;
+    expect(summary.sourceIds.length).toBe(1 + [...p.refs.values()].filter((t) => t.kind !== 'item').length);
     // Every claim may use the case header; each cites the very text the drafting model received.
     expect(input.claims.every((x) => x.sourceIds[0] === 'H')).toBe(true);
     const text = (id: string) => input.sources.find((s) => s.id === id)!.text;
@@ -308,7 +316,7 @@ describe('the statements of a drafted module that rest on case data', () => {
     // The medication claim points to the order on the timeline, and is checked against the course as sent.
     expect(text(input.claims[2]!.sourceIds[1]!)).toMatch(/^enoxaparin 40 mg SC once daily from Day 0 active for VTE prophylaxis$/);
     expect(text('H')).toMatch(/"age":67/);
-    expect([...origin.values()].map((o) => o.part)).toEqual(['reason', { claim: 0 }, { claim: 1 }]);
+    expect([...origin.values()].map((o) => o.part)).toEqual(['reason', { claim: 0 }, { claim: 1 }, 'text']);
     expect(scr.id).toBeTruthy();
   });
 });

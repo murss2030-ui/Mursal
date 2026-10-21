@@ -18,6 +18,7 @@ import type {
 } from '../domain/types';
 import type { CalcResult } from '../calc/types';
 import type { ReferenceKind } from '../domain/reference';
+import type { ClaimVerification } from '../domain/verdicts';
 import { useLiveDecoded } from './hooks';
 
 export const useRotations = () =>
@@ -161,6 +162,14 @@ export const useCardReviews = (caseId: string) =>
   useLiveDecoded(
     (s) => s.rawCardReviews(caseId),
     (s, rows): Promise<CardReview[]> => s.decodeCardReviews(rows),
+    [caseId],
+  );
+
+/** M5: the verifier's verdicts on the case's statements, oldest first. */
+export const useClaimChecks = (caseId: string) =>
+  useLiveDecoded(
+    (s) => s.rawClaimChecks(caseId),
+    (s, rows): Promise<ClaimVerification[]> => s.decodeClaimChecks(rows),
     [caseId],
   );
 

@@ -15,7 +15,7 @@ import { analysisSchema, ANALYSE_PROMPT_VERSION, ANALYSE_SYSTEM, type RawAnalysi
 import { buildCasePayload, draftableRegisters, type CasePayload } from '../../src/ai/analysis/payload';
 import { verifyAnalysis } from '../../src/ai/analysis/verify';
 import { isOutputSchema, validateOutput } from '../../src/ai/schema';
-import { parseClaims, parseLinks } from '../../src/domain/card-data';
+import { claimsValue, parseClaims, parseLinks } from '../../src/domain/card-data';
 import { cardFields, reviewState } from '../../src/domain/problem-card';
 import { MODULE_BY_ID, MODULES, TASKS } from '../../src/domain/workflow/catalogue';
 import { newCase, newSession } from './helpers';
@@ -238,14 +238,20 @@ describe('a drafted card is decided on its own', () => {
     return { ...ctx, a, sg: suggestions.find((x) => x.kind === 'item')! };
   }
 
-  it('accepted: the card exists with its first decision; its fields are filled or explicitly missing', async () => {
+  it('edited: the card exists with its first decision; its fields are filled or explicitly missing', async () => {
     const { store, c, a, sg } = await drafted();
     expect(sg.checks).not.toContain('incomplete');
-    await store.decideSuggestion(c.id, a.id, sg.id, { kind: 'accept' });
+    // M5, decision 6: a card with a general-knowledge claim, or a claim the verifier has not found supported, is not accepted as it is.
+    await expect(store.decideSuggestion(c.id, a.id, sg.id, { kind: 'accept' })).rejects.toThrow(/verifier/);
+    // Saved unchanged, an edit would be an acceptance in disguise.
+    await expect(store.decideSuggestion(c.id, a.id, sg.id, { kind: 'edit', fields: { ...sg.fields! } })).rejects.toThrow(/Nothing was changed/);
+    // The trainee removes the claims without a source and saves the card in their own words.
+    const kept = parseClaims(sg.fields!.claims).filter((x) => x.source !== 'none');
+    await store.decideSuggestion(c.id, a.id, sg.id, { kind: 'edit', fields: { ...sg.fields!, claims: claimsValue(kept) } });
     const [card] = await store.listItems(c.id);
     expect(card!.origin).toEqual({ kind: 'suggestion', analysisId: a.id, suggestionId: sg.id });
     const reviews = await store.listCardReviews(c.id);
-    expect(reviewState(card!, reviews)).toMatchObject({ kind: 'decided', decision: 'accepted' });
+    expect(reviewState(card!, reviews)).toMatchObject({ kind: 'decided', decision: 'edited' });
     const fields = cardFields(card!, await store.cardContext(c.id));
     expect(fields.filter((x) => x.missing).map((x) => x.no)).toEqual([3, 4, 11, 12]);
   });

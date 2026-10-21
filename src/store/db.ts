@@ -50,13 +50,18 @@ export const APPEND_ONLY_TABLES = [
   'alertAcks',
   'causality',
   'cardReviews',
+  'claimChecks',
+  'documents',
+  'researchRuns',
 ] as const;
 /**
  * Source-document content. Rows can be added and, only to purge a document
  * (e.g. a page found to show an identifier), deleted — never overwritten. The
  * attachment's metadata and the removal itself stay in append-only tables.
+ * M5: a library document's file, passages and vectors likewise, when the
+ * trainee removes the document (its record and the removal stay).
  */
-export const PURGEABLE_TABLES = ['blobs'] as const;
+export const PURGEABLE_TABLES = ['blobs', 'docFiles', 'chunks', 'embeddings'] as const;
 /** `lookups` caches open-data answers (e.g. RxNorm) with their retrieval date (Section 19). */
 export const MUTABLE_ENCRYPTED_TABLES = ['settings', 'uiDrafts', 'lookups'] as const;
 export const ENCRYPTED_TABLES = [...APPEND_ONLY_TABLES, ...PURGEABLE_TABLES, ...MUTABLE_ENCRYPTED_TABLES] as const;
@@ -138,6 +143,12 @@ export class PreceptorDB extends Dexie {
   alertAcks!: Table<EncryptedRow, string>;
   causality!: Table<EncryptedRow, string>;
   cardReviews!: Table<EncryptedRow, string>;
+  claimChecks!: Table<EncryptedRow, string>;
+  documents!: Table<EncryptedRow, string>;
+  docFiles!: Table<EncryptedRow, string>;
+  chunks!: Table<EncryptedRow, string>;
+  embeddings!: Table<EncryptedRow, string>;
+  researchRuns!: Table<EncryptedRow, string>;
 
   constructor(name = 'preceptor') {
     super(name);
@@ -192,6 +203,17 @@ export class PreceptorDB extends Dexie {
     // M4: the decisions on each Problem Card (accept, edit, reject, request evidence, senior review), append-only.
     this.version(7).stores({
       cardReviews: 'id, caseId',
+    });
+    // M5: the verifier's verdict on each statement (append-only); the trainee's evidence library — documents, versioned,
+    // and each document's file, passages and vectors under its entityId (purged together when the document is removed);
+    // research runs on a Problem Card's question, versioned.
+    this.version(8).stores({
+      claimChecks: 'id, caseId',
+      documents: 'id, entityId',
+      docFiles: 'id, entityId',
+      chunks: 'id, entityId',
+      embeddings: 'id, entityId',
+      researchRuns: 'id, entityId, caseId',
     });
     this.use(appendOnlyMiddleware);
   }

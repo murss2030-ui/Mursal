@@ -361,6 +361,7 @@ export function FormTab({ c }: { c: Case }) {
             calcResults: calcs.data,
             calcOutOfDate: outOfDate(c, entries.data, calcs.data),
             reviews: bundle.status === 'ready' ? bundle.b.reviews : [],
+            ...(bundle.status === 'ready' && bundle.b.cardContext.verdicts ? { verdicts: bundle.b.cardContext.verdicts } : {}),
             ...(automaticInteractions ? { automaticInteractions } : {}),
             mode,
           })
