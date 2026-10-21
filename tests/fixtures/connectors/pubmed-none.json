@@ -1,0 +1,11 @@
+{
+ "recordedAt": "2026-10-21T23:23:14.021Z",
+ "requests": [
+  {
+   "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&sort=relevance&retmax=3&tool=preceptor&term=zzqxnotaterm%20qqwwee",
+   "status": 200,
+   "contentType": "application/json; charset=UTF-8",
+   "body": "{\"header\":{\"type\":\"esearch\",\"version\":\"0.3\"},\"esearchresult\":{\"count\":\"0\",\"retmax\":\"0\",\"retstart\":\"0\",\"idlist\":[],\"translationset\":[],\"querytranslation\":\"zzqxnotaterm qqwwee\",\"errorlist\":{\"phrasesnotfound\":[\"zzqxnotaterm\",\"qqwwee\"],\"fieldsnotfound\":[]},\"warninglist\":{\"phrasesignored\":[],\"quotedphrasesnotfound\":[],\"outputmessages\":[\"No items found.\"]}}}\n"
+  }
+ ]
+}

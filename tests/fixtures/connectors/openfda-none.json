@@ -1,0 +1,17 @@
+{
+ "recordedAt": "2026-10-21T23:23:13.121Z",
+ "requests": [
+  {
+   "url": "https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22zzqxnotadrug%22&limit=3",
+   "status": 404,
+   "contentType": "application/json; charset=utf-8",
+   "body": "{\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"No matches found!\"\n  }\n}"
+  },
+  {
+   "url": "https://api.fda.gov/drug/label.json?search=openfda.brand_name%3A%22zzqxnotadrug%22&limit=3",
+   "status": 404,
+   "contentType": "application/json; charset=utf-8",
+   "body": "{\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"No matches found!\"\n  }\n}"
+  }
+ ]
+}

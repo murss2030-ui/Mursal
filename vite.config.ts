@@ -9,8 +9,11 @@ import { datasetsPlugin } from './scripts/datasets-plugin';
  *
  * `connect-src` is a browser-enforced list of the only places this app can
  * send anything: its own origin (which includes the model relay, a
- * serverless function on the same site) and, from M3, the NIH RxNav service
- * for drug-name matching (Section 4, only the drug name is sent). Nothing
+ * serverless function on the same site) and the open services (Section 4,
+ * only drug names and the question's words are sent): from M3 the NIH RxNav
+ * service for drug-name matching, from M5 openFDA labels, PubMed, Europe PMC
+ * and MedlinePlus Connect. DailyMed sends no CORS headers: its labels are
+ * links, never calls. Nothing
  * else — in particular no model provider — is reachable from the browser.
  *
  * Applied only to `vite build`, because the dev server relies on inline
@@ -22,7 +25,7 @@ const CSP = [
   "style-src 'self'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  "connect-src 'self' https://rxnav.nlm.nih.gov",
+  "connect-src 'self' https://rxnav.nlm.nih.gov https://api.fda.gov https://eutils.ncbi.nlm.nih.gov https://www.ebi.ac.uk https://connect.medlineplus.gov",
   "worker-src 'self'",
   "manifest-src 'self'",
   "object-src 'none'",
