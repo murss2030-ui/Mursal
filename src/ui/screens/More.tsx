@@ -6,6 +6,7 @@ import { useSession } from '../session-context';
 
 const LINKS: { href: string; key: MsgKey; icon: IconName }[] = [
   { href: '#/resources', key: 'nav.resources', icon: 'book' },
+  { href: '#/library', key: 'res.guidelines', icon: 'book' },
   { href: '#/rotations', key: 'nav.rotations', icon: 'calendar' },
   { href: '#/reference', key: 'nav.reference', icon: 'pill' },
   { href: '#/audit', key: 'nav.audit', icon: 'history' },

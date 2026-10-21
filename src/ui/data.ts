@@ -19,6 +19,7 @@ import type {
 import type { CalcResult } from '../calc/types';
 import type { ReferenceKind } from '../domain/reference';
 import type { ClaimVerification } from '../domain/verdicts';
+import type { EvidenceChunk, LibraryDocument } from '../domain/library';
 import { useLiveDecoded } from './hooks';
 
 export const useRotations = () =>
@@ -194,4 +195,27 @@ export const useAnalyses = (caseId: string) =>
     (s) => s.rawAnalyses(caseId),
     (s, rows): Promise<CaseAnalysis[]> => s.decodeAnalyses(rows),
     [caseId],
+  );
+
+/** M5: the evidence library — every document the trainee added (latest version of each). */
+export const useDocuments = () =>
+  useLiveDecoded(
+    (s) => s.rawDocuments(),
+    (s, rows): Promise<LibraryDocument[]> => s.decodeDocuments(rows),
+    [],
+  );
+
+export const useDocumentHistory = (docId: string) =>
+  useLiveDecoded(
+    (s) => s.db.documents.where('entityId').equals(docId).toArray(),
+    (s, rows) => s.decodeVersions<LibraryDocument>('documents', rows),
+    [docId],
+  );
+
+/** The passages of one document. */
+export const useChunks = (docId: string) =>
+  useLiveDecoded(
+    (s) => s.rawChunks(docId),
+    (s, rows): Promise<EvidenceChunk[]> => s.decodeChunks(rows),
+    [docId],
   );

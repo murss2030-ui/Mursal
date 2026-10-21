@@ -1,6 +1,6 @@
 import { useI18n } from '../../i18n/i18n';
 import { Icon } from '../components/Icon';
-import { Chip, PageTitle } from '../components/ui';
+import { PageTitle } from '../components/ui';
 
 export function Resources() {
   const { t } = useI18n();
@@ -18,11 +18,11 @@ export function Resources() {
         <span className="flex-1">{t('res.legendLink')}</span>
         <Icon name="chevron-forward" className="h-5 w-5 text-slate-500" />
       </a>
-      <div className={`${row} text-slate-500`} aria-disabled="true">
-        <Icon name="book" className="h-5 w-5" />
+      <a href="#/library" className={`${row} hover:border-teal-600`}>
+        <Icon name="book" className="h-5 w-5 text-teal-800" />
         <span className="flex-1">{t('res.guidelines')}</span>
-        <Chip>{t('nav.notYet', { m: 'M5' })}</Chip>
-      </div>
+        <Icon name="chevron-forward" className="h-5 w-5 text-slate-500" />
+      </a>
       <a href="#/reference" className={`${row} hover:border-teal-600`}>
         <Icon name="pill" className="h-5 w-5 text-teal-800" />
         <span className="flex-1">{t('res.formulary')}</span>

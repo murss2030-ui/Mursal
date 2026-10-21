@@ -36,6 +36,7 @@ import { CalculatorScreen, CalculatorsScreen } from './calc/CalculatorsScreen';
 import { CaseAlertsGate } from './rules/SafetyViews';
 import { CausalityScreen, isCausalityMethod } from './rules/Causality';
 import { isReferenceKind, ReferenceEditor, ReferenceHub, ReferenceList } from './screens/Reference';
+import { LibraryDocumentScreen, LibraryPageScreen, LibraryScreen } from './screens/Library';
 import { TextSourceEditor } from './screens/TextSourceEditor';
 import { Workflow } from './screens/Workflow';
 
@@ -87,6 +88,9 @@ function Route({ path, query }: { path: string; query: URLSearchParams }): React
   if (path === '/workflow') return <Workflow />;
   if (path === '/reports') return <Reports />;
   if (path === '/resources') return <Resources />;
+  if (path === '/library') return <LibraryScreen />;
+  if ((m = match('/library/:docId/page/:page', path))) return <LibraryPageScreen docId={m.docId!} page={Math.max(1, Math.floor(Number(m.page)) || 1)} />;
+  if ((m = match('/library/:docId', path))) return <LibraryDocumentScreen docId={m.docId!} />;
   if (path === '/more') return <More />;
   if (path === '/audit') return <AuditPage />;
   if (path === '/settings') return <Settings />;

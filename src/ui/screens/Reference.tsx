@@ -312,7 +312,9 @@ function valuesOf(kind: ReferenceKind, r: AnyRef | undefined, today: string, que
   if (!r) {
     // From "add it to your formulary" on an unrecognised medication name: usually a local brand.
     const prefill = kind === 'formulary' ? { ...(query?.get('brand') ? { brandNames: query.get('brand')! } : {}), ...(query?.get('generic') ? { genericName: query.get('generic')! } : {}) } : {};
-    return { verifiedAt: today, ...(kind === 'formulary' ? { availableInHospital: 'yes', highAlert: 'no' } : {}), ...prefill };
+    // From a table passage in the evidence library: the passage and its citation are copied as the source; the trainee reads the table and fills in the drug and the threshold.
+    const fromLibrary = kind === 'adjustment' ? { ...(query?.get('text') ? { sourceText: query.get('text')! } : {}), ...(query?.get('source') ? { source: query.get('source')! } : {}), ...(query?.get('drug') ? { drugName: query.get('drug')! } : {}) } : {};
+    return { verifiedAt: today, ...(kind === 'formulary' ? { availableInHospital: 'yes', highAlert: 'no' } : {}), ...prefill, ...fromLibrary };
   }
   const base = { verifiedBy: r.verifiedBy, verifiedAt: r.verifiedAt };
   if (kind === 'formulary') {
