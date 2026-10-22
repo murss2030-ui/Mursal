@@ -1207,15 +1207,6 @@ const TASK_LIST: readonly TaskDef[] = [
         { id: 'competencies', kind: 'multi', label: L('Competency areas practised', 'مجالات الكفاءة التي مارستها'), options: COMPETENCIES },
       ],
     },
-    later: [
-      {
-        milestone: 'M8',
-        what: L(
-          'Teach Me, Assessment Mode, Argue With Me, competency tagging and the portfolio.',
-          'وضع «علّمني» و«وضع التقييم» و«جادلني»، ووسم الكفاءات، وملف الإنجاز.',
-        ),
-      },
-    ],
   },
   {
     id: 't30',

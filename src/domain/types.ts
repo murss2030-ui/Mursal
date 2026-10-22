@@ -710,6 +710,10 @@ export type AuditEntity =
   | 'form_export'
   /** M7: the monthly presentation written to a file (rotation, counts, hash — never its content). */
   | 'presentation'
+  /** M8: what the trainee did in a learning mode (mode, tags, length — never the words). */
+  | 'learning'
+  /** M8: the portfolio written to a file (counts and hash — never its content). */
+  | 'portfolio'
   /** M5: a document of the trainee's evidence library. */
   | 'library_document'
   /** M5: research on one question. */

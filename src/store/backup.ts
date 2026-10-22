@@ -20,8 +20,8 @@ export const BACKUP_FORMAT = 'preceptor-backup';
  * drafts; 4 calculation results; 5 the decisions on Problem Cards; 6 the verifier's verdicts, the evidence library and
  * research runs. Older files still restore.
  */
-export const BACKUP_FORMAT_VERSION = 6;
-const READABLE_FORMAT_VERSIONS = [1, 2, 3, 4, 5, 6];
+export const BACKUP_FORMAT_VERSION = 7;
+const READABLE_FORMAT_VERSIONS = [1, 2, 3, 4, 5, 6, 7];
 
 /** Working drafts are transient and not part of the record. */
 // Working drafts and the open-data cache are not part of the record.

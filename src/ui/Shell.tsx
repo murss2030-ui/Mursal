@@ -36,6 +36,8 @@ import { CalculatorScreen, CalculatorsScreen } from './calc/CalculatorsScreen';
 import { CaseAlertsGate } from './rules/SafetyViews';
 import { CausalityScreen, isCausalityMethod } from './rules/Causality';
 import { isReferenceKind, ReferenceEditor, ReferenceHub, ReferenceList } from './screens/Reference';
+import { CaseLearning, LearningHub } from './screens/Learning';
+import { PortfolioScreen } from './screens/Portfolio';
 import { PresentationScreen } from './screens/Presentation';
 import { ExportScreen } from './screens/ExportScreen';
 import { ResearchRunScreen, ResearchScreen } from './screens/Research';
@@ -82,6 +84,7 @@ function Route({ path, query }: { path: string; query: URLSearchParams }): React
   }
   if ((m = match('/cases/:id/item/:itemId/causality/:method', path)) && isCausalityMethod(m.method!)) return <CausalityScreen caseId={m.id!} itemId={m.itemId!} method={m.method} />;
   if ((m = match('/cases/:id/item/:itemId', path))) return <ItemEditor caseId={m.id!} mode={{ kind: 'edit', itemId: m.itemId! }} query={query} />;
+  if ((m = match('/cases/:id/learn', path))) return <CaseLearning caseId={m.id!} />;
   if ((m = match('/cases/:id/export', path))) return <ExportScreen caseId={m.id!} copy={query.get('copy') === 'ward' ? 'ward' : 'teaching'} />;
   if ((m = match('/cases/:id/card/:itemId/research', path))) return <ResearchScreen caseId={m.id!} itemId={m.itemId!} />;
   if ((m = match('/cases/:id/research/:runId', path))) return <ResearchRunScreen caseId={m.id!} runId={m.runId!} />;
@@ -94,6 +97,8 @@ function Route({ path, query }: { path: string; query: URLSearchParams }): React
   if (path === '/workflow') return <Workflow />;
   if (path === '/reports') return <Reports />;
   if (path === '/presentation') return <PresentationScreen />;
+  if (path === '/learning') return <LearningHub />;
+  if (path === '/portfolio') return <PortfolioScreen />;
   if (path === '/resources') return <Resources />;
   if (path === '/library') return <LibraryScreen />;
   if ((m = match('/library/:docId/page/:page', path))) return <LibraryPageScreen docId={m.docId!} page={Math.max(1, Math.floor(Number(m.page)) || 1)} />;

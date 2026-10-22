@@ -202,7 +202,7 @@ describe('backup of the patient file and the clinical modules', () => {
     const item = await store.addItem(c.id, 'drp', drpFields());
     const { json } = await createBackup(session);
     expect(json).not.toContain('Zanthoxylum');
-    expect(JSON.parse(json).formatVersion).toBe(6);
+    expect(JSON.parse(json).formatVersion).toBe(7);
 
     const target = new Session(new PreceptorDB(`test-${crypto.randomUUID()}`), {}, FAST_ITERATIONS);
     await target.acknowledgeIntendedUse();

@@ -53,6 +53,7 @@ export const APPEND_ONLY_TABLES = [
   'claimChecks',
   'documents',
   'researchRuns',
+  'learning',
 ] as const;
 /**
  * Source-document content. Rows can be added and, only to purge a document
@@ -144,6 +145,7 @@ export class PreceptorDB extends Dexie {
   causality!: Table<EncryptedRow, string>;
   cardReviews!: Table<EncryptedRow, string>;
   claimChecks!: Table<EncryptedRow, string>;
+  learning!: Table<EncryptedRow, string>;
   documents!: Table<EncryptedRow, string>;
   docFiles!: Table<EncryptedRow, string>;
   chunks!: Table<EncryptedRow, string>;
@@ -214,6 +216,10 @@ export class PreceptorDB extends Dexie {
       chunks: 'id, entityId',
       embeddings: 'id, entityId',
       researchRuns: 'id, entityId, caseId',
+    });
+    // M8: what the trainee did in the learning modes (Teach me, Assessment, Argue with me) — append-only.
+    this.version(9).stores({
+      learning: 'id, caseId',
     });
     this.use(appendOnlyMiddleware);
   }

@@ -8,6 +8,8 @@ const LINKS: { href: string; key: MsgKey; icon: IconName }[] = [
   { href: '#/resources', key: 'nav.resources', icon: 'book' },
   { href: '#/library', key: 'res.guidelines', icon: 'book' },
   { href: '#/rotations', key: 'nav.rotations', icon: 'calendar' },
+  { href: '#/learning', key: 'nav.learning', icon: 'graduation' },
+  { href: '#/portfolio', key: 'nav.portfolio', icon: 'briefcase' },
   { href: '#/reference', key: 'nav.reference', icon: 'pill' },
   { href: '#/audit', key: 'nav.audit', icon: 'history' },
   { href: '#/settings', key: 'nav.settings', icon: 'sliders' },
@@ -15,10 +17,7 @@ const LINKS: { href: string; key: MsgKey; icon: IconName }[] = [
 ];
 
 /** Primary navigation items whose milestone is not built yet are listed, disabled, with the milestone that builds them. */
-const NOT_YET: { key: MsgKey; icon: IconName; m: string }[] = [
-  { key: 'nav.learning', icon: 'graduation', m: 'M8' },
-  { key: 'nav.portfolio', icon: 'briefcase', m: 'M8' },
-];
+const NOT_YET: { key: MsgKey; icon: IconName; m: string }[] = [];
 
 export function More() {
   const { t } = useI18n();

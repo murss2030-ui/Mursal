@@ -38,12 +38,13 @@ import type {
   CardDecision,
   CardReview,
 } from '../domain/types';
-import { CARD_DECISIONS, DECISIONS_NEEDING_REASON, mustEdit, REGISTER_IDS, SOURCE_DOC_TYPES } from '../domain/types';
+import { CARD_DECISIONS, COMPETENCY_AREAS, DECISIONS_NEEDING_REASON, mustEdit, REGISTER_IDS, SOURCE_DOC_TYPES } from '../domain/types';
 import { claimsValue, claimTargets, parseClaims, parseLinks, researchRefOf } from '../domain/card-data';
 import { cardStaleness, contentHash, fromModel, markModelClaims, unverifiedModelClaims, type CardContext } from '../domain/problem-card';
 import type { CardClaim } from '../domain/card-data';
 import { classificationUnanswered } from '../domain/pcne-coherence';
 import { indexVerdicts, passesDraftGate, type ClaimVerification } from '../domain/verdicts';
+import { LEARNING_MODES, type LearningRecord } from '../domain/learning';
 import { addable, problemHash, researchKey, researchStaleness as researchStalenessOf, type ResearchRun } from '../domain/research';
 import { sourceCitation } from '../domain/sources';
 import { maySend, normalizeDocumentMeta, type ChunkVector, type DocumentMetaInput, type EvidenceChunk, type LibraryDocument } from '../domain/library';
@@ -1528,6 +1529,34 @@ export class Store {
   /** The audit record of a presentation: the rotation, how many cases and cards, and the hash of the content — never the content. */
   async recordPresentation(rotationId: string, info: { cases: number; cards: number; slides: number; hash: string; as: 'pdf' | 'text' }): Promise<void> {
     await this.appendAudit({ entity: 'presentation', entityId: rotationId, action: 'create', diff: info });
+  }
+
+  // ------------------------------------------------------------------ M8: the learning modes and the portfolio
+
+  async listLearning(caseId: string): Promise<LearningRecord[]> {
+    const rows = await this.db.learning.where('caseId').equals(caseId).toArray();
+    return (await this.openRows<LearningRecord>('learning', rows)).sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : 1));
+  }
+
+  /** Keeps what the trainee did in a learning mode, in their own words; append-only, audited by mode and length only. */
+  async recordLearning(caseId: string, input: Omit<LearningRecord, 'id' | 'caseId' | 'at'>): Promise<LearningRecord> {
+    await this.writableCase(caseId);
+    if (!LEARNING_MODES.includes(input.mode) || !input.prompt.trim() || input.prompt.length > 1200) throw new ValidationError({ prompt: 'invalidChoice' });
+    if ((input.answer ?? '').length > 4000) throw new ValidationError({ answer: 'tooLong' });
+    if (input.competencies.some((c) => !(COMPETENCY_AREAS as readonly string[]).includes(c))) throw new ValidationError({ competencies: 'invalidChoice' });
+    const rec: LearningRecord = stripUndefined({ ...input, id: this.uuid(), caseId, at: this.nowIso() });
+    const row = await this.sealRow('learning', { id: rec.id, caseId }, rec);
+    const audit = await this.auditRow({ entity: 'learning', entityId: rec.id, caseId, action: 'create', diff: { mode: rec.mode, competencies: rec.competencies, answerLength: (rec.answer ?? '').length, ...(rec.score ? { correct: rec.score.correct } : {}) } });
+    await this.db.transaction('rw', [this.db.learning, this.db.audit], async () => {
+      await this.db.learning.add(row);
+      await this.db.audit.add(audit);
+    });
+    return rec;
+  }
+
+  /** The audit record of a portfolio export: counts and the hash of the content — never the content. */
+  async recordPortfolioExport(info: { entries: number; hash: string; as: 'pdf' | 'text' }): Promise<void> {
+    await this.appendAudit({ entity: 'portfolio', entityId: 'portfolio', action: 'create', diff: info });
   }
 
   /** What a Problem Card's staleness and checks read: every entry, every calculation result and which are out of date, every decision. */
