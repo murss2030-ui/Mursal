@@ -205,7 +205,7 @@ test('the form and the About screen say which checks could not be made, with dat
   await expect(aware).toContainText('Licence: CC BY-NC-SA 3.0 IGO');
   await expect(ds.locator('[data-dataset="onc"]')).toContainText('not entered');
   await expect(ds.locator('[data-dataset="onc"]')).toContainText('the administrator enters it in Reference tables');
-  await expect(page.getByText('Version 0.6.0 · milestone M5')).toBeVisible();
+  await expect(page.getByText('Version 0.9.0 · milestone M9')).toBeVisible();
   await expectFitsWidth(page);
   await shot(page, 'm2-15-about-datasets');
 

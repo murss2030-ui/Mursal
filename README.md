@@ -29,7 +29,10 @@ PRECEPTOR does not replace a clinical pharmacist. It never makes a clinical deci
 | M2 — Calculation and rules | Accepted by the owner on 19 October 2026 ([plan](docs/m2/M2-PLAN.md), [report](docs/m2/M2-REPORT.md), [test values for review](docs/m2/CALCULATOR-FIXTURES.md), [dataset mapping](docs/m2/datasets/)) |
 | M4 — Assessment and DRPs: the Clinical Problem Card | Accepted by the owner on 20 October 2026, with both PCNE mappings approved as they stand ([plan](docs/m4/M4-PLAN.md), [report](docs/m4/M4-REPORT.md), [PCNE mappings](docs/m4/PCNE-MAPPINGS.md)) |
 | M5 — Evidence: the library, the open sources, Research this question, the verifier on every statement | Built, awaiting the owner's review — no live run was made at the end of M5, by the owner's instruction ([plan](docs/m5/M5-PLAN.md), [live probe](docs/m5/M5-LIVE-PROBE.md), [report](docs/m5/M5-REPORT.md)) |
-| M6–M9 | Not started (each begins only after the previous one is accepted) |
+| M6 — Export: print-to-PDF and text export of the department form, blocked while anything is unverified | Built, awaiting the owner's review ([plan](docs/m6/M6-PLAN.md), [report](docs/m6/M6-REPORT.md)) |
+| M7 — Monthly presentation built only from the verified record | Built, awaiting the owner's review ([report](docs/m7/M7-REPORT.md)) |
+| M8 — Learning modes (Teach Me, Assessment, Argue With Me) and the portfolio by competency | Built, awaiting the owner's review ([report](docs/m8/M8-REPORT.md)) |
+| M9 — Clinical fixture library and expert-review harness | Built; the engine misses no critical problem in the 15 fixtures, but **the expert review is still pending** and the release gate is not met ([report](docs/m9/M9-REPORT.md), [review sheet](docs/m9/CLINICAL-FIXTURES.md)) |
 
 What M1 contains: an encrypted local record (AES-GCM, key derived from a passphrase), rotations, Teaching and Clinical Cases, manual entry on an append-only timeline dated by hospital day, correction by supersession, an append-only audit log, the eight provenance states, the department's 11-section form as an on-screen review with missing-data flags, encrypted backup and restore, Arabic and English with right-to-left layout, and an offline-capable installable web app.
 

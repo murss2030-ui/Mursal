@@ -7,9 +7,9 @@
  * library run with no missed critical problem. While it is false, the app
  * requires a synthetic-data attestation for every case it creates.
  */
-export const APP_VERSION = '0.6.0';
+export const APP_VERSION = '0.9.0';
 /** The milestone this build delivers for review (M2 was built after M3, in the order the owner chose; M4 and M5 follow). */
-export const CURRENT_MILESTONE = 'M5' as const;
+export const CURRENT_MILESTONE = 'M9' as const;
 export const RELEASE_GATE_MET = false;
 
 export type Milestone = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M7' | 'M8' | 'M9';

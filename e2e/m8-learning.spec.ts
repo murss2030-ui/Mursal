@@ -124,7 +124,7 @@ test('Teach me, Assessment mode, Argue with me, and the portfolio', async ({ pag
   // ---- audit: modes and lengths, never the words; no model was ever asked
   await page.goto('/#/audit');
   const learning = page.locator('[data-testid="audit-event"][data-entity="learning"]');
-  expect(await learning.count()).toBeGreaterThanOrEqual(3);
+  await expect.poll(() => learning.count()).toBeGreaterThanOrEqual(3);
   expect((await page.locator('[data-testid="audit-event"]').allInnerTexts()).join('\n')).not.toContain('may be falling');
   expect(relay.provider).toEqual([]);
 
