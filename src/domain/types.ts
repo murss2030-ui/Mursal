@@ -706,6 +706,8 @@ export type AuditEntity =
   | 'card_review'
   /** M5: the verifier's verdicts on a set of statements. */
   | 'claim_check'
+  /** M6: the department form written to a file (what, which copy, its hash — never its content). */
+  | 'form_export'
   /** M5: a document of the trainee's evidence library. */
   | 'library_document'
   /** M5: research on one question. */

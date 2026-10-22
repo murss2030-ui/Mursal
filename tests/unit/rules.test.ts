@@ -388,3 +388,37 @@ describe('levels and de-duplication', () => {
     expect(out.notChecked.map((x) => x.what)).toEqual(expect.arrayContaining(['drug_name', 'allergen']));
   });
 });
+
+describe('monitoring due and overdue (M2 decision 8, shipped in M6)', () => {
+  const plan = (id: string, fields: Record<string, string>): RegisterItem => ({ id, caseId: 'c', register: 'monitoring', fields: { parameter: 'Serum creatinine', status: 'active', ...fields }, status: 'active', createdAt: 't', version: 1, versionCreatedAt: 't' });
+  it('a check planned for a past day is important; today informational; a later day or no day raises nothing', () => {
+    const at = (today: number, f: Record<string, string>) => alertsOf(ctx([], { today, items: [plan('m1', f)] }), 'monitoring_due');
+    expect(at(5, { nextDay: '3' })[0]).toMatchObject({ level: 'important', taskId: 't11', itemIds: ['m1'] });
+    expect(at(5, { nextDay: '3' })[0]!.title.en).toContain('overdue');
+    expect(at(5, { nextDay: '5' })[0]).toMatchObject({ level: 'informational' });
+    expect(at(5, { nextDay: '6' })).toEqual([]);
+    expect(at(5, {})).toEqual([]);
+    expect(at(5, { nextDay: '3', status: 'completed' })).toEqual([]);
+  });
+  it('raises nothing when the case is not active (no today)', () => {
+    expect(alertsOf(ctx([], { today: null, items: [plan('m1', { nextDay: '1' })] }), 'monitoring_due')).toEqual([]);
+  });
+});
+
+describe('medication reconciliation (M6: admission, transfer, discharge)', () => {
+  const home = (id: string, f: Record<string, string>): RegisterItem => ({ id, caseId: 'c', register: 'home_med', fields: { drug: 'metformin', ...f }, status: 'active', createdAt: 't', version: 1, versionCreatedAt: 't' });
+  const at = (today: number | null, items: RegisterItem[], current: TimelineEntry[] = []) => alertsOf(ctx(current, { today, items }), 'reconciliation');
+  it('a home medication not compared by the first day after admission, an unresolved unintentional discrepancy, an undocumented change', () => {
+    expect(at(1, [home('h1', {})])[0]).toMatchObject({ level: 'important', taskId: 't03' });
+    expect(at(0, [home('h1', {})])).toEqual([]);
+    expect(at(2, [home('h1', { admissionStatus: 'continued' })])).toEqual([]);
+    expect(at(2, [home('h1', { admissionStatus: 'held', discrepancy: 'unintentional', discrepancyType: 'omission' })])[0]!.title.en).toContain('not resolved');
+    expect(at(2, [home('h1', { admissionStatus: 'held', discrepancy: 'unintentional', resolution: 'resolved' })])).toEqual([]);
+    expect(at(2, [home('h1', { admissionStatus: 'changed', discrepancy: 'intentional_undocumented' })])[0]).toMatchObject({ level: 'informational' });
+  });
+  it('a transfer asks for the list to be checked again; nothing when the case is not active', () => {
+    const t = { id: 'e-t', caseId: 'c', hospitalDay: 3, recordedAt: '2026-10-13T08:00:00Z', author: 'user', provenance: 'user_entered', type: 'event', payload: { category: 'transfer', description: 'To ICU' } } as unknown as TimelineEntry;
+    expect(at(3, [], [t])[0]).toMatchObject({ level: 'informational', entryIds: ['e-t'] });
+    expect(at(null, [home('h1', {})], [t])).toEqual([]);
+  });
+});

@@ -26,6 +26,8 @@ export const RULE_IDS = [
   'aware',
   'antibiotic_timeout',
   'deescalation',
+  'monitoring_due',
+  'reconciliation',
 ] as const;
 export type RuleId = (typeof RULE_IDS)[number];
 

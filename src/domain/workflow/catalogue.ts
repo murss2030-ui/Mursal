@@ -944,12 +944,6 @@ const TASK_LIST: readonly TaskDef[] = [
         ck('abnormal', 'Every abnormal result interpreted', 'تم تفسير كل نتيجة غير طبيعية'),
       ],
     },
-    later: [
-      {
-        milestone: 'M6',
-        what: L('Due and overdue states across all cases, and laboratory trend charts.', 'حالات الاستحقاق والتأخر عبر جميع الحالات، ورسوم اتجاهات القيم المخبرية.'),
-      },
-    ],
   },
   {
     id: 't15',
@@ -1148,15 +1142,6 @@ const TASK_LIST: readonly TaskDef[] = [
         ck('preceptor', 'Documentation reviewed with my preceptor', 'تمت مراجعة التوثيق مع مشرفي'),
       ],
     },
-    later: [
-      {
-        milestone: 'M6',
-        what: L(
-          'PDF export of the department form (Ward and Teaching copies), blocked while anything is unverified.',
-          'تصدير نموذج القسم PDF (نسخة القسم والنسخة التعليمية)، مع منع التصدير ما دام هناك شيء غير موثّق.',
-        ),
-      },
-    ],
   },
   {
     id: 't23',

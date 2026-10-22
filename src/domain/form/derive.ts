@@ -34,7 +34,7 @@ import { PCNE_MAPS_APPROVED } from '../pcne-maps';
 import type { ClaimVerification } from '../verdicts';
 import type { CalcResult } from '../../calc/types';
 import { show } from '../../calc/units';
-import { DRP_CHECKBOXES, FIELD_LABELS, FORM_DEPENDENCIES, SECTION_TITLES, type FieldKey, type FormLabel } from './spec';
+import { DRP_CHECKBOXES, FIELD_LABELS, SECTION_TITLES, type FieldKey, type FormLabel } from './spec';
 
 export type CopyMode = 'teaching' | 'ward';
 
@@ -202,7 +202,6 @@ const value = (items: FieldItem[], extra: { missingParts?: MissingCode[]; notes?
   ...(extra.notes?.length ? { notes: extra.notes } : {}),
 });
 const missing = (hint?: MissingCode): FieldState => (hint ? { kind: 'missing', hint } : { kind: 'missing' });
-const notYet = (milestone: Milestone): FieldState => ({ kind: 'not_yet', milestone });
 const EMPTY: FieldState = { kind: 'empty' };
 const typed = (text: string): FieldItem => ({ text, provenance: 'user_entered' });
 const fromEntry = (e: TimelineEntry, text: string, withDay = true): FieldItem => ({
@@ -838,7 +837,7 @@ function section11(ctx: FormContext): FormSectionView {
     title: SECTION_TITLES[11]!,
     fields: [
       f('s11.name', name ? value([typed(name)]) : missing(), { kind: 'settings' }),
-      f('s11.date', notYet(FORM_DEPENDENCIES['s11.date']!)),
+      f('s11.date', { kind: 'signature_line' }),
       f('s11.signature', { kind: 'signature_line' }),
       f('s11.references', refs.length ? value(refs) : missing(), { kind: 'task', taskId: 't23' }),
     ],

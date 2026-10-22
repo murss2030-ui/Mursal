@@ -35,8 +35,15 @@
   header,
   nav,
   [data-testid='disclaimer-footer'],
-  [data-print='hide'] {
+  [data-print='hide'],
+  .fixed {
     display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  .export-section {
+    break-inside: avoid-page;
   }
   main {
     padding-bottom: 0 !important;

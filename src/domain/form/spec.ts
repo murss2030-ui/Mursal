@@ -145,6 +145,4 @@ export const IDENTIFIER_FIELDS: ReadonlySet<string> = new Set([
  * their engines (interaction checking M2, PCNE M4, retrieval M5) add to them
  * later. Since M2, BMI and CrCl/eGFR come from calculation results.
  */
-export const FORM_DEPENDENCIES: Readonly<Record<string, Milestone>> = {
-  's11.date': 'M6',
-};
+export const FORM_DEPENDENCIES: Readonly<Record<string, Milestone>> = {};

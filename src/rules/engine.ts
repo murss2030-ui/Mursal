@@ -626,6 +626,81 @@ function antimicrobialRules(ctx: RulesContext, courses: readonly MedCourse[], ds
   }
 }
 
+// ---------------------------------------------------------------- monitoring due (M2 decision 8, shipped in M6)
+
+/**
+ * From the trainee's own monitoring plan: a parameter whose next check (a
+ * hospital day they set) is today is due, and one whose day has passed is
+ * overdue. The rule never invents a schedule: no day, no prompt.
+ */
+function monitoringRule(ctx: RulesContext, add: (a: Alert) => void) {
+  if (ctx.today === null) return;
+  for (const i of ctx.items) {
+    if (i.register !== 'monitoring' || i.fields.status !== 'active' || i.fields.nextDay === undefined || i.fields.nextDay === '') continue;
+    const day = Number(i.fields.nextDay);
+    if (!Number.isInteger(day) || day > ctx.today) continue;
+    const overdue = day < ctx.today;
+    const what = i.fields.parameter ?? '';
+    add({
+      key: `monitoring_due:${i.id}`,
+      ruleId: 'monitoring_due',
+      level: overdue ? 'important' : 'informational',
+      title: overdue ? L(`Monitoring overdue: ${what}`, `مراقبة متأخرة: ${what}`) : L(`Monitoring due today: ${what}`, `مراقبة مستحقة اليوم: ${what}`),
+      detail: overdue
+        ? L(`Its next check was planned for Day ${day}; today is Day ${ctx.today}. Record the result, or move the date.`, `كان فحصه القادم مخططًا لليوم ${day}، واليوم هو اليوم ${ctx.today}. سجّل النتيجة أو انقل الموعد.`)
+        : L(`Its next check is planned for today (Day ${day}).`, `فحصه القادم مخطط له اليوم (اليوم ${day}).`),
+      source: L('Your own monitoring plan (Task 11)', 'خطة المراقبة التي وضعتها (المهمة 11)'),
+      dataHash: hash(`${i.id}|${i.version}|${day}|${ctx.today}`),
+      itemIds: [i.id],
+      taskId: 't11',
+    });
+  }
+}
+
+// ---------------------------------------------------------------- reconciliation (M6: admission, transfer, discharge)
+
+/**
+ * Medication reconciliation as the trainee recorded it in Task 3: a home
+ * medication still not compared with the admission orders once the first day
+ * has passed, an unintentional discrepancy not resolved with the prescriber, an
+ * intentional change with no documented reason, and a transfer after which the
+ * list should be checked again. The rule compares nothing itself; it reads what
+ * the trainee wrote.
+ */
+function reconciliationRule(ctx: RulesContext, add: (a: Alert) => void) {
+  if (ctx.today === null) return;
+  for (const i of ctx.items) {
+    if (i.register !== 'home_med') continue;
+    const drug = i.fields.drug ?? '';
+    const status = i.fields.admissionStatus ?? 'not_reviewed';
+    const base = { ruleId: 'reconciliation' as const, itemIds: [i.id], taskId: 't03', source: L('Your medication reconciliation (Task 3)', 'مطابقة الأدوية التي سجّلتها (المهمة 3)') };
+    if (status === 'not_reviewed' && ctx.today >= 1) {
+      add({ ...base, key: `reconciliation:not_compared:${i.id}`, level: 'important', title: L(`Home medication not compared yet: ${drug}`, `دواء منزلي لم تتم مقارنته بعد: ${drug}`), detail: L('It was recorded in the pre-admission list but not compared with the admission orders.', 'سُجّل في قائمة ما قبل الدخول ولم يُقارن بأوامر الدخول.'), dataHash: hash(`${i.id}|${i.version}|nc`) });
+    }
+    if (i.fields.discrepancy === 'unintentional' && i.fields.resolution !== 'resolved') {
+      add({ ...base, key: `reconciliation:unresolved:${i.id}`, level: 'important', title: L(`Unintentional discrepancy not resolved: ${drug}`, `تباين غير مقصود لم يُحل: ${drug}`), detail: L('Resolve it with the prescriber, in person or in the chart, then record the resolution. PRECEPTOR sends nothing to the team.', 'عالجه مع الطبيب شخصيًا أو في الملف ثم سجّل المعالجة. PRECEPTOR لا يرسل شيئًا إلى الفريق.'), dataHash: hash(`${i.id}|${i.version}|ud|${i.fields.resolution ?? ''}`) });
+    }
+    if (i.fields.discrepancy === 'intentional_undocumented') {
+      add({ ...base, key: `reconciliation:undocumented:${i.id}`, level: 'informational', title: L(`Intentional change with no documented reason: ${drug}`, `تغيير مقصود بلا سبب موثّق: ${drug}`), detail: L('Ask for the reason to be written in the chart, and record it in the action field.', 'اطلب تدوين السبب في الملف وسجّله في حقل الإجراء.'), dataHash: hash(`${i.id}|${i.version}|iu`) });
+    }
+  }
+  for (const e of ctx.current) {
+    if (e.type === 'event' && e.payload.category === 'transfer') {
+      add({
+        key: `reconciliation:transfer:${e.id}`,
+        ruleId: 'reconciliation',
+        level: 'informational',
+        title: L(`Transfer on Day ${e.hospitalDay}: reconcile the medications again`, `نقل في اليوم ${e.hospitalDay}: أعد مطابقة الأدوية`),
+        detail: L('Orders are often lost or duplicated at a transfer. Compare the list before and after, then acknowledge this with what you found.', 'كثيرًا ما تُفقد الأوامر أو تتكرر عند النقل. قارن القائمة قبل النقل وبعده ثم أقرّ هذا التنبيه بما وجدته.'),
+        source: L('The transfer you recorded on the timeline', 'النقل الذي سجّلته في الخط الزمني'),
+        dataHash: hash(`${e.id}|transfer`),
+        entryIds: [e.id],
+        taskId: 't03',
+      });
+    }
+  }
+}
+
 // ---------------------------------------------------------------- assembly
 
 export function evaluateRules(ctx: RulesContext): RulesOutcome {
@@ -660,6 +735,8 @@ export function evaluateRules(ctx: RulesContext): RulesOutcome {
   labRules(ctx, add, skip);
   adjustmentRules(ctx, courses, ds, add);
   antimicrobialRules(ctx, courses, ds, add, skip);
+  monitoringRule(ctx, add);
+  reconciliationRule(ctx, add);
   const alerts = [...byKey.values()].sort((a, b) => RANK[b.level] - RANK[a.level] || (a.key < b.key ? -1 : 1));
   return { alerts, notChecked: [...skipped.values()] };
 }

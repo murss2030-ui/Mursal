@@ -1,23 +1,16 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { deriveForm, type CopyMode, type EditTarget, type FieldItem, type FieldState, type FormFieldView, type FormSectionView } from '../../domain/form/derive';
+import { useState, type ReactNode } from 'react';
+import { type CopyMode, type EditTarget, type FieldItem, type FieldState, type FormFieldView, type FormSectionView } from '../../domain/form/derive';
 import { FIELD_LABELS, FORM_TITLE, type FormLabel } from '../../domain/form/spec';
-import type { Case, TimelineEntry } from '../../domain/types';
-import type { CalcResult } from '../../calc/types';
+import type { Case } from '../../domain/types';
 import { Term, useI18n } from '../../i18n/i18n';
 import type { MsgKey } from '../../i18n/en';
 import { ProvenanceBadge } from '../components/ProvenanceBadge';
 import { Banner, Button, Card, Chip, DayLabel, Num, TextAreaField } from '../components/ui';
-import { useCalcResults, useEntries, useFormDraft, useIdentifiers, useItems, useTasks, useTrainee } from '../data';
-import { resultCurrency } from '../../calc/currency';
-import { CALC_BY_ID } from '../../calc/registry';
-import { indexTimeline } from '../../domain/timeline';
+import { useFormDraft } from '../data';
 import { usePersistentDraft } from '../hooks';
 import { useSession } from '../session-context';
-import { useCaseBundle } from '../case-bundle';
-import { DATASETS } from '../../drugs/useVocabulary';
-import { useCaseRules } from '../rules/useCaseRules';
 import { InteractionCoverageNotice } from '../rules/SafetyViews';
-import type { FormContext } from '../../domain/form/derive';
+import { useFormView } from './useFormView';
 
 function Label({ l }: { l: FormLabel }) {
   const { lang } = useI18n();
@@ -124,17 +117,6 @@ function StateView({ s }: { s: FieldState }) {
         </span>
       );
   }
-}
-
-/** Ids of calculation results whose inputs changed since (see src/calc/currency.ts). */
-function outOfDate(c: Case, entries: readonly TimelineEntry[], results: readonly CalcResult[]): Set<string> {
-  const ctx = { demographics: c.demographics, current: indexTimeline(entries).current };
-  const ids = new Set<string>();
-  for (const r of results) {
-    const def = CALC_BY_ID.get(r.calc);
-    if (def && !resultCurrency(r, def, ctx).current) ids.add(r.id);
-  }
-  return ids;
 }
 
 function editHref(caseId: string, e: EditTarget): string | null {
@@ -314,60 +296,13 @@ function SectionCard({ s, caseId, readOnly, draft }: { s: FormSectionView; caseI
 export function FormTab({ c }: { c: Case }) {
   const { t } = useI18n();
   const { store } = useSession();
-  const entries = useEntries(c.id);
-  const ids = useIdentifiers(c.id);
-  const formDraft = useFormDraft(c.id);
-  const trainee = useTrainee();
-  const items = useItems(c.id);
-  const tasks = useTasks(c.id);
-  const calcs = useCalcResults(c.id);
-  const bundle = useCaseBundle(c.id);
-  const rules = useCaseRules(bundle.status === 'ready' ? bundle.b : undefined);
   const [mode, setMode] = useState<CopyMode>('teaching'); // Teaching copy is the default (Section 15)
   const [editing, setEditing] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string>();
   const notes = usePersistentDraft<Record<string, string>>(`form:${c.id}`, {});
   const readOnly = c.status === 'archived';
-
-  const ready =
-    entries.status === 'ready' &&
-    ids.status === 'ready' &&
-    formDraft.status === 'ready' &&
-    trainee.status === 'ready' &&
-    items.status === 'ready' &&
-    tasks.status === 'ready' &&
-    calcs.status === 'ready' &&
-    rules.ready;
-  const automaticInteractions = useMemo((): FormContext['automaticInteractions'] => {
-    if (!rules.ready) return undefined;
-    // No dataset, or one refused: no check at all. Otherwise the gaps of a partial check are listed with the rows.
-    const none = rules.notChecked.find((n) => n.key === 'interactions');
-    if (none) return { checked: false, reason: none.reason.en };
-    const found = rules.alerts.filter((a) => a.interaction);
-    const gaps = rules.notChecked.filter((n) => n.what === 'interactions').map((n) => n.reason.en);
-    return { checked: true, source: found[0]?.source.en ?? DATASETS.interactions?.source ?? '', rows: found.map((a) => ({ key: a.key, ...a.interaction! })), gaps };
-  }, [rules.ready, rules.notChecked, rules.alerts]);
-  const view = useMemo(
-    () =>
-      ready
-        ? deriveForm({
-            case: c,
-            identifiers: ids.data,
-            entries: entries.data,
-            draft: formDraft.data,
-            trainee: trainee.data,
-            items: items.data,
-            tasks: tasks.data,
-            calcResults: calcs.data,
-            calcOutOfDate: outOfDate(c, entries.data, calcs.data),
-            reviews: bundle.status === 'ready' ? bundle.b.reviews : [],
-            ...(bundle.status === 'ready' && bundle.b.cardContext.verdicts ? { verdicts: bundle.b.cardContext.verdicts } : {}),
-            ...(automaticInteractions ? { automaticInteractions } : {}),
-            mode,
-          })
-        : null,
-    [ready, c, ids, entries, formDraft, trainee, items, tasks, calcs, automaticInteractions, mode, bundle],
-  );
+  const formDraft = useFormDraft(c.id);
+  const view = useFormView(c, mode);
   if (!view) return <p className="text-slate-600">{t('common.loading')}</p>;
 
   const startEditing = () => {
@@ -416,7 +351,9 @@ export function FormTab({ c }: { c: Case }) {
             ))}
           </div>
           {c.kind === 'teaching' && <p className="text-xs text-slate-600">{t('form.teachingOnly')}</p>}
-          <p className="text-xs text-slate-600">{t('form.exportLater')}</p>
+          <a href={`#/cases/${c.id}/export?copy=${view.mode}`} className="inline-flex min-h-touch items-center self-start text-sm font-medium text-teal-900 underline" data-testid="export-link">
+            {t('form.exportLink')}
+          </a>
         </div>
       </Card>
 

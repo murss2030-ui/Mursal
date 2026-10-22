@@ -36,6 +36,7 @@ import { CalculatorScreen, CalculatorsScreen } from './calc/CalculatorsScreen';
 import { CaseAlertsGate } from './rules/SafetyViews';
 import { CausalityScreen, isCausalityMethod } from './rules/Causality';
 import { isReferenceKind, ReferenceEditor, ReferenceHub, ReferenceList } from './screens/Reference';
+import { ExportScreen } from './screens/ExportScreen';
 import { ResearchRunScreen, ResearchScreen } from './screens/Research';
 import { LibraryDocumentScreen, LibraryPageScreen, LibraryScreen } from './screens/Library';
 import { TextSourceEditor } from './screens/TextSourceEditor';
@@ -80,6 +81,7 @@ function Route({ path, query }: { path: string; query: URLSearchParams }): React
   }
   if ((m = match('/cases/:id/item/:itemId/causality/:method', path)) && isCausalityMethod(m.method!)) return <CausalityScreen caseId={m.id!} itemId={m.itemId!} method={m.method} />;
   if ((m = match('/cases/:id/item/:itemId', path))) return <ItemEditor caseId={m.id!} mode={{ kind: 'edit', itemId: m.itemId! }} query={query} />;
+  if ((m = match('/cases/:id/export', path))) return <ExportScreen caseId={m.id!} copy={query.get('copy') === 'ward' ? 'ward' : 'teaching'} />;
   if ((m = match('/cases/:id/card/:itemId/research', path))) return <ResearchScreen caseId={m.id!} itemId={m.itemId!} />;
   if ((m = match('/cases/:id/research/:runId', path))) return <ResearchRunScreen caseId={m.id!} runId={m.runId!} />;
   if ((m = match('/cases/:id/card/:itemId', path))) return <ProblemCardScreen caseId={m.id!} itemId={m.itemId!} query={query} />;

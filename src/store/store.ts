@@ -1511,6 +1511,20 @@ export class Store {
     return this.updateItem(caseId, itemId, { ...item.fields, claims: claimsValue([...claims, claim]) }, 'Added a researched statement');
   }
 
+  // ------------------------------------------------------------------ M6: export of the department form
+
+  /** Values a model read from the case's documents that the trainee has not yet confirmed, corrected or rejected. */
+  async pendingExtractionCount(caseId: string): Promise<number> {
+    const [runs, attachments] = await Promise.all([this.listExtractions(caseId), this.listAttachments(caseId)]);
+    const active = new Set(attachments.filter((a) => a.status === 'active').map((a) => a.id));
+    return runs.filter((r) => active.has(r.attachmentId)).reduce((n, r) => n + r.fields.filter((f) => !f.decision).length, 0);
+  }
+
+  /** The audit record of an export: which copy, how many sections and missing items, and the hash of the content — never the content. */
+  async recordFormExport(caseId: string, info: { copy: 'teaching' | 'ward'; sections: number; missing: number; hash: string; as: 'pdf' | 'text' }): Promise<void> {
+    await this.appendAudit({ entity: 'form_export', entityId: caseId, caseId, action: 'create', diff: info });
+  }
+
   /** What a Problem Card's staleness and checks read: every entry, every calculation result and which are out of date, every decision. */
   async cardContext(caseId: string): Promise<CardContext> {
     const c = await this.getCase(caseId);

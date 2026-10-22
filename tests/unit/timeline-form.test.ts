@@ -165,7 +165,9 @@ describe('department form: no invented data', () => {
     // Since M2, BMI and CrCl/eGFR come from calculation results: none yet is "missing", never typed.
     expect(field(view, 's1.bmi')).toEqual({ kind: 'missing', hint: 'no_calculation' });
     expect(field(view, 's1.crclEgfr')).toEqual({ kind: 'missing', hint: 'no_calculation' });
-    expect([...new Set(view.notYet.map((x) => x.section))].sort((a, b) => a - b)).toEqual([11]);
+    // Since M6 the date beside the supervisor's signature is a line to fill in by hand on the printed form.
+    expect(view.notYet).toEqual([]);
+    expect(field(view, 's11.date')).toEqual({ kind: 'signature_line' });
     expect(field(view, 's11.signature')).toEqual({ kind: 'signature_line' });
   });
 
