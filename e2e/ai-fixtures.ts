@@ -246,8 +246,42 @@ export function verifyAnswer(req: VerifyRequest): unknown {
     results: req.claims.map((c) => {
       const quotes = c.sources.filter((s) => s !== 'H').map((s) => ({ sourceId: s, text: text(s).slice(0, 24) }));
       if (/may be needed/.test(c.text)) return { claimId: c.id, verdict: 'partial', contradicted: false, quotes, unsupportedParts: ['may be needed'] };
+      // A statement no passage makes (M5d): the stand-in verifier, like a careful one, finds nothing in the source to show it.
+      if (/without any monitoring/.test(c.text)) return { claimId: c.id, verdict: 'unsupported', contradicted: false, quotes: [], unsupportedParts: ['without any monitoring'] };
       return { claimId: c.id, verdict: 'supported', contradicted: false, quotes, unsupportedParts: [] };
     }),
+  };
+}
+
+// ---------------------------------------------------------------- research (M5d)
+
+interface ResearchRequest {
+  question: string;
+  sources: { id: string; kind: string; text: string }[];
+}
+
+/**
+ * The model drafting from retrieved passages, as the tests need it: an honest
+ * recommendation quoting the guideline passage, a supporting statement quoting
+ * the drug label, a statement with a dose its quote does not contain, and a
+ * conflicting statement no passage makes (the verifier finds it unsupported).
+ * With no passage the model is never asked; with none it can use, it says so.
+ */
+export function researchAnswer(req: ResearchRequest): unknown {
+  const guide = req.sources.find((s) => /^guideline passage/.test(s.kind));
+  const label = req.sources.find((s) => /^drug label section/.test(s.kind));
+  const first = guide ?? label;
+  if (!first) return { answerable: false, statements: [], missingData: ['Nothing in the passages addresses the question'] };
+  const quote = (s: { text: string }, n: number) => s.text.replace(/\s+/g, ' ').slice(0, n);
+  return {
+    answerable: true,
+    statements: [
+      ...(guide ? [{ role: 'recommendation', text: quote(guide, 90), sourceId: guide.id, quote: quote(guide, 90), caseRefs: [] }] : []),
+      ...(label ? [{ role: 'supporting', text: quote(label, 70), sourceId: label.id, quote: quote(label, 70), caseRefs: [] }] : []),
+      { role: 'supporting', text: 'Restart at 850 mg daily once stable', sourceId: first.id, quote: quote(first, 60), caseRefs: [] },
+      { role: 'conflicting', text: 'Metformin is safe to continue without any monitoring', sourceId: first.id, quote: quote(first, 60), caseRefs: [] },
+    ],
+    missingData: ['Creatinine clearance on the day of the decision'],
   };
 }
 
@@ -257,7 +291,7 @@ export interface ProviderCall {
   url: string;
   model: string;
   apiKey: string | null;
-  task: 'extract' | 'analyse' | 'verify' | 'other';
+  task: 'extract' | 'analyse' | 'verify' | 'research' | 'other';
   pass?: number;
   module?: string;
   /** Every text part, joined. */
@@ -294,7 +328,7 @@ export function describeGeminiRequest(input: string | URL | Request, init?: Requ
       url,
       model: m ? decodeURIComponent(m[1]!) : '',
       apiKey: headers.get('x-goog-api-key'),
-      task: /^TASK: extract/m.test(header) ? 'extract' : /^TASK: analyse/m.test(header) ? 'analyse' : /^TASK: verify/m.test(header) ? 'verify' : 'other',
+      task: /^TASK: extract/m.test(header) ? 'extract' : /^TASK: analyse/m.test(header) ? 'analyse' : /^TASK: verify/m.test(header) ? 'verify' : /^TASK: research/m.test(header) ? 'research' : 'other',
       pass: Number(/^PASS: (\d)/m.exec(header)?.[1]) || undefined,
       module: /^MODULE: (\w+)/m.exec(header)?.[1],
       text: texts.join('\n'),
@@ -331,6 +365,8 @@ export function fakeGemini(calls: ProviderCall[], expectedKey: string): typeof f
       output = draftModule(JSON.parse(texts[1] ?? '{}') as CaseData);
     } else if (call.task === 'verify') {
       output = verifyAnswer(JSON.parse(texts[1] ?? '{}') as VerifyRequest);
+    } else if (call.task === 'research') {
+      output = researchAnswer(JSON.parse(texts[1] ?? '{}') as ResearchRequest);
     }
     const out = JSON.stringify(output);
     const prompt = Math.ceil((texts.join('').length + (body.systemInstruction?.parts?.[0]?.text ?? '').length) / 4) + images.length * 1290;

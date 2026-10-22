@@ -1524,7 +1524,6 @@ export const en = {
   'research.f.local_only': '{n} passage(s) from documents kept for local search were not read by the AI: read them yourself.',
   'research.f.offline': 'Not every open source was reached.',
   'research.f.calculation': 'A dose differs from the card’s own calculation: the calculation, not the source, is the patient’s number.',
-  'research.asDrafted': 'As the AI wrote it:',
   'research.flag.source_not_retrieved': 'It cites a passage that was not retrieved.',
   'research.flag.quote_not_found': 'Its quote is not found, word for word, in the passage it cites.',
   'research.flag.number_removed': 'A number its quote does not contain was removed.',

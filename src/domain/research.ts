@@ -63,8 +63,6 @@ export interface ResearchStatement {
   role: ResearchRole;
   /** The words shown: the model's, after the code checks removed what they require. */
   text: string;
-  /** The model's own words, when the checks changed them. */
-  asDrafted?: string;
   /** The retrieved source it rests on (SourceRecord.id). */
   sourceId: string;
   /** Which part of that source (a label's section), when it has parts. */

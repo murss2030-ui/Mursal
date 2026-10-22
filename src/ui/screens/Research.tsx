@@ -7,7 +7,7 @@
  * every source as a link that opens it. Statements are added to the card one
  * at a time.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AiError } from '../../ai/client';
 import { ConnectorError } from '../../ai/connectors/http';
 import { checkedQuestion, researchCard } from '../../ai/research/run';
@@ -131,6 +131,11 @@ function QuestionForm({ b, itemId, problem, drugs }: { b: CaseBundle; itemId: st
   const refresh = (p: Pico) => {
     void checkedQuestion(store, b.case.id, p).then(setPreview, (e: unknown) => setPreview({ error: message(e) }));
   };
+  // The question as it will be asked is shown from the start, and again at every edit.
+  useEffect(() => {
+    refresh(pico);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const set = (k: keyof Pico) => (v: string) => {
     const next = { ...pico, [k]: v };
     setPico(next);
@@ -344,11 +349,6 @@ function StatementCard({ b, run, s, readOnly, verdict }: { b: CaseBundle; run: R
       <p dir="auto" className="text-slate-900">
         {s.text}
       </p>
-      {s.asDrafted && (
-        <p className="mt-1 text-xs text-slate-600" dir="auto">
-          {t('research.asDrafted')} <span className="line-through decoration-slate-400">{s.asDrafted}</span>
-        </p>
-      )}
       <ul className="mt-2 flex flex-col gap-1" data-testid="research-flags">
         {s.flags.map((f) => (
           <li key={f} className="flex items-start gap-1.5 text-xs font-medium text-red-800" data-flag={f}>

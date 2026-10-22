@@ -101,7 +101,6 @@ export function checkResearch(raw: RawResearch, ctx: CheckContext): { statements
       n: out.length,
       role: r.role,
       text: finalText,
-      ...(finalText !== text ? { asDrafted: text } : {}),
       sourceId: source ? source.recordId : r.sourceId,
       ...(source?.section ? { section: source.section } : {}),
       quote,

@@ -166,7 +166,8 @@ describe('the checks in code — the four hostile fixtures of Section 21', () =>
     expect(s!.differsFrom).toEqual([{ label: 'C1', result: '1250 mg' }]);
     expect(s!.text).not.toContain('1500');
     expect(s!.text).toContain('[dose withheld — differs from the calculation]');
-    expect(s!.asDrafted).toContain('1500 mg');
+    // The model's number is kept nowhere: not in the record, not on the screen.
+    expect(JSON.stringify(s)).not.toContain('1500');
     expect(addable(s!, { verdict: 'supported', quotes: [{ source: 'x', text: 'y' }] })).toBe(false);
     // The same dose as the calculation is not flagged (and is still withheld unless the quote contains it).
     const same = check(raw({ text: 'Give a loading dose of 1250 mg', quote: 'We recommend that metformin be held in adults with acute kidney injury' }))[0]!;

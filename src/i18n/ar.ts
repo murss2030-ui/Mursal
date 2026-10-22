@@ -1521,7 +1521,6 @@ export const ar: Record<MsgKey, string> = {
   'research.f.local_only': '{n} مقطع من وثائق للبحث المحلي لم يقرأها الذكاء الاصطناعي: اقرأها بنفسك.',
   'research.f.offline': 'لم يُبلغ كل مصدر مفتوح.',
   'research.f.calculation': 'جرعة تخالف حساب البطاقة نفسها: الحساب، لا المصدر، هو رقم المريض.',
-  'research.asDrafted': 'كما كتبه الذكاء الاصطناعي:',
   'research.flag.source_not_retrieved': 'يستشهد بمقطع لم يُسترجع.',
   'research.flag.quote_not_found': 'اقتباسه غير موجود، كلمة بكلمة، في المقطع الذي يستشهد به.',
   'research.flag.number_removed': 'أُزيل رقم لا يحويه اقتباسه.',

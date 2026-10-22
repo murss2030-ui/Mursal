@@ -188,7 +188,8 @@ test('Teaching Case: Next → the model reads the file → each value checked �
 
   // A dose that is not in the data is withheld — a dose comes only from a tested calculator.
   await page.goto(`/#/cases/${caseId}/task/t09`);
-  const enox = suggestion(page, 'enoxaparin');
+  // (the summary note also quotes the enoxaparin entry as its verdict's evidence: the checklist answer is the one with the dose)
+  const enox = page.locator('[data-testid="suggestion"][data-kind="check"][data-decision="pending"]').filter({ hasText: 'enoxaparin' });
   await expect(enox.locator('[data-check="dose_withheld"]')).toBeVisible();
   await expect(enox).toContainText('[dose withheld — to be calculated]');
   await expect(enox).not.toContainText('30 mg');
@@ -204,14 +205,36 @@ test('Teaching Case: Next → the model reads the file → each value checked �
   await expect(drp.locator('[data-check="unknown_ref_removed"]')).toBeVisible();
   await expect(drp.locator('[data-field="pcneCauses"]')).toContainText('C3.2');
   await expect(drp.locator('[data-field="pcneCauses"]')).not.toContainText('C12.9');
-  await expect(drp.getByTestId('draft-claims').locator('li')).toHaveCount(2);
+  await expect(drp.getByTestId('draft-claims').locator(':scope > li')).toHaveCount(2);
   await expect(drp.getByTestId('draft-claims').locator('[data-claim-source="none"]')).not.toContainText('Garcia');
   await expect(drp.locator('[data-field="teaching"] [data-basis="general_knowledge"]')).toBeVisible();
   await shot(page, 'm3-10-drp-suggestion', true);
-  await drp.getByRole('button', { name: 'Accept' }).click();
+  // M5 (decision 6): a card that holds a claim with no source cannot be accepted as it is — the trainee edits it.
+  await expect(drp.getByRole('button', { name: 'Accept' })).toBeDisabled();
+  await drp.getByRole('button', { name: 'Edit' }).click();
+  await expect(page.getByTestId('item-editor')).toBeVisible();
+  // Saved with the unsourced claim still in it (only the recommendation is worded): the card exists, and the form leaves it out and says why.
+  await page.getByLabel(/Recommendation and rationale/).fill('Discuss a renal dose of enoxaparin with the team, from the hospital protocol');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`#/cases/${caseId}/task/t05$`));
+  await page.goto(`/#/cases/${caseId}/form`);
+  await expect(page.getByTestId('form-excluded-9')).toContainText('Enoxaparin dose not adjusted for reduced kidney function');
+  await expect(page.getByTestId('form-excluded-9')).toContainText('A claim the AI drafted is not found supported by its source, with a quote');
+  await shot(page, 'm3-10a-form-leaves-card-out', true);
+  // The trainee edits the claim out — the card is reviewed again — and it enters.
+  await page.goto(`/#/cases/${caseId}/task/t05`);
+  await page.getByTestId('card-summary').click();
+  await page.getByRole('button', { name: 'Edit' }).first().click();
+  await expect(page.getByTestId('item-editor')).toBeVisible();
+  await page.locator('[data-claim="1"]').getByRole('button', { name: 'Remove this claim' }).click();
+  await shot(page, 'm3-10b-edit-card', true);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.goto(`/#/cases/${caseId}/form`);
+  await expect(page.getByTestId('form-excluded-9')).toHaveCount(0);
+  await page.goto(`/#/cases/${caseId}/task/t05`);
   const card = page.getByTestId('card-summary');
   await expect(card).toContainText('Enoxaparin dose not adjusted for reduced kidney function');
-  await expect(card).toHaveAttribute('data-review', 'accepted');
+  await expect(card).toHaveAttribute('data-review', 'edited');
   await expect(card.getByTestId('card-pcne-code')).toHaveText('P2.1 · C3.2');
   await card.click();
   await expect(page.getByTestId('problem-card')).toBeVisible();
@@ -219,9 +242,11 @@ test('Teaching Case: Next → the model reads the file → each value checked �
   await expect(page.getByTestId('card-origin')).toHaveText('From the AI draft');
   await expect(page.getByTestId('card-screen').locator('[data-provenance="ai_suggestion"]')).toHaveCount(0);
   await expect(page.locator('[data-card-field="13"] [data-basis="general_knowledge"]')).toBeVisible();
-  await expect(page.getByTestId('review-history')).toContainText('Accepted');
+  await expect(page.getByTestId('review-history')).toContainText('Edited');
   await expect(page.getByTestId('review-history')).toContainText('on the AI draft');
   await expect(page.getByTestId('card-claims').locator('[data-claim-source="entry"]')).toHaveAttribute('data-check', 'numbers_found');
+  // Its remaining claim was found supported by its source, with the quote shown.
+  await expect(page.getByTestId('card-claims').locator('[data-testid="verdict"]').first()).toHaveAttribute('data-verdict', 'supported');
   await shot(page, 'm3-10b-drafted-card-accepted', true);
 
   // Tasks that are the trainee's alone are never drafted.
