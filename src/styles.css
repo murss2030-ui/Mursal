@@ -49,3 +49,18 @@
     padding-bottom: 0 !important;
   }
 }
+
+/* The monthly presentation prints one slide to a landscape page. */
+@page deck {
+  size: A4 landscape;
+  margin: 12mm;
+}
+@media print {
+  .deck {
+    page: deck;
+  }
+  .deck .slide {
+    break-after: page;
+    min-height: 170mm;
+  }
+}

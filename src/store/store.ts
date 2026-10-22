@@ -1525,6 +1525,11 @@ export class Store {
     await this.appendAudit({ entity: 'form_export', entityId: caseId, caseId, action: 'create', diff: info });
   }
 
+  /** The audit record of a presentation: the rotation, how many cases and cards, and the hash of the content — never the content. */
+  async recordPresentation(rotationId: string, info: { cases: number; cards: number; slides: number; hash: string; as: 'pdf' | 'text' }): Promise<void> {
+    await this.appendAudit({ entity: 'presentation', entityId: rotationId, action: 'create', diff: info });
+  }
+
   /** What a Problem Card's staleness and checks read: every entry, every calculation result and which are out of date, every decision. */
   async cardContext(caseId: string): Promise<CardContext> {
     const c = await this.getCase(caseId);

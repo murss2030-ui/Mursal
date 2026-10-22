@@ -36,6 +36,7 @@ import { CalculatorScreen, CalculatorsScreen } from './calc/CalculatorsScreen';
 import { CaseAlertsGate } from './rules/SafetyViews';
 import { CausalityScreen, isCausalityMethod } from './rules/Causality';
 import { isReferenceKind, ReferenceEditor, ReferenceHub, ReferenceList } from './screens/Reference';
+import { PresentationScreen } from './screens/Presentation';
 import { ExportScreen } from './screens/ExportScreen';
 import { ResearchRunScreen, ResearchScreen } from './screens/Research';
 import { LibraryDocumentScreen, LibraryPageScreen, LibraryScreen } from './screens/Library';
@@ -92,6 +93,7 @@ function Route({ path, query }: { path: string; query: URLSearchParams }): React
   if ((m = match('/rotations/:id/edit', path))) return <RotationEditor rotationId={m.id!} />;
   if (path === '/workflow') return <Workflow />;
   if (path === '/reports') return <Reports />;
+  if (path === '/presentation') return <PresentationScreen />;
   if (path === '/resources') return <Resources />;
   if (path === '/library') return <LibraryScreen />;
   if ((m = match('/library/:docId/page/:page', path))) return <LibraryPageScreen docId={m.docId!} page={Math.max(1, Math.floor(Number(m.page)) || 1)} />;

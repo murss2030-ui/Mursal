@@ -1245,7 +1245,6 @@ const TASK_LIST: readonly TaskDef[] = [
       ],
       fields: [{ id: 'summary', kind: 'longtext', label: L('Pharmaceutical care summary', 'ملخص الرعاية الصيدلانية') }],
     },
-    later: [{ milestone: 'M7', what: L('The monthly presentation, assembled from the verified record.', 'العرض الشهري المُجمَّع من السجل الموثّق.') }],
   },
 ];
 

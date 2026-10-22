@@ -1583,6 +1583,16 @@ export const en = {
   'export.leftOut': 'Left out',
   'export.missing': 'Missing information ({n})',
   'form.exportLink': 'Export the form (PDF)',
+  'pres.title': 'Monthly presentation',
+  'pres.intro': 'A deck for your rotation’s month, assembled only from the verified record: Problem Cards that passed every check, confirmed values, your own reflection. Nothing is sent anywhere; print it or save the text.',
+  'pres.open': 'Monthly presentation',
+  'pres.rotation': 'Rotation',
+  'pres.noCases': 'No case in this rotation yet.',
+  'pres.notIncluded': '{n} Problem Card(s) are left out of the deck, as the department form leaves them out:',
+  'pres.position': 'Slide {n} of {total}',
+  'pres.print': 'Print or save as PDF',
+  'pres.text': 'Save as a text file',
+  'pres.audited': 'Recorded in the audit log (content fingerprint {hash}…); the file stays on this device.',
 } as const;
 
 export type MsgKey = keyof typeof en;

@@ -708,6 +708,8 @@ export type AuditEntity =
   | 'claim_check'
   /** M6: the department form written to a file (what, which copy, its hash — never its content). */
   | 'form_export'
+  /** M7: the monthly presentation written to a file (rotation, counts, hash — never its content). */
+  | 'presentation'
   /** M5: a document of the trainee's evidence library. */
   | 'library_document'
   /** M5: research on one question. */
