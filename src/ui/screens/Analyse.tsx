@@ -27,6 +27,9 @@ import { useOnline } from '../hooks';
 import { useSession } from '../session-context';
 import { Stepper } from './Intake';
 
+/** The quick path drafts only these modules: the medication review and the problems and plan (Problem Cards). The rest stays available in step 3. */
+const QUICK_MODULES = ['review', 'plan'] as const;
+
 const usd = (n: number) => `US$${n.toFixed(n < 1 ? 3 : 2)}`;
 
 function errorText(e: unknown, t: (k: MsgKey, v?: Record<string, string | number>) => string): string {
@@ -176,6 +179,13 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
   const suggestionCount = [...latestAnalysis.values()].reduce((n, a) => n + a.suggestions.length, 0);
   const undecided = [...latestAnalysis.values()].reduce((n, a) => n + a.suggestions.filter((s) => !s.decision).length, 0);
 
+  const quickList = MODULES.filter((m) => (QUICK_MODULES as readonly string[]).includes(m.id) && toDraft.some((x) => x.id === m.id));
+  const quickNext: 'none' | 'read' | 'check' | 'draft' | 'done' = active.length === 0 ? 'none' : unread.length > 0 ? 'read' : pendingFields > 0 ? 'check' : quickList.length > 0 ? 'draft' : 'done';
+  const quickGo = async () => {
+    if (quickNext === 'read') await readAll(unread);
+    else if (quickNext === 'draft') await draftAll(quickList);
+  };
+
   return (
     <div className="flex flex-col gap-4" data-testid="analyse">
       <Stepper step={3} />
@@ -225,6 +235,26 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
           )}
         </p>
       )}
+
+      {/* Quick analysis: one button that always does the next needed step; nothing is skipped, the trainee's confirmation stays. */}
+      <section className="surface flex flex-col gap-2 p-4" data-testid="analyse-quick" data-next={quickNext}>
+        <h2 className="text-base font-semibold text-slate-900">{t('quick.title')}</h2>
+        <p className="text-sm text-slate-700">{t('quick.lead')}</p>
+        {quickNext === 'check' && firstPending ? (
+          <LinkButton href={`#/cases/${caseId}/review/${firstPending.id}`} variant="primary" icon="eye">
+            {t('quick.check', { n: pendingFields })}
+          </LinkButton>
+        ) : quickNext === 'done' ? (
+          <LinkButton href={`#/cases/${caseId}/modules/plan`} variant="primary" icon="arrow">
+            {t('quick.open')}
+          </LinkButton>
+        ) : (
+          <Button variant="primary" icon="sparkle" disabled={!ready || busy || quickNext === 'none'} onClick={() => void quickGo()} data-testid="quick-go">
+            {t(quickNext === 'read' ? 'quick.read' : 'quick.draft')}
+          </Button>
+        )}
+        {quickNext === 'none' && <p className="text-xs text-slate-600">{t('quick.nodocs')}</p>}
+      </section>
 
       <StepCard n={1} title={t('analyse.step1')} done={active.length > 0 && unread.length === 0} testId="analyse-read">
         {active.length === 0 ? (

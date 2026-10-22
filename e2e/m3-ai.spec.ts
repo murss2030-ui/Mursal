@@ -40,10 +40,13 @@ test('Teaching Case: Next → the model reads the file → each value checked �
   await page.getByTestId('next-to-modules').getByRole('link', { name: 'Next: Analyse the file' }).click();
   await expect(page).toHaveURL(new RegExp(`#/cases/${caseId}/analyse$`));
   await expect(page.locator('[data-testid="analyse-doc"][data-read="no"]')).toHaveCount(2);
+  await expect(page.getByTestId('analyse-quick')).toHaveAttribute('data-next', 'read');
   await shot(page, 'm3-02-analyse-start');
   await page.getByRole('button', { name: 'Read 2 document(s)' }).click();
   await expect(page.locator('[data-testid="analyse-doc"][data-read="yes"]')).toHaveCount(2, { timeout: 30_000 });
   await expect(page.getByTestId('analyse-doc').first()).toContainText('19 values read');
+  // The quick path never skips the trainee's check: with values waiting, its next step is to confirm them.
+  await expect(page.getByTestId('analyse-quick')).toHaveAttribute('data-next', 'check');
   await shot(page, 'm3-03-read');
 
   // What left the relay: two readings of each document (medicines and handwriting are read twice), de-identified.
