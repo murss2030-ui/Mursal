@@ -82,6 +82,8 @@ export async function addLabPage(page: Page) {
 export async function saveModels(page: Page, models: { extract?: string; analyse?: string } = {}, offered: { extract: string; analyse: string } | null = { extract: 'reader-test-1', analyse: 'drafter-test-1' }) {
   await page.goto('/#/settings/ai');
   await expect(page.getByTestId('ai-status')).toHaveAttribute('data-state', 'ready');
+  // The model choices sit in the closed "Advanced" section once they are filled in.
+  await page.getByTestId('ai-advanced').evaluate((d) => ((d as HTMLDetailsElement).open = true));
   const extract = page.getByLabel('Model for reading documents');
   const analyse = page.getByLabel('Model for case analysis');
   if (offered) {

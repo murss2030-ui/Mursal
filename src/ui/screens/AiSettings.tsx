@@ -92,12 +92,17 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
   const [fallbacks, setFallbacks] = useState<Partial<Record<ModelTask, string>>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  /** The model choices are advanced: closed once they are filled in with models the service offers, open otherwise. */
+  const [advanced, setAdvanced] = useState(false);
   useEffect(() => {
     if (!settings) return;
     setCode(settings.accessCode ?? '');
     setKimiKey(settings.kimiKey ?? '');
     // The operator's suggestions fill empty choices; nothing is used until the trainee saves.
-    setModels({ ...(status?.suggested ?? {}), ...settings.models });
+    const merged = { ...(status?.suggested ?? {}), ...settings.models };
+    setModels(merged);
+    const offered = new Set((status?.models ?? []).map((m) => m.id));
+    setAdvanced(!merged.extract || !merged.analyse || (offered.size > 0 && Object.values(merged).some((m) => m && !offered.has(m))));
     setFallbacks(Object.fromEntries(Object.entries(settings.fallbacks ?? {}).map(([k, v]) => [k, (v ?? []).join(', ')])));
   }, [settings?.installId, status?.configured]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!settings) return null;
@@ -148,6 +153,9 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
           }}
           error={errText(errors.kimiKey as never)}
         />
+        <details open={advanced} onToggle={(e) => setAdvanced((e.currentTarget as HTMLDetailsElement).open)} className="flex flex-col gap-4" data-testid="ai-advanced">
+          <summary className="min-h-touch cursor-pointer py-2 text-sm font-medium text-teal-900">{t('ai.advanced')}</summary>
+          <div className="mt-2 flex flex-col gap-4">
         {MODEL_TASKS.map((k) => {
           const opts = modelOptions(status, models[k] !== OTHER ? models[k] : undefined);
           return (
@@ -215,6 +223,8 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
             </div>
           );
         })}
+          </div>
+        </details>
         {saved && (
           <Banner tone="success" role="status">
             {t('set.saved')}

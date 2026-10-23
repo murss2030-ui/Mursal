@@ -67,6 +67,26 @@ export function CardSummary({ b, card, rank, taskId }: { b: CaseBundle; card: Ca
       <p className="text-xs text-slate-600" data-testid="card-why">
         {t('problems.why', { u: label('urgency', f.urgency), s: label('significance', f.significance), i: label('impact', f.impact), e: t(`card.evidence.${card.evidence}` as MsgKey) })}
       </p>
+      {/* The reading order of a drug-therapy-problem card: what, why it matters, what to do, what to watch. */}
+      <dl className="flex flex-col gap-1.5 border-t border-line pt-2 text-sm text-slate-800" data-testid="card-reading">
+        {(
+          [
+            ['evidence', 'cardread.evidence'],
+            ['assessment', 'cardread.significance'],
+            ['recommendation', 'cardread.intervention'],
+            ['monitoring', 'cardread.monitoring'],
+          ] as const
+        ).map(([k, label]) =>
+          f[k] ? (
+            <div key={k}>
+              <dt className="inline font-semibold">{t(label)}: </dt>
+              <dd className="inline" dir="auto">
+                {f[k]}
+              </dd>
+            </div>
+          ) : null,
+        )}
+      </dl>
       <StageStepper stage={card.stage} compact />
     </a>
   );
