@@ -821,7 +821,7 @@ export const en = {
   'ai.err.provider_blocked': 'The model did not answer this request.',
   'ai.err.provider_unavailable': 'The model service is not available right now. Try again later.',
   'ai.err.provider_timeout': 'The model took too long to answer, longer than the server can wait. Try again; if it keeps happening, choose a faster model.',
-  'ai.err.provider_quota_exhausted': 'This model’s quota at the provider is used up for today. Choose another model in Settings → AI service, or try again tomorrow.',
+  'ai.err.provider_quota_exhausted': 'The provider says the quota or balance is used up. With Kimi, top up your balance at platform.moonshot.ai (a new account needs a small recharge first); with Gemini, choose another model in Settings → AI service or try again tomorrow.',
   'ai.err.output_truncated': 'The answer was cut off. Try fewer pages at a time.',
   'ai.err.invalid_output': 'The model did not return valid data. Try again.',
   'set.aiService': 'AI service',
