@@ -4,11 +4,12 @@
  * Blobs, counters only) and the provider. Configuration: see README, "AI service".
  */
 import { getStore } from '@netlify/blobs';
-import { readConfig } from '../../relay/config';
+import { readConfig, withUserKimiKey } from '../../relay/config';
 import { handleModel, handleStatus } from '../../relay/handler';
 import { geminiProvider } from '../../relay/providers/gemini';
+import { kimiProvider } from '../../relay/providers/kimi';
 import type { CounterStore } from '../../relay/usage';
-import { STATUS_PATH } from '../../src/ai/protocol';
+import { KEY_HEADER, STATUS_PATH } from '../../src/ai/protocol';
 
 function blobsStore(): CounterStore {
   const store = getStore({ name: 'preceptor-usage', consistency: 'strong' });
@@ -32,8 +33,8 @@ export default async (req: Request): Promise<Response> => {
       headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
     });
   }
-  const { config } = read;
-  const deps = { config, store: blobsStore(), provider: config.apiKey ? geminiProvider(config.apiKey) : undefined };
+  const config = withUserKimiKey(read.config, req.headers.get(KEY_HEADER), process.env);
+  const deps = { config, store: blobsStore(), provider: config.apiKey ? (config.provider === 'kimi' ? kimiProvider(config.apiKey) : geminiProvider(config.apiKey)) : undefined };
   return new URL(req.url).pathname === STATUS_PATH ? handleStatus(req, deps) : handleModel(req, deps);
 };
 

@@ -87,6 +87,7 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
   const status = state.kind === 'ready' ? state.status : undefined;
   const [code, setCode] = useState('');
   const [models, setModels] = useState<Partial<Record<ModelTask, string>>>({});
+  const [kimiKey, setKimiKey] = useState('');
   const [typed, setTyped] = useState<Partial<Record<ModelTask, string>>>({});
   const [fallbacks, setFallbacks] = useState<Partial<Record<ModelTask, string>>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -94,6 +95,7 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
   useEffect(() => {
     if (!settings) return;
     setCode(settings.accessCode ?? '');
+    setKimiKey(settings.kimiKey ?? '');
     // The operator's suggestions fill empty choices; nothing is used until the trainee saves.
     setModels({ ...(status?.suggested ?? {}), ...settings.models });
     setFallbacks(Object.fromEntries(Object.entries(settings.fallbacks ?? {}).map(([k, v]) => [k, (v ?? []).join(', ')])));
@@ -107,7 +109,7 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
     const picked: Partial<Record<ModelTask, string>> = {};
     for (const k of MODEL_TASKS) picked[k] = chosen(k);
     try {
-      await store.updateAiSettings({ accessCode: code, models: picked, fallbacks });
+      await store.updateAiSettings({ accessCode: code, kimiKey, models: picked, fallbacks });
       setSaved(true);
       onSaved();
     } catch (e) {
@@ -131,6 +133,20 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
             setSaved(false);
           }}
           error={errText(errors.accessCode as never)}
+        />
+        <TextField
+          label={t('ai.kimiKey')}
+          hint={t('ai.kimiKeyHelp')}
+          optional
+          type="password"
+          name="kimiKey"
+          dir="ltr"
+          value={kimiKey}
+          onChange={(x) => {
+            setKimiKey(x);
+            setSaved(false);
+          }}
+          error={errText(errors.kimiKey as never)}
         />
         {MODEL_TASKS.map((k) => {
           const opts = modelOptions(status, models[k] !== OTHER ? models[k] : undefined);

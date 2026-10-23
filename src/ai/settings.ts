@@ -10,6 +10,8 @@ export interface AiSettings {
   installId: string;
   /** The relay's optional access code (not the provider's API key, which never reaches the browser). */
   accessCode?: string;
+  /** The trainee's own Kimi (Moonshot) API key, kept only in this encrypted settings row. */
+  kimiKey?: string;
   models: Partial<Record<ModelTask, string>>;
   /** M5: models tried in order when the task's model is busy or unavailable (the live probe: "high demand" for hours). */
   fallbacks?: Partial<Record<ModelTask, string[]>>;
@@ -32,6 +34,7 @@ export function newInstallId(random: () => string = () => crypto.randomUUID()): 
 
 export type AiSettingsInput = {
   accessCode?: string;
+  kimiKey?: string;
   models: Partial<Record<ModelTask, string>>;
   /** Fallback model ids per task, as a list or as text separated by commas. */
   fallbacks?: Partial<Record<ModelTask, string | readonly string[]>>;
@@ -58,12 +61,14 @@ export function normalizeAiSettings(prev: AiSettings, input: AiSettingsInput): {
   }
   const code = input.accessCode?.trim();
   if (code && code.length > 200) errors.accessCode = 'tooLong';
+  const kimiKey = input.kimiKey?.trim();
+  if (kimiKey && !/^[\x21-\x7e]{8,300}$/.test(kimiKey)) errors.kimiKey = 'tooLong';
   if (Object.keys(errors).length) return { ok: false, errors };
-  return { ok: true, value: { installId: prev.installId, ...(code ? { accessCode: code } : {}), models, ...(Object.keys(fallbacks).length ? { fallbacks } : {}) } };
+  return { ok: true, value: { installId: prev.installId, ...(code ? { accessCode: code } : {}), ...(kimiKey ? { kimiKey } : {}), models, ...(Object.keys(fallbacks).length ? { fallbacks } : {}) } };
 }
 
 /** What the audit log may show: the models, and only whether an access code is set. */
 export function auditView(s: AiSettings | undefined): Record<string, unknown> {
   if (!s) return {};
-  return { models: s.models, ...(s.fallbacks ? { fallbacks: s.fallbacks } : {}), accessCode: s.accessCode ? 'set' : 'none' };
+  return { models: s.models, ...(s.fallbacks ? { fallbacks: s.fallbacks } : {}), accessCode: s.accessCode ? 'set' : 'none', kimiKey: s.kimiKey ? 'set' : 'none' };
 }

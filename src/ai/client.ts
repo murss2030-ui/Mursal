@@ -12,6 +12,7 @@ import type { CaseKind } from '../domain/types';
 import type { Store } from '../store/store';
 import {
   ACCESS_HEADER,
+  KEY_HEADER,
   EMBED_LIMITS,
   MODEL_PATH,
   STATUS_PATH,
@@ -110,6 +111,7 @@ export async function callModel<T>(store: Store, input: CallModelInput, deps: Ca
   };
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (settings.accessCode) headers[ACCESS_HEADER] = settings.accessCode;
+  if (settings.kimiKey) headers[KEY_HEADER] = settings.kimiKey;
 
   const audit = (outcome: string, usage?: ModelUsage) =>
     store.appendAudit({
@@ -184,6 +186,7 @@ export async function callEmbed(store: Store, input: CallEmbedInput, deps: CallD
   const request: EmbedRequest = { task: 'embed', model, promptVersion: EMBED_PROMPT_VERSION, caseKind: input.caseKind, installId: settings.installId, purpose: input.purpose, texts: input.texts };
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (settings.accessCode) headers[ACCESS_HEADER] = settings.accessCode;
+  if (settings.kimiKey) headers[KEY_HEADER] = settings.kimiKey;
   const audit = (outcome: string, usage?: ModelUsage) =>
     store.appendAudit({
       entity: 'model_call',
@@ -226,6 +229,7 @@ export async function fetchRelayStatus(store: Store, deps: CallDeps = {}): Promi
   const settings = await store.getAiSettings();
   const headers: Record<string, string> = {};
   if (settings.accessCode) headers[ACCESS_HEADER] = settings.accessCode;
+  if (settings.kimiKey) headers[KEY_HEADER] = settings.kimiKey;
   let res: Response;
   try {
     res = await (deps.fetch ?? fetch)(STATUS_PATH, { headers });
