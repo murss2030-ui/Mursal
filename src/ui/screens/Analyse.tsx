@@ -30,6 +30,16 @@ import { Stepper } from './Intake';
 /** The quick path drafts only these modules: the medication review and the problems and plan (Problem Cards). The rest stays available in step 3. */
 const QUICK_MODULES = ['review', 'plan'] as const;
 
+/** The owner's one-time consent to the learning mode (per device): what the model reads is entered without a value-by-value check; each value stays editable and marked as AI-read. */
+const AUTO_CONSENT_KEY = 'preceptor.autoLearnConsent';
+const readConsent = (): boolean => {
+  try {
+    return localStorage.getItem(AUTO_CONSENT_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
 const usd = (n: number) => `US$${n.toFixed(n < 1 ? 3 : 2)}`;
 
 function errorText(e: unknown, t: (k: MsgKey, v?: Record<string, string | number>) => string): string {
@@ -79,6 +89,9 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
   const [unverified, setUnverified] = useState<Record<string, string>>({});
   const [stopped, setStopped] = useState<string>();
   const [spent, setSpent] = useState(0);
+  const [consented, setConsented] = useState(readConsent);
+  const [agree, setAgree] = useState(false);
+  const [autoSkipped, setAutoSkipped] = useState(0);
 
   const c = versions.status === 'ready' ? versions.data.at(-1) : undefined;
   const active: Attachment[] = atts.status === 'ready' ? atts.data.filter((a) => a.status === 'active') : [];
@@ -179,6 +192,37 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
   const suggestionCount = [...latestAnalysis.values()].reduce((n, a) => n + a.suggestions.length, 0);
   const undecided = [...latestAnalysis.values()].reduce((n, a) => n + a.suggestions.filter((s) => !s.decision).length, 0);
 
+  /** Analyze & Extract: read every document, enter what was read (learning mode, consent given once), then draft and verify all modules. */
+  const autoGo = async () => {
+    try {
+      localStorage.setItem(AUTO_CONSENT_KEY, '1');
+    } catch {
+      /* the consent then applies to this visit only */
+    }
+    setConsented(true);
+    setStopped(undefined);
+    if (unread.length > 0) await readAll(unread);
+    const fresh = await store.listExtractions(caseId);
+    const latest = new Map<string, ExtractionRun>();
+    for (const r of fresh) latest.set(r.attachmentId, r);
+    let skipped = 0;
+    for (const r of latest.values()) {
+      for (const f of r.fields.filter((x) => !x.decision)) {
+        try {
+          await store.decideExtractedField(caseId, r.id, f.id, { kind: 'confirm' });
+        } catch {
+          skipped += 1; // a value that fails validation stays in the review list
+        }
+      }
+    }
+    setAutoSkipped(skipped);
+    const [ents, its, ans] = await Promise.all([store.listEntries(caseId), store.listItems(caseId), store.listAnalyses(caseId)]);
+    const have = new Map<string, CaseAnalysis>();
+    for (const a of ans) have.set(a.moduleId, a);
+    await draftAll(MODULES.filter((m) => !have.get(m.id) || analysisStale(have.get(m.id)!, ents, its)));
+    refresh();
+  };
+
   const quickList = MODULES.filter((m) => (QUICK_MODULES as readonly string[]).includes(m.id) && toDraft.some((x) => x.id === m.id));
   const quickNext: 'none' | 'read' | 'check' | 'draft' | 'done' = active.length === 0 ? 'none' : unread.length > 0 ? 'read' : pendingFields > 0 ? 'check' : quickList.length > 0 ? 'draft' : 'done';
   const quickGo = async () => {
@@ -235,6 +279,28 @@ export function AnalyseScreen({ caseId }: { caseId: string }) {
           )}
         </p>
       )}
+
+      {/* Analyze & Extract: the whole path in one press (learning mode). */}
+      <section className="surface flex flex-col gap-2 p-4" data-testid="analyse-auto">
+        <h2 className="text-base font-semibold text-slate-900">{t('auto.title')}</h2>
+        <p className="text-sm text-slate-700">{t('auto.lead')}</p>
+        {!consented && (
+          <label className="flex items-start gap-2 text-sm text-slate-800">
+            <input type="checkbox" className="mt-1" checked={agree} onChange={(e) => setAgree(e.target.checked)} data-testid="auto-consent" />
+            <span>{t('auto.consent')}</span>
+          </label>
+        )}
+        <Button variant="primary" icon="sparkle" disabled={!ready || busy || active.length === 0 || (!consented && !agree)} onClick={() => void autoGo()} data-testid="auto-go">
+          {t('auto.go')}
+        </Button>
+        {active.length === 0 && <p className="text-xs text-slate-600">{t('quick.nodocs')}</p>}
+        {autoSkipped > 0 && <Banner tone="info">{t('auto.skipped', { n: autoSkipped })}</Banner>}
+        {drafted === MODULES.length && !busy && (
+          <LinkButton href={`#/cases/${caseId}/modules`} variant="secondary" icon="arrow">
+            {t('auto.open')}
+          </LinkButton>
+        )}
+      </section>
 
       {/* Quick analysis: one button that always does the next needed step; nothing is skipped, the trainee's confirmation stays. */}
       <section className="surface flex flex-col gap-2 p-4" data-testid="analyse-quick" data-next={quickNext}>
