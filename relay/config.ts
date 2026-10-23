@@ -12,8 +12,12 @@ export interface Price {
   outputPerM: number;
 }
 
+/** The AI services the relay can speak to. */
+export type UserProvider = 'gemini' | 'kimi' | 'deepseek';
+export const USER_PROVIDERS: readonly UserProvider[] = ['gemini', 'kimi', 'deepseek'];
+
 export interface RelayConfig {
-  provider: 'gemini' | 'kimi';
+  provider: UserProvider;
   apiKey?: string;
   /** The provider offers no way to ask a key's class; the operator declares it, and "free" is assumed otherwise. */
   keyClass: 'free' | 'paid';
@@ -65,7 +69,7 @@ function positive(raw: string | undefined, fallback: number, problems: string[],
 export function readConfig(env: Record<string, string | undefined>): ConfigResult {
   const problems: string[] = [];
   const provider = (env.PRECEPTOR_PROVIDER ?? 'gemini').trim();
-  if (provider !== 'gemini' && provider !== 'kimi') return { ok: false, problems: [`Unknown provider "${provider}" (use gemini or kimi).`] };
+  if (!(USER_PROVIDERS as readonly string[]).includes(provider)) return { ok: false, problems: [`Unknown provider "${provider}" (use gemini, kimi or deepseek).`] };
 
   const models = new Map<string, Price>();
   for (const item of (env.PRECEPTOR_MODELS ?? '').split(',').map((x) => x.trim()).filter(Boolean)) {
@@ -111,9 +115,9 @@ export function readConfig(env: Record<string, string | undefined>): ConfigResul
   if (keyClassRaw !== 'free' && keyClassRaw !== 'paid') problems.push('PRECEPTOR_KEY_CLASS must be "free" or "paid"; "free" is assumed.');
 
   const config: RelayConfig = {
-    provider,
-    // The key is read from the environment only: MOONSHOT_API_KEY for Kimi, GEMINI_API_KEY for Gemini.
-    apiKey: (provider === 'kimi' ? env.MOONSHOT_API_KEY : env.GEMINI_API_KEY)?.trim() || undefined,
+    provider: provider as UserProvider,
+    // The key is read from the environment only: MOONSHOT_API_KEY, DEEPSEEK_API_KEY or GEMINI_API_KEY.
+    apiKey: (provider === 'kimi' ? env.MOONSHOT_API_KEY : provider === 'deepseek' ? env.DEEPSEEK_API_KEY : env.GEMINI_API_KEY)?.trim() || undefined,
     keyClass: keyClassRaw === 'paid' ? 'paid' : 'free',
     models,
     modelPattern,
@@ -142,28 +146,46 @@ export function priceOf(config: RelayConfig, model: string): Price | undefined {
   return undefined;
 }
 
-/** What the relay offers when the trainee brings their own Kimi key and the operator listed no Kimi model. Prices are estimates for the spending cap; PRECEPTOR_DEFAULT_PRICE (input:output) replaces them. */
+/** What the relay offers when the trainee brings their own key and the operator listed no model of that service. Prices are estimates for the spending cap; PRECEPTOR_DEFAULT_PRICE (input:output) replaces them. */
 export const KIMI_DEFAULT_MODEL = 'kimi-k3';
-const KIMI_FALLBACK_PRICE: Price = { inputPerM: 3, outputPerM: 15 };
+const PRESETS: Record<UserProvider, { suggested: Partial<Record<ModelTask, string>>; pattern: RegExp; price: Price }> = {
+  kimi: {
+    suggested: { extract: KIMI_DEFAULT_MODEL, analyse: KIMI_DEFAULT_MODEL, verify: KIMI_DEFAULT_MODEL, research: KIMI_DEFAULT_MODEL },
+    pattern: /^(?:kimi-[A-Za-z0-9._-]+)$/,
+    price: { inputPerM: 3, outputPerM: 15 },
+  },
+  deepseek: {
+    suggested: { extract: 'deepseek-chat', analyse: 'deepseek-chat', verify: 'deepseek-chat', research: 'deepseek-chat' },
+    pattern: /^(?:deepseek-[A-Za-z0-9._-]+)$/,
+    price: { inputPerM: 0.3, outputPerM: 0.5 },
+  },
+  gemini: {
+    suggested: { extract: 'gemini-3.5-flash', analyse: 'gemini-3.8-flash', verify: 'gemini-flash-latest', research: 'gemini-3.8-flash' },
+    pattern: /^(?:gemini-[A-Za-z0-9._-]+)$/,
+    price: { inputPerM: 1.5, outputPerM: 9 },
+  },
+};
 
 /**
- * The trainee's own Kimi key (sent in KEY_HEADER) makes the relay use Kimi for that request, with no change to the
- * server's environment. Everything else (key class, limits, budget, access code) stays the operator's, so a Clinical
- * Case is still refused unless the server is declared "paid".
+ * The trainee's own key (sent in KEY_HEADER, with the service in PROVIDER_HEADER) makes the relay use that service for
+ * the request, with no change to the server's environment. Everything else (key class, limits, budget, access code)
+ * stays the operator's, so a Clinical Case is still refused unless the server is declared "paid".
  */
-export function withUserKimiKey(config: RelayConfig, key: string | null | undefined, env: Record<string, string | undefined> = {}): RelayConfig {
+export function withUserKey(config: RelayConfig, key: string | null | undefined, provider: UserProvider, env: Record<string, string | undefined> = {}): RelayConfig {
   const k = key?.trim();
   if (!k || !/^[\x21-\x7e]{8,300}$/.test(k)) return config;
-  const price = (env.PRECEPTOR_DEFAULT_PRICE ? parsePrice(env.PRECEPTOR_DEFAULT_PRICE) : undefined) ?? KIMI_FALLBACK_PRICE;
-  const kimiListed = config.provider === 'kimi' && config.models.size > 0;
-  const suggested = kimiListed ? config.suggested : { extract: KIMI_DEFAULT_MODEL, analyse: KIMI_DEFAULT_MODEL, verify: KIMI_DEFAULT_MODEL, research: KIMI_DEFAULT_MODEL };
+  const preset = PRESETS[provider];
+  const price = (env.PRECEPTOR_DEFAULT_PRICE ? parsePrice(env.PRECEPTOR_DEFAULT_PRICE) : undefined) ?? preset.price;
+  const listed = config.provider === provider && config.models.size > 0;
   return {
     ...config,
-    provider: 'kimi',
+    provider,
     apiKey: k,
-    models: kimiListed ? config.models : new Map(),
-    modelPattern: kimiListed ? config.modelPattern : /^(?:kimi-[A-Za-z0-9._-]+)$/,
-    defaultPrice: kimiListed ? config.defaultPrice : price,
-    suggested,
+    models: listed ? config.models : new Map(),
+    modelPattern: listed ? config.modelPattern : preset.pattern,
+    defaultPrice: listed ? config.defaultPrice : price,
+    suggested: listed ? config.suggested : preset.suggested,
   };
 }
+
+export const withUserKimiKey = (config: RelayConfig, key: string | null | undefined, env: Record<string, string | undefined> = {}): RelayConfig => withUserKey(config, key, 'kimi', env);

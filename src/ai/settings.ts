@@ -12,6 +12,11 @@ export interface AiSettings {
   accessCode?: string;
   /** The trainee's own Kimi (Moonshot) API key, kept only in this encrypted settings row. */
   kimiKey?: string;
+  /** The trainee's own Gemini and DeepSeek keys, likewise kept only in this encrypted row. */
+  geminiKey?: string;
+  deepseekKey?: string;
+  /** Which service to use when several keys are saved (default: the first of Kimi, DeepSeek, Gemini that has a key). */
+  service?: AiService;
   models: Partial<Record<ModelTask, string>>;
   /** M5: models tried in order when the task's model is busy or unavailable (the live probe: "high demand" for hours). */
   fallbacks?: Partial<Record<ModelTask, string[]>>;
@@ -32,9 +37,15 @@ export function newInstallId(random: () => string = () => crypto.randomUUID()): 
   return random().toLowerCase();
 }
 
+export type AiService = 'gemini' | 'kimi' | 'deepseek';
+export const AI_SERVICES: readonly AiService[] = ['kimi', 'deepseek', 'gemini'];
+
 export type AiSettingsInput = {
   accessCode?: string;
   kimiKey?: string;
+  geminiKey?: string;
+  deepseekKey?: string;
+  service?: string;
   models: Partial<Record<ModelTask, string>>;
   /** Fallback model ids per task, as a list or as text separated by commas. */
   fallbacks?: Partial<Record<ModelTask, string | readonly string[]>>;
@@ -63,12 +74,24 @@ export function normalizeAiSettings(prev: AiSettings, input: AiSettingsInput): {
   if (code && code.length > 200) errors.accessCode = 'tooLong';
   const kimiKey = input.kimiKey?.trim();
   if (kimiKey && !/^[\x21-\x7e]{8,300}$/.test(kimiKey)) errors.kimiKey = 'tooLong';
+  const geminiKey = input.geminiKey?.trim();
+  if (geminiKey && !/^[\x21-\x7e]{8,300}$/.test(geminiKey)) errors.geminiKey = 'tooLong';
+  const deepseekKey = input.deepseekKey?.trim();
+  if (deepseekKey && !/^[\x21-\x7e]{8,300}$/.test(deepseekKey)) errors.deepseekKey = 'tooLong';
+  const service = (AI_SERVICES as readonly string[]).includes(input.service ?? '') ? (input.service as AiService) : undefined;
   if (Object.keys(errors).length) return { ok: false, errors };
-  return { ok: true, value: { installId: prev.installId, ...(code ? { accessCode: code } : {}), ...(kimiKey ? { kimiKey } : {}), models, ...(Object.keys(fallbacks).length ? { fallbacks } : {}) } };
+  return { ok: true, value: { installId: prev.installId, ...(code ? { accessCode: code } : {}), ...(kimiKey ? { kimiKey } : {}), ...(geminiKey ? { geminiKey } : {}), ...(deepseekKey ? { deepseekKey } : {}), ...(service ? { service } : {}), models, ...(Object.keys(fallbacks).length ? { fallbacks } : {}) } };
 }
 
 /** What the audit log may show: the models, and only whether an access code is set. */
 export function auditView(s: AiSettings | undefined): Record<string, unknown> {
   if (!s) return {};
-  return { models: s.models, ...(s.fallbacks ? { fallbacks: s.fallbacks } : {}), accessCode: s.accessCode ? 'set' : 'none', kimiKey: s.kimiKey ? 'set' : 'none' };
+  return { models: s.models, ...(s.fallbacks ? { fallbacks: s.fallbacks } : {}), accessCode: s.accessCode ? 'set' : 'none', kimiKey: s.kimiKey ? 'set' : 'none', geminiKey: s.geminiKey ? 'set' : 'none', deepseekKey: s.deepseekKey ? 'set' : 'none' };
+}
+
+/** The service and key a request carries: the chosen one if it has a key, else the first service that has one. */
+export function activeKey(s: AiSettings): { service: AiService; key: string } | undefined {
+  const keys: Record<AiService, string | undefined> = { kimi: s.kimiKey, deepseek: s.deepseekKey, gemini: s.geminiKey };
+  const service = s.service && keys[s.service] ? s.service : AI_SERVICES.find((x) => keys[x]);
+  return service ? { service, key: keys[service]! } : undefined;
 }

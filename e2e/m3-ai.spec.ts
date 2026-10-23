@@ -428,7 +428,7 @@ test('the built app holds no API key, provider address or model name', () => {
     const s = readFileSync(f, 'utf8');
     expect(s, f).not.toMatch(/AIza[0-9A-Za-z_-]{20,}/);
     expect(s, f).not.toMatch(/GEMINI_API_KEY|PRECEPTOR_MODELS|x-goog-api-key|generativelanguage/);
-    expect(s, f).not.toMatch(/gemini/i);
+    expect(s, f).not.toMatch(/gemini-[\w.]|googleapis|generativelanguage/i);
     expect(s, f).not.toContain(TEST_KEY);
   }
 });

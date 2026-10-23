@@ -13,6 +13,7 @@ import type { Store } from '../store/store';
 import {
   ACCESS_HEADER,
   KEY_HEADER,
+  PROVIDER_HEADER,
   EMBED_LIMITS,
   MODEL_PATH,
   STATUS_PATH,
@@ -29,6 +30,15 @@ import {
   type RequestPart,
 } from './protocol';
 import { validateOutput, type OutputSchema } from './schema';
+import { activeKey, type AiSettings } from './settings';
+
+/** The trainee's own key and the service it belongs to travel with every request; the relay forwards it and never stores it. */
+function addKeyHeaders(headers: Record<string, string>, settings: AiSettings): void {
+  const k = activeKey(settings);
+  if (!k) return;
+  headers[KEY_HEADER] = k.key;
+  headers[PROVIDER_HEADER] = k.service;
+}
 
 export type AiErrorCode = RelayErrorCode | 'offline' | 'no_model' | 'network' | 'invalid_shape' | 'relay_missing';
 
@@ -111,7 +121,7 @@ export async function callModel<T>(store: Store, input: CallModelInput, deps: Ca
   };
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (settings.accessCode) headers[ACCESS_HEADER] = settings.accessCode;
-  if (settings.kimiKey) headers[KEY_HEADER] = settings.kimiKey;
+  addKeyHeaders(headers, settings);
 
   const audit = (outcome: string, usage?: ModelUsage) =>
     store.appendAudit({
@@ -186,7 +196,7 @@ export async function callEmbed(store: Store, input: CallEmbedInput, deps: CallD
   const request: EmbedRequest = { task: 'embed', model, promptVersion: EMBED_PROMPT_VERSION, caseKind: input.caseKind, installId: settings.installId, purpose: input.purpose, texts: input.texts };
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (settings.accessCode) headers[ACCESS_HEADER] = settings.accessCode;
-  if (settings.kimiKey) headers[KEY_HEADER] = settings.kimiKey;
+  addKeyHeaders(headers, settings);
   const audit = (outcome: string, usage?: ModelUsage) =>
     store.appendAudit({
       entity: 'model_call',
@@ -229,7 +239,7 @@ export async function fetchRelayStatus(store: Store, deps: CallDeps = {}): Promi
   const settings = await store.getAiSettings();
   const headers: Record<string, string> = {};
   if (settings.accessCode) headers[ACCESS_HEADER] = settings.accessCode;
-  if (settings.kimiKey) headers[KEY_HEADER] = settings.kimiKey;
+  addKeyHeaders(headers, settings);
   let res: Response;
   try {
     res = await (deps.fetch ?? fetch)(STATUS_PATH, { headers });

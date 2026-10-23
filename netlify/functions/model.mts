@@ -4,12 +4,13 @@
  * Blobs, counters only) and the provider. Configuration: see README, "AI service".
  */
 import { getStore } from '@netlify/blobs';
-import { readConfig, withUserKimiKey } from '../../relay/config';
+import { readConfig, USER_PROVIDERS, withUserKey, type UserProvider } from '../../relay/config';
 import { handleModel, handleStatus } from '../../relay/handler';
 import { geminiProvider } from '../../relay/providers/gemini';
+import { deepseekProvider } from '../../relay/providers/deepseek';
 import { kimiProvider } from '../../relay/providers/kimi';
 import type { CounterStore } from '../../relay/usage';
-import { KEY_HEADER, STATUS_PATH } from '../../src/ai/protocol';
+import { KEY_HEADER, PROVIDER_HEADER, STATUS_PATH } from '../../src/ai/protocol';
 
 function blobsStore(): CounterStore {
   const store = getStore({ name: 'preceptor-usage', consistency: 'strong' });
@@ -33,8 +34,11 @@ export default async (req: Request): Promise<Response> => {
       headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
     });
   }
-  const config = withUserKimiKey(read.config, req.headers.get(KEY_HEADER), process.env);
-  const deps = { config, store: blobsStore(), provider: config.apiKey ? (config.provider === 'kimi' ? kimiProvider(config.apiKey) : geminiProvider(config.apiKey)) : undefined };
+  const asked = req.headers.get(PROVIDER_HEADER) ?? 'kimi';
+  const service: UserProvider = (USER_PROVIDERS as readonly string[]).includes(asked) ? (asked as UserProvider) : 'kimi';
+  const config = withUserKey(read.config, req.headers.get(KEY_HEADER), service, process.env);
+  const make = { kimi: kimiProvider, deepseek: deepseekProvider, gemini: geminiProvider }[config.provider];
+  const deps = { config, store: blobsStore(), provider: config.apiKey ? make(config.apiKey) : undefined };
   return new URL(req.url).pathname === STATUS_PATH ? handleStatus(req, deps) : handleModel(req, deps);
 };
 

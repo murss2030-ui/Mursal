@@ -123,7 +123,9 @@ export interface RelayStatus {
 }
 
 export const ACCESS_HEADER = 'x-preceptor-access';
-/** The trainee's own Kimi key, typed in Settings → AI service and sent to the relay over HTTPS with each call; the relay forwards it to Kimi and never stores or logs it. */
+/** The trainee's own AI key (Gemini, Kimi or DeepSeek), typed in Settings → AI service and sent to the relay over HTTPS with each call; the relay forwards it to Kimi and never stores or logs it. */
 export const KEY_HEADER = 'x-preceptor-kimi-key';
+/** Which service the key in KEY_HEADER belongs to: gemini, kimi or deepseek (absent: kimi, for older clients). */
+export const PROVIDER_HEADER = 'x-preceptor-provider';
 export const MODEL_PATH = '/api/model';
 export const STATUS_PATH = '/api/status';

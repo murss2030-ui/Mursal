@@ -122,7 +122,7 @@ describe('the Netlify Function', () => {
     vi.stubEnv('PRECEPTOR_PROVIDER', 'other');
     const bad = await fn.default(new Request('https://example.netlify.app/api/status'));
     expect(bad.status).toBe(503);
-    expect(((await bad.json()) as { error: { code: string; message: string } }).error).toMatchObject({ code: 'not_configured', message: 'Unknown provider "other" (use gemini or kimi).' });
+    expect(((await bad.json()) as { error: { code: string; message: string } }).error).toMatchObject({ code: 'not_configured', message: 'Unknown provider "other" (use gemini, kimi or deepseek).' });
     vi.stubEnv('PRECEPTOR_PROVIDER', 'gemini');
     vi.stubEnv('GEMINI_API_KEY', '');
     const noKey = await fn.default(post(body('teaching')));

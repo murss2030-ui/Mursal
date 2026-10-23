@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MODEL_TASKS, type ModelTask, type RelayStatus } from '../../ai/protocol';
-import type { AiSettings } from '../../ai/settings';
+import { AI_SERVICES, type AiSettings } from '../../ai/settings';
 import type { AuditEvent } from '../../domain/types';
 import { ValidationError } from '../../domain/validation';
 import { useI18n } from '../../i18n/i18n';
@@ -88,6 +88,9 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
   const [code, setCode] = useState('');
   const [models, setModels] = useState<Partial<Record<ModelTask, string>>>({});
   const [kimiKey, setKimiKey] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
+  const [deepseekKey, setDeepseekKey] = useState('');
+  const [service, setService] = useState('');
   const [typed, setTyped] = useState<Partial<Record<ModelTask, string>>>({});
   const [fallbacks, setFallbacks] = useState<Partial<Record<ModelTask, string>>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -98,13 +101,16 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
     if (!settings) return;
     setCode(settings.accessCode ?? '');
     setKimiKey(settings.kimiKey ?? '');
+    setGeminiKey(settings.geminiKey ?? '');
+    setDeepseekKey(settings.deepseekKey ?? '');
+    setService(settings.service ?? '');
     // The operator's suggestions fill empty choices; nothing is used until the trainee saves.
     const merged = { ...(status?.suggested ?? {}), ...settings.models };
     setModels(merged);
     const offered = new Set((status?.models ?? []).map((m) => m.id));
     setAdvanced(!merged.extract || !merged.analyse || (offered.size > 0 && Object.values(merged).some((m) => m && !offered.has(m))));
     setFallbacks(Object.fromEntries(Object.entries(settings.fallbacks ?? {}).map(([k, v]) => [k, (v ?? []).join(', ')])));
-  }, [settings?.installId, status?.configured]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [settings?.installId, status?.configured, JSON.stringify(status?.suggested)]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!settings) return null;
   const listOnly = !status?.modelPattern;
   const chosen = (k: ModelTask) => (models[k] === OTHER ? typed[k] : models[k])?.trim();
@@ -114,7 +120,7 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
     const picked: Partial<Record<ModelTask, string>> = {};
     for (const k of MODEL_TASKS) picked[k] = chosen(k);
     try {
-      await store.updateAiSettings({ accessCode: code, kimiKey, models: picked, fallbacks });
+      await store.updateAiSettings({ accessCode: code, kimiKey, geminiKey, deepseekKey, service, models: picked, fallbacks });
       setSaved(true);
       onSaved();
     } catch (e) {
@@ -138,6 +144,48 @@ function SettingsForm({ state, onSaved }: { state: AiStatusState; onSaved: () =>
             setSaved(false);
           }}
           error={errText(errors.accessCode as never)}
+        />
+        <TextField
+          label={t('ai.geminiKey')}
+          hint={t('ai.geminiKeyHelp')}
+          optional
+          type="password"
+          name="geminiKey"
+          dir="ltr"
+          value={geminiKey}
+          onChange={(x) => {
+            setGeminiKey(x);
+            setSaved(false);
+          }}
+          error={errText(errors.geminiKey as never)}
+        />
+        <TextField
+          label={t('ai.deepseekKey')}
+          hint={t('ai.deepseekKeyHelp')}
+          optional
+          type="password"
+          name="deepseekKey"
+          dir="ltr"
+          value={deepseekKey}
+          onChange={(x) => {
+            setDeepseekKey(x);
+            setSaved(false);
+          }}
+          error={errText(errors.deepseekKey as never)}
+        />
+        <SelectField
+          label={t('ai.service')}
+          hint={t('ai.serviceHelp')}
+          optional
+          name="service"
+          value={service}
+          onChange={(x) => {
+            setService(x);
+            // Each service has its own model names (offered by the service after saving): the old choices are cleared.
+            setModels({});
+            setSaved(false);
+          }}
+          options={AI_SERVICES.map((x) => ({ value: x, label: t(`ai.service.${x}`) }))}
         />
         <TextField
           label={t('ai.kimiKey')}
